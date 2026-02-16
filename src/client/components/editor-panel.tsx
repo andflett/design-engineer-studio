@@ -358,13 +358,13 @@ function ComponentVariantSection({
   scanData: ScanData | null;
 }) {
   const [collapsed, setCollapsed] = useState(true);
-  const [collapsedOptions, setCollapsedOptions] = useState<Set<string>>(new Set());
+  const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set());
 
   const toggleOption = (opt: string) => {
-    const next = new Set(collapsedOptions);
+    const next = new Set(expandedOptions);
     if (next.has(opt)) next.delete(opt);
     else next.add(opt);
-    setCollapsedOptions(next);
+    setExpandedOptions(next);
   };
 
   return (
@@ -387,10 +387,10 @@ function ComponentVariantSection({
                 className="studio-section-hdr"
                 style={{ fontSize: 10 }}
               >
-                {collapsedOptions.has(opt) ? (
-                  <ChevronRightIcon />
-                ) : (
+                {expandedOptions.has(opt) ? (
                   <ChevronDownIcon />
+                ) : (
+                  <ChevronRightIcon />
                 )}
                 <span style={{ color: "var(--studio-text)", fontWeight: 600 }}>
                   {opt}
@@ -405,7 +405,7 @@ function ComponentVariantSection({
                 )}
               </button>
 
-              {!collapsedOptions.has(opt) && dim.classes[opt] && (
+              {expandedOptions.has(opt) && dim.classes[opt] && (
                 <div className="studio-tree-content">
                   <PropertyPanel
                     classes={dim.classes[opt]}
@@ -529,7 +529,7 @@ async function handleElementClassChange(
       body: JSON.stringify({
         type: "class",
         filePath,
-        classIdentifier: classIdentifier.slice(0, 60),
+        classIdentifier: truncateToWholeClass(classIdentifier, 80),
         oldClass,
         newClass,
       }),
@@ -539,6 +539,13 @@ async function handleElementClassChange(
   } catch (err) {
     console.error("Element write error:", err);
   }
+}
+
+function truncateToWholeClass(classStr: string, maxLen: number): string {
+  if (classStr.length <= maxLen) return classStr;
+  const truncated = classStr.slice(0, maxLen);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
 }
 
 function extractTokenReferences(

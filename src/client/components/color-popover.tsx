@@ -213,7 +213,7 @@ export function TokenPopover({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cssFilePath,
+          filePath: cssFilePath,
           token: token.name,
           value: formatOklch(color),
           selector,
