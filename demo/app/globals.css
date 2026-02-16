@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+
+:root {
+  --background: oklch(98% 0.005 250);
+  --foreground: oklch(15% 0.01 250);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(15% 0.01 250);
+  --primary: oklch(79.50% 0.2000 260.00);
+  --primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(92% 0.01 250);
+  --secondary-foreground: oklch(20% 0.01 250);
+  --destructive: oklch(24.50% 0.2000 25.00);
+  --destructive-foreground: oklch(100% 0 0);
+  --muted: oklch(95% 0.005 250);
+  --muted-foreground: oklch(55.50% 0.1850 250.00);
+  --accent: oklch(25.00% 0.0100 250.00);
+  --accent-foreground: oklch(20% 0.01 250);
+  --border: oklch(88% 0.005 250);
+  --input: oklch(88% 0.005 250);
+  --ring: oklch(45% 0.2 260);
+  --spacing: 0.5rem;
+}
+
+.dark {
+  --background: oklch(10% 0.005 250);
+  --foreground: oklch(95% 0.005 250);
+  --card: oklch(15% 0.005 250);
+  --card-foreground: oklch(95% 0.005 250);
+  --primary: oklch(60% 0.2 260);
+  --primary-foreground: oklch(10% 0.01 260);
+  --secondary: oklch(20% 0.01 250);
+  --secondary-foreground: oklch(90% 0.005 250);
+  --destructive: oklch(50% 0.2 25);
+  --destructive-foreground: oklch(95% 0.005 250);
+  --muted: oklch(20% 0.005 250);
+  --muted-foreground: oklch(60% 0.01 250);
+  --accent: oklch(20% 0.01 250);
+  --accent-foreground: oklch(90% 0.005 250);
+  --border: oklch(25% 0.005 250);
+  --input: oklch(25% 0.005 250);
+  --ring: oklch(60% 0.2 260);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
