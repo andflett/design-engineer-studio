@@ -1,6 +1,6 @@
 {
   "name": "@flett/design-engineer-studio",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Visual editing CLI for design tokens, component variants, and Tailwind classes — writes changes back to source files",
   "type": "module",
   "license": "MIT",
