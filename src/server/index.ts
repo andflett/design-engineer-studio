@@ -2,6 +2,7 @@ import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import httpProxy from "http-proxy";
 import { WebSocketServer } from "ws";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import zlib from "zlib";
@@ -17,6 +18,13 @@ import { createScanRouter } from "./scanner/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// In dev (tsx): __dirname = <project>/src/server
+// In prod (tsup bundle): __dirname = <project>/dist
+// Find package root by checking for package.json one level up first
+const packageRoot = fs.existsSync(path.join(__dirname, "../package.json"))
+  ? path.resolve(__dirname, "..")
+  : path.resolve(__dirname, "../..");
+
 interface ServerOptions {
   targetPort: number;
   studioPort: number;
@@ -26,7 +34,7 @@ export async function startServer({ targetPort, studioPort }: ServerOptions) {
   const app = express();
   const projectRoot = process.cwd();
   const targetUrl = `http://localhost:${targetPort}`;
-  const clientRoot = path.join(__dirname, "../../src/client");
+  const clientRoot = path.join(packageRoot, "src/client");
 
   app.use(express.json());
 
@@ -40,7 +48,7 @@ export async function startServer({ targetPort, studioPort }: ServerOptions) {
 
   // --- Serve the injected selection script ---
   app.get("/studio-inject.js", (_req, res) => {
-    res.sendFile(path.join(__dirname, "../inject/selection.js"));
+    res.sendFile(path.join(packageRoot, "src/inject/selection.js"));
   });
 
   // --- Proxy to the target dev server ---
