@@ -72,4 +72,4 @@ design-engineer-studio --port 5173
 
 ## License
 
-MIT
+CC BY-NC 4.0 — free to use and modify for non-commercial purposes with attribution. See [LICENSE](LICENSE) for details.

@@ -3,7 +3,7 @@
   "version": "0.1.6",
   "description": "Visual editing CLI for design tokens, component variants, and Tailwind classes — writes changes back to source files",
   "type": "module",
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "author": "Andrew Flett",
   "repository": {
     "type": "git",
