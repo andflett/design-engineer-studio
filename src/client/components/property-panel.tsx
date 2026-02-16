@@ -168,7 +168,7 @@ function CategorySection({
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div style={{ borderTop: "1px solid var(--studio-border-subtle)" }}>

@@ -437,7 +437,7 @@ function ComponentBaseSection({
   componentEntry: any;
   scanData: ScanData | null;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <div style={{ borderTop: "1px solid var(--studio-border-subtle)" }}>

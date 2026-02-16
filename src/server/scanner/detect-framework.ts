@@ -4,7 +4,10 @@ import path from "path";
 export interface FrameworkInfo {
   name: "nextjs" | "vite" | "remix" | "unknown";
   appDir: string; // where page files live
+  appDirExists: boolean;
   componentDir: string; // where UI components live
+  componentDirExists: boolean;
+  componentFileCount: number; // number of .tsx files in componentDir
   cssFiles: string[]; // candidate CSS files with tokens
 }
 
@@ -26,55 +29,40 @@ export async function detectFramework(
   };
 
   // Detect framework
+  let name: FrameworkInfo["name"] = "unknown";
+  let appDirCandidates: string[];
+  let componentDirCandidates: string[];
+
   if (deps.next) {
-    return {
-      name: "nextjs",
-      appDir: await findDir(projectRoot, ["app", "src/app"]),
-      componentDir: await findDir(projectRoot, [
-        "components/ui",
-        "src/components/ui",
-      ]),
-      cssFiles: await findCssFiles(projectRoot),
-    };
+    name = "nextjs";
+    appDirCandidates = ["app", "src/app"];
+    componentDirCandidates = ["components/ui", "src/components/ui"];
+  } else if (deps["@remix-run/react"] || deps["@remix-run/node"]) {
+    name = "remix";
+    appDirCandidates = ["app/routes", "src/routes"];
+    componentDirCandidates = ["components/ui", "app/components/ui", "src/components/ui"];
+  } else if (deps.vite) {
+    name = "vite";
+    appDirCandidates = ["src/pages", "src/routes", "src", "pages"];
+    componentDirCandidates = ["components/ui", "src/components/ui"];
+  } else {
+    appDirCandidates = ["app", "src", "pages"];
+    componentDirCandidates = ["components/ui", "src/components/ui"];
   }
 
-  if (deps["@remix-run/react"] || deps["@remix-run/node"]) {
-    return {
-      name: "remix",
-      appDir: await findDir(projectRoot, ["app/routes", "src/routes"]),
-      componentDir: await findDir(projectRoot, [
-        "components/ui",
-        "app/components/ui",
-        "src/components/ui",
-      ]),
-      cssFiles: await findCssFiles(projectRoot),
-    };
-  }
-
-  if (deps.vite) {
-    return {
-      name: "vite",
-      appDir: await findDir(projectRoot, [
-        "src/pages",
-        "src/routes",
-        "src",
-        "pages",
-      ]),
-      componentDir: await findDir(projectRoot, [
-        "components/ui",
-        "src/components/ui",
-      ]),
-      cssFiles: await findCssFiles(projectRoot),
-    };
-  }
+  const appResult = await findDir(projectRoot, appDirCandidates);
+  const componentResult = await findDir(projectRoot, componentDirCandidates);
+  const componentFileCount = componentResult.exists
+    ? await countFiles(projectRoot, componentResult.dir, ".tsx")
+    : 0;
 
   return {
-    name: "unknown",
-    appDir: await findDir(projectRoot, ["app", "src", "pages"]),
-    componentDir: await findDir(projectRoot, [
-      "components/ui",
-      "src/components/ui",
-    ]),
+    name,
+    appDir: appResult.dir,
+    appDirExists: appResult.exists,
+    componentDir: componentResult.dir,
+    componentDirExists: componentResult.exists,
+    componentFileCount,
     cssFiles: await findCssFiles(projectRoot),
   };
 }
@@ -82,17 +70,27 @@ export async function detectFramework(
 async function findDir(
   root: string,
   candidates: string[]
-): Promise<string> {
+): Promise<{ dir: string; exists: boolean }> {
   for (const candidate of candidates) {
     const full = path.join(root, candidate);
     try {
       const stat = await fs.stat(full);
-      if (stat.isDirectory()) return candidate;
+      if (stat.isDirectory()) return { dir: candidate, exists: true };
     } catch {
       // doesn't exist
     }
   }
-  return candidates[0]; // fallback to first candidate
+  return { dir: candidates[0], exists: false };
+}
+
+async function countFiles(root: string, dir: string, ext: string): Promise<number> {
+  const full = path.join(root, dir);
+  try {
+    const entries = await fs.readdir(full);
+    return entries.filter((e) => e.endsWith(ext)).length;
+  } catch {
+    return 0;
+  }
 }
 
 async function findCssFiles(projectRoot: string): Promise<string[]> {

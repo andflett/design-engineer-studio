@@ -23,7 +23,7 @@ export default function HomePage() {
           Component Studio can inspect and edit.
         </p>
         <div className="flex gap-3">
-          <Button variant="outline" size="lg">Get Started</Button>
+          <Button size="lg">Get Started</Button>
           <Button variant="outline" size="lg">
             Learn More
           </Button>
@@ -97,8 +97,11 @@ export default function HomePage() {
       <section className="mt-16 rounded-lg border bg-card p-8 text-center">
         <h2 className="text-2xl font-semibold">Ready to try it?</h2>
         <p className="mt-2 text-muted-foreground">
-          Run <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono">npx component-studio</code> next
-          to your dev server.
+          Run{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono">
+            npx component-studio
+          </code>{" "}
+          next to your dev server.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button>Install Now</Button>

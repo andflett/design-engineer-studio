@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { detectFramework, type FrameworkInfo } from "./detect-framework.js";
+export { detectFramework, type FrameworkInfo };
 import { scanTokens, type TokenMap } from "./scan-tokens.js";
 import { scanComponents, type ComponentRegistry } from "./scan-components.js";
 import { scanRoutes, type RouteMap } from "./scan-routes.js";

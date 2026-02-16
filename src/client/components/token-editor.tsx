@@ -46,7 +46,7 @@ export function TokenEditor({
   return (
     <div className="">
       {referencedTokens.length > 0 && (
-        <Section title="Used by element" count={referencedTokens.length}>
+        <Section title="Used by element" count={referencedTokens.length} defaultCollapsed>
           {referencedTokens.map((token: any) => (
             <TokenRow
               key={token.name}
@@ -108,7 +108,7 @@ function Section({
   title,
   count,
   children,
-  defaultCollapsed = false,
+  defaultCollapsed = true,
 }: {
   title: string;
   count?: number;
