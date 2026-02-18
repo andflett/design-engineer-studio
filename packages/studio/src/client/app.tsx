@@ -136,6 +136,7 @@ export function App() {
             element={selectedElement}
             scanData={scanData}
             theme={theme}
+            iframePath={iframePath}
             onPreviewToken={previewToken}
             onPreviewClass={previewClass}
             onRevertPreview={revertPreview}

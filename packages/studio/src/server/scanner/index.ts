@@ -1,4 +1,6 @@
 import { Router } from "express";
+import fs from "fs/promises";
+import path from "path";
 import { detectFramework, type FrameworkInfo } from "@designtools/core/scanner";
 import { scanTokens, type TokenMap } from "@designtools/core/scanner/scan-tokens";
 import { scanComponents, type ComponentRegistry } from "./scan-components.js";
@@ -63,6 +65,53 @@ export function createStudioScanRouter(projectRoot: string) {
     try {
       const result = await runScan(projectRoot);
       res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Resolve an iframe route path (e.g. "/") to the source file (e.g. "app/page.tsx")
+  router.get("/resolve-route", async (req, res) => {
+    try {
+      const routePath = (req.query.path as string) || "/";
+      const scan = cachedScan || await runScan(projectRoot);
+      const appDir = scan.framework.appDir; // e.g. "app"
+
+      // Next.js App Router: /foo/bar → app/foo/bar/page.tsx
+      const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").split("/");
+      const dir = path.join(appDir, ...segments);
+
+      const candidates = [
+        path.join(dir, "page.tsx"),
+        path.join(dir, "page.jsx"),
+        path.join(dir, "page.ts"),
+        path.join(dir, "page.js"),
+        // Pages Router / Vite
+        path.join(dir, "index.tsx"),
+        path.join(dir, "index.jsx"),
+      ];
+
+      // Also try the route as a direct file (e.g. "src/pages/about.tsx")
+      if (segments.length > 0) {
+        const last = segments[segments.length - 1];
+        const parent = segments.slice(0, -1);
+        candidates.push(
+          path.join(appDir, ...parent, `${last}.tsx`),
+          path.join(appDir, ...parent, `${last}.jsx`)
+        );
+      }
+
+      for (const candidate of candidates) {
+        try {
+          await fs.access(path.join(projectRoot, candidate));
+          res.json({ filePath: candidate });
+          return;
+        } catch {
+          // try next
+        }
+      }
+
+      res.json({ filePath: null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

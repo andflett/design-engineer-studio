@@ -1,6 +1,6 @@
 {
   "name": "@designtools/shadows",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Visual shadow editing CLI — scan, preview, and edit box-shadow values in your project",
   "type": "module",
   "license": "CC-BY-NC-4.0",

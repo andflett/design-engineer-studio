@@ -319,8 +319,8 @@ async function bootstrap(config) {
 }
 
 // src/server/index.ts
-import path7 from "path";
-import fs10 from "fs";
+import path8 from "path";
+import fs11 from "fs";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 
@@ -778,6 +778,8 @@ function addClassToElement(source, classIdentifier, newClass, lineHint) {
 
 // src/server/scanner/index.ts
 import { Router as Router4 } from "express";
+import fs10 from "fs/promises";
+import path7 from "path";
 
 // ../core/src/scanner/scan-tokens.ts
 import fs8 from "fs/promises";
@@ -1069,31 +1071,68 @@ function createStudioScanRouter(projectRoot) {
       res.status(500).json({ error: err.message });
     }
   });
+  router.get("/resolve-route", async (req, res) => {
+    try {
+      const routePath = req.query.path || "/";
+      const scan = cachedScan || await runScan(projectRoot);
+      const appDir = scan.framework.appDir;
+      const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").split("/");
+      const dir = path7.join(appDir, ...segments);
+      const candidates = [
+        path7.join(dir, "page.tsx"),
+        path7.join(dir, "page.jsx"),
+        path7.join(dir, "page.ts"),
+        path7.join(dir, "page.js"),
+        // Pages Router / Vite
+        path7.join(dir, "index.tsx"),
+        path7.join(dir, "index.jsx")
+      ];
+      if (segments.length > 0) {
+        const last = segments[segments.length - 1];
+        const parent = segments.slice(0, -1);
+        candidates.push(
+          path7.join(appDir, ...parent, `${last}.tsx`),
+          path7.join(appDir, ...parent, `${last}.jsx`)
+        );
+      }
+      for (const candidate of candidates) {
+        try {
+          await fs10.access(path7.join(projectRoot, candidate));
+          res.json({ filePath: candidate });
+          return;
+        } catch {
+        }
+      }
+      res.json({ filePath: null });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
   return router;
 }
 
 // src/server/index.ts
-var __dirname = path7.dirname(fileURLToPath(import.meta.url));
+var __dirname = path8.dirname(fileURLToPath(import.meta.url));
 var require2 = createRequire(import.meta.url);
-var packageRoot = fs10.existsSync(path7.join(__dirname, "../package.json")) ? path7.resolve(__dirname, "..") : path7.resolve(__dirname, "../..");
+var packageRoot = fs11.existsSync(path8.join(__dirname, "../package.json")) ? path8.resolve(__dirname, "..") : path8.resolve(__dirname, "../..");
 function resolveInjectScript() {
-  const compiledInject = path7.join(packageRoot, "dist/inject/selection.js");
-  if (fs10.existsSync(compiledInject)) return compiledInject;
+  const compiledInject = path8.join(packageRoot, "dist/inject/selection.js");
+  if (fs11.existsSync(compiledInject)) return compiledInject;
   try {
     const corePkg = require2.resolve("@designtools/core/package.json");
-    const coreRoot = path7.dirname(corePkg);
-    const coreInject = path7.join(coreRoot, "src/inject/selection.ts");
-    if (fs10.existsSync(coreInject)) return coreInject;
+    const coreRoot = path8.dirname(corePkg);
+    const coreInject = path8.join(coreRoot, "src/inject/selection.ts");
+    if (fs11.existsSync(coreInject)) return coreInject;
   } catch {
   }
-  const monorepoInject = path7.join(packageRoot, "../core/src/inject/selection.ts");
-  if (fs10.existsSync(monorepoInject)) return monorepoInject;
+  const monorepoInject = path8.join(packageRoot, "../core/src/inject/selection.ts");
+  if (fs11.existsSync(monorepoInject)) return monorepoInject;
   throw new Error(
     "Could not find inject script (selection.ts). Ensure @designtools/core is installed."
   );
 }
 async function startStudioServer(preflight) {
-  const clientRoot = path7.join(packageRoot, "src/client");
+  const clientRoot = path8.join(packageRoot, "src/client");
   const actualInjectPath = resolveInjectScript();
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,

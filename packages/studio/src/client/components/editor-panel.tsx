@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Cross2Icon,
   MixerHorizontalIcon,
@@ -21,6 +21,7 @@ interface EditorPanelProps {
   element: ElementData;
   scanData: ScanData | null;
   theme: "light" | "dark";
+  iframePath: string;
   onPreviewToken: (token: string, value: string) => void;
   onPreviewClass: (elementPath: string, oldClass: string, newClass: string) => void;
   onRevertPreview: () => void;
@@ -33,6 +34,7 @@ export function EditorPanel({
   element,
   scanData,
   theme,
+  iframePath,
   onPreviewToken,
   onPreviewClass,
   onRevertPreview,
@@ -51,6 +53,15 @@ export function EditorPanel({
 
   const [activeMode, setActiveMode] = useState<EditMode>("instance");
   const [saving, setSaving] = useState(false);
+  const [pageFilePath, setPageFilePath] = useState<string | null>(null);
+
+  // Resolve the current iframe route to a source file path for instance/element edits
+  useEffect(() => {
+    fetch(`/scan/resolve-route?path=${encodeURIComponent(iframePath)}`)
+      .then((r) => r.json())
+      .then((data) => setPageFilePath(data.filePath || null))
+      .catch(() => setPageFilePath(null));
+  }, [iframePath]);
 
   const elementName = isComponent
     ? componentEntry?.name || element.dataSlot
@@ -235,6 +246,7 @@ export function EditorPanel({
                   dim={dim}
                   element={element}
                   componentEntry={componentEntry}
+                  pageFilePath={pageFilePath}
                   instanceIdentifier={instanceIdentifier}
                   withSave={withSave}
                 />
@@ -244,9 +256,10 @@ export function EditorPanel({
                 <PropertyPanel
                   classes={element.className}
                   onClassChange={(oldClass, newClass) => {
+                    const filePath = pageFilePath || componentEntry?.filePath || "";
                     withSave(() =>
                       handleElementClassChange(
-                        componentEntry?.filePath || "",
+                        filePath,
                         element.className,
                         oldClass,
                         newClass
@@ -270,12 +283,14 @@ function InstanceVariantSection({
   dim,
   element,
   componentEntry,
+  pageFilePath,
   instanceIdentifier,
   withSave,
 }: {
   dim: any;
   element: ElementData;
   componentEntry: any;
+  pageFilePath: string | null;
   instanceIdentifier: string;
   withSave: (fn: () => Promise<void>) => Promise<void>;
 }) {
@@ -316,7 +331,7 @@ function InstanceVariantSection({
                 onClick={() =>
                   withSave(() =>
                     handleInstancePropChange(
-                      componentEntry?.filePath || "",
+                      pageFilePath || componentEntry?.filePath || "",
                       componentEntry.name,
                       dim.name,
                       opt,
