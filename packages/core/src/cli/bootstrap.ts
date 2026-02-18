@@ -1,6 +1,15 @@
 import fs from "fs";
 import path from "path";
+import process from "process";
 import { detectFramework, type FrameworkInfo } from "../scanner/detect-framework.js";
+import { detectStylingSystem, type StylingSystem } from "../scanner/detect-styling.js";
+
+// Suppress known deprecation warnings from dependencies (e.g. http-proxy using util._extend)
+const originalEmitWarning = process.emitWarning;
+process.emitWarning = ((warning: string | Error, ...args: any[]) => {
+  if (typeof warning === "string" && warning.includes("util._extend")) return;
+  return originalEmitWarning.call(process, warning, ...args);
+}) as typeof process.emitWarning;
 
 // ANSI colors
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -26,6 +35,7 @@ interface PreflightLine {
 
 export interface PreflightResult {
   framework: FrameworkInfo;
+  styling: StylingSystem;
   targetPort: number;
   toolPort: number;
   projectRoot: string;
@@ -96,7 +106,26 @@ export async function bootstrap(config: ToolConfig): Promise<PreflightResult> {
     console.log(`  ${yellow("⚠")} CSS files      ${dim("no CSS files found")}`);
   }
 
-  // 3. Tool-specific extra checks
+  // 3. Detect styling system
+  const styling = await detectStylingSystem(projectRoot, framework);
+
+  const stylingLabels: Record<StylingSystem["type"], string> = {
+    "tailwind-v4": "Tailwind CSS v4",
+    "tailwind-v3": "Tailwind CSS v3",
+    "bootstrap": "Bootstrap",
+    "css-variables": "CSS Custom Properties",
+    "plain-css": "Plain CSS",
+    "unknown": "Unknown",
+  };
+  const stylingLabel = stylingLabels[styling.type];
+
+  if (styling.type !== "unknown") {
+    console.log(`  ${green("✓")} Styling        ${stylingLabel}`);
+  } else {
+    console.log(`  ${yellow("⚠")} Styling        ${dim("no styling system detected")}`);
+  }
+
+  // 4. Tool-specific extra checks
   if (config.extraChecks) {
     const lines = await config.extraChecks(framework, projectRoot);
     for (const line of lines) {
@@ -130,5 +159,5 @@ export async function bootstrap(config: ToolConfig): Promise<PreflightResult> {
   console.log(`  ${green("✓")} Tool           http://localhost:${toolPort}`);
   console.log("");
 
-  return { framework, targetPort, toolPort, projectRoot };
+  return { framework, styling, targetPort, toolPort, projectRoot };
 }

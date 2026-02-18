@@ -1,27 +1,24 @@
 import { Router } from "express";
 import { detectFramework, type FrameworkInfo } from "@designtools/core/scanner";
 import { scanTokens, type TokenMap } from "@designtools/core/scanner/scan-tokens";
-import { scanRoutes, type RouteMap } from "@designtools/core/scanner/scan-routes";
 import { scanComponents, type ComponentRegistry } from "./scan-components.js";
 
 interface StudioScanResult {
   framework: FrameworkInfo;
   tokens: TokenMap;
   components: ComponentRegistry;
-  routes: RouteMap;
 }
 
 let cachedScan: StudioScanResult | null = null;
 
 async function runScan(projectRoot: string): Promise<StudioScanResult> {
   const framework = await detectFramework(projectRoot);
-  const [tokens, components, routes] = await Promise.all([
+  const [tokens, components] = await Promise.all([
     scanTokens(projectRoot, framework),
     scanComponents(projectRoot),
-    scanRoutes(projectRoot, framework),
   ]);
 
-  cachedScan = { framework, tokens, components, routes };
+  cachedScan = { framework, tokens, components };
   return cachedScan;
 }
 
@@ -57,15 +54,6 @@ export function createStudioScanRouter(projectRoot: string) {
     try {
       const result = cachedScan || await runScan(projectRoot);
       res.json(result.components);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  router.get("/routes", async (_req, res) => {
-    try {
-      const result = cachedScan || await runScan(projectRoot);
-      res.json(result.routes);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

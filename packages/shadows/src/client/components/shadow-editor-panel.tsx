@@ -1,16 +1,18 @@
 import { useState } from "react";
 import {
-  Cross2Icon,
   ShadowIcon,
   MixerHorizontalIcon,
   GridIcon,
-  ChevronRightIcon,
-  ChevronDownIcon,
 } from "@radix-ui/react-icons";
 import type { ShadowsScanData } from "../app.js";
 import type { ElementData } from "@designtools/core/client/lib/iframe-bridge";
 import { ShadowList } from "./shadow-list.js";
 import { ShadowOverview } from "./shadow-overview.js";
+import {
+  ShadowPreviewSettings,
+  DEFAULT_PREVIEW_SETTINGS,
+  type PreviewSettings,
+} from "./shadow-preview-settings.js";
 
 type ViewMode = "list" | "overview";
 
@@ -26,6 +28,9 @@ export function ShadowEditorPanel({
   onPreviewShadow,
 }: ShadowEditorPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [previewSettings, setPreviewSettings] = useState<PreviewSettings>(
+    DEFAULT_PREVIEW_SETTINGS
+  );
 
   if (!scanData) {
     return (
@@ -116,6 +121,17 @@ export function ShadowEditorPanel({
         </div>
       </div>
 
+      {/* Preview settings */}
+      <div
+        className="px-4 py-2.5 border-b shrink-0"
+        style={{ borderColor: "var(--studio-border)" }}
+      >
+        <ShadowPreviewSettings
+          settings={previewSettings}
+          onChange={setPreviewSettings}
+        />
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto studio-scrollbar">
         {viewMode === "list" && (
@@ -124,11 +140,13 @@ export function ShadowEditorPanel({
             cssFilePath={scanData.shadows.cssFilePath}
             stylingType={scanData.shadows.stylingType}
             onPreviewShadow={onPreviewShadow}
+            previewSettings={previewSettings}
           />
         )}
         {viewMode === "overview" && (
           <ShadowOverview
             shadows={scanData.shadows.shadows}
+            previewSettings={previewSettings}
           />
         )}
       </div>

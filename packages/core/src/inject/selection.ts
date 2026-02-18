@@ -287,8 +287,42 @@ function onMessage(e: MessageEvent) {
   }
 }
 
+function interceptNavigation() {
+  // Rewrite links that would navigate outside /proxy/ back through it.
+  // The <base href="/proxy/"> tag handles most relative URLs, but
+  // absolute same-origin links (href="/about") can bypass it in some frameworks.
+  document.addEventListener("click", (e: MouseEvent) => {
+    // Don't interfere with selection mode clicks (handled by onClick above)
+    if (selectionMode) return;
+
+    const anchor = (e.target as Element).closest("a");
+    if (!anchor) return;
+
+    const href = anchor.getAttribute("href");
+    if (!href) return;
+
+    // Skip external links, anchors, javascript:, and already-proxied links
+    if (
+      href.startsWith("http://") ||
+      href.startsWith("https://") ||
+      href.startsWith("#") ||
+      href.startsWith("javascript:") ||
+      href.startsWith("/proxy/")
+    ) {
+      return;
+    }
+
+    // Rewrite absolute paths like "/about" → "/proxy/about"
+    if (href.startsWith("/")) {
+      e.preventDefault();
+      window.location.href = `/proxy${href}`;
+    }
+  }, false);
+}
+
 function init() {
   createOverlays();
+  interceptNavigation();
   document.addEventListener("mousemove", onMouseMove, true);
   document.addEventListener("mouseleave", onMouseLeave);
   document.addEventListener("click", onClick, true);

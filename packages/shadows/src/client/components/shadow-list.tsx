@@ -8,12 +8,14 @@ import {
 } from "@radix-ui/react-icons";
 import { ShadowControls } from "./shadow-controls.js";
 import { ShadowPreview } from "./shadow-preview.js";
+import type { PreviewSettings } from "./shadow-preview-settings.js";
 
 interface ShadowListProps {
   shadows: any[];
   cssFilePath: string;
   stylingType: string;
   onPreviewShadow: (variableName: string, value: string) => void;
+  previewSettings: PreviewSettings;
 }
 
 export function ShadowList({
@@ -21,6 +23,7 @@ export function ShadowList({
   cssFilePath,
   stylingType,
   onPreviewShadow,
+  previewSettings,
 }: ShadowListProps) {
   const [expandedShadow, setExpandedShadow] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<Record<string, "custom" | "preset">>({});
@@ -44,6 +47,7 @@ export function ShadowList({
           cssFilePath={cssFilePath}
           stylingType={stylingType}
           onPreviewShadow={onPreviewShadow}
+          previewSettings={previewSettings}
         />
       ))}
 
@@ -68,6 +72,7 @@ function ShadowRow({
   cssFilePath,
   stylingType,
   onPreviewShadow,
+  previewSettings,
 }: {
   shadow: any;
   isExpanded: boolean;
@@ -77,6 +82,7 @@ function ShadowRow({
   cssFilePath: string;
   stylingType: string;
   onPreviewShadow: (variableName: string, value: string) => void;
+  previewSettings: PreviewSettings;
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -140,7 +146,12 @@ function ShadowRow({
         style={{ gap: 8 }}
       >
         {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-        <ShadowPreview value={shadow.value} size={24} />
+        <ShadowPreview
+          value={shadow.value}
+          size={24}
+          showBorder={previewSettings.showBorder}
+          borderColor={previewSettings.borderColor}
+        />
         <span
           className="flex-1 text-[11px] font-mono truncate text-left"
           style={{
@@ -214,6 +225,7 @@ function ShadowRow({
                 onPreviewShadow(varName, value);
               }}
               onSave={handleSave}
+              previewSettings={previewSettings}
             />
           ) : (
             <PresetPicker
@@ -223,6 +235,7 @@ function ShadowRow({
                 onPreviewShadow(varName, value);
                 handleSave(value);
               }}
+              previewSettings={previewSettings}
             />
           )}
         </div>
@@ -234,9 +247,11 @@ function ShadowRow({
 function PresetPicker({
   currentValue,
   onSelect,
+  previewSettings,
 }: {
   currentValue: string;
   onSelect: (value: string) => void;
+  previewSettings: PreviewSettings;
 }) {
   // Import presets inline to avoid circular deps
   const presets = [
@@ -297,7 +312,12 @@ function PresetPicker({
                     cursor: "pointer",
                   }}
                 >
-                  <ShadowPreview value={preset.value} size={32} />
+                  <ShadowPreview
+                    value={preset.value}
+                    size={32}
+                    showBorder={previewSettings.showBorder}
+                    borderColor={previewSettings.borderColor}
+                  />
                   <span
                     className="text-[11px]"
                     style={{ color: "var(--studio-text)" }}

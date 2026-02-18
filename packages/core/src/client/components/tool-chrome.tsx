@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode } from "react";
+import { type RefObject, type ReactNode, useState } from "react";
 import {
   CursorArrowIcon,
   SunIcon,
@@ -12,8 +12,6 @@ export interface ToolChromeProps {
   toolName: string;
   /** Tool icon in toolbar */
   toolIcon: ReactNode;
-  /** Scan data with routes */
-  routes: { urlPath: string; filePath: string }[];
   /** The tool's editor panel (right side) */
   editorPanel?: ReactNode;
   /** Selection mode state */
@@ -35,7 +33,6 @@ export interface ToolChromeProps {
 export function ToolChrome({
   toolName,
   toolIcon,
-  routes,
   editorPanel,
   selectionMode,
   onToggleSelectionMode,
@@ -48,6 +45,12 @@ export function ToolChrome({
   iframeRef,
 }: ToolChromeProps) {
   const breakpoints = [375, 768, 1024, 1280];
+  const [urlInput, setUrlInput] = useState(iframePath);
+
+  const handleUrlSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onIframePathChange(urlInput);
+  };
 
   return (
     <div className="flex flex-col h-screen">
@@ -77,6 +80,24 @@ export function ToolChrome({
             {toolName}
           </span>
         </div>
+
+        {/* Separator */}
+        <div
+          className="w-px h-4"
+          style={{ background: "var(--studio-border)" }}
+        />
+
+        {/* URL bar */}
+        <form onSubmit={handleUrlSubmit} className="flex-0">
+          <input
+            type="text"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            className="studio-input"
+            style={{ padding: "3px 8px", width: 180 }}
+            placeholder="/"
+          />
+        </form>
 
         {/* Separator */}
         <div
@@ -147,9 +168,7 @@ export function ToolChrome({
           viewportWidth={viewportWidth}
           onViewportWidthChange={onViewportWidthChange}
           iframePath={iframePath}
-          onIframePathChange={onIframePathChange}
           iframeRef={iframeRef}
-          routes={routes}
         />
 
         {editorPanel}

@@ -14,16 +14,20 @@ interface ShadowLayer {
   inset: boolean;
 }
 
+import type { PreviewSettings } from "./shadow-preview-settings.js";
+
 interface ShadowControlsProps {
   shadow: { value: string; layers: ShadowLayer[] };
   onPreview: (value: string) => void;
   onSave: (value: string) => void;
+  previewSettings: PreviewSettings;
 }
 
 export function ShadowControls({
   shadow,
   onPreview,
   onSave,
+  previewSettings,
 }: ShadowControlsProps) {
   const [layers, setLayers] = useState<ShadowLayer[]>(() =>
     shadow.layers.length > 0
@@ -73,10 +77,9 @@ export function ShadowControls({
     <div className="flex flex-col gap-3">
       {/* Preview */}
       <div
-        className="flex items-center justify-center p-4 rounded-lg"
+        className="flex items-center justify-center p-6 rounded-lg"
         style={{
-          background: "var(--studio-bg)",
-          border: "1px solid var(--studio-border-subtle)",
+          background: previewSettings.previewBg,
         }}
       >
         <div
@@ -84,6 +87,9 @@ export function ShadowControls({
           style={{
             background: "white",
             boxShadow: formatValue(layers),
+            border: previewSettings.showBorder
+              ? `1px solid ${previewSettings.borderColor}`
+              : "none",
           }}
         />
       </div>

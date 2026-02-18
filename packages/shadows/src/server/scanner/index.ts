@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { detectFramework, type FrameworkInfo } from "@designtools/core/scanner";
 import { scanTokens, type TokenMap } from "@designtools/core/scanner/scan-tokens";
-import { scanRoutes, type RouteMap } from "@designtools/core/scanner/scan-routes";
 import { detectStylingSystem, type StylingSystem } from "@designtools/core/scanner/detect-styling";
 import { scanShadows, type ShadowMap } from "./scan-shadows.js";
 
@@ -10,7 +9,6 @@ interface ShadowsScanResult {
   styling: StylingSystem;
   tokens: TokenMap;
   shadows: ShadowMap;
-  routes: RouteMap;
 }
 
 let cachedScan: ShadowsScanResult | null = null;
@@ -18,13 +16,12 @@ let cachedScan: ShadowsScanResult | null = null;
 async function runScan(projectRoot: string): Promise<ShadowsScanResult> {
   const framework = await detectFramework(projectRoot);
   const styling = await detectStylingSystem(projectRoot, framework);
-  const [tokens, shadows, routes] = await Promise.all([
+  const [tokens, shadows] = await Promise.all([
     scanTokens(projectRoot, framework),
     scanShadows(projectRoot, framework, styling),
-    scanRoutes(projectRoot, framework),
   ]);
 
-  cachedScan = { framework, styling, tokens, shadows, routes };
+  cachedScan = { framework, styling, tokens, shadows };
   return cachedScan;
 }
 

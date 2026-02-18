@@ -56,15 +56,6 @@ export function EditorPanel({
     ? componentEntry?.name || element.dataSlot
     : `<${element.tag}>`;
 
-  const currentPath =
-    new URL(
-      (document.querySelector("iframe") as HTMLIFrameElement)?.src || "/",
-      window.location.origin
-    ).pathname.replace("/proxy", "") || "/";
-  const pageRoute = scanData?.routes.routes.find(
-    (r: any) => r.urlPath === currentPath
-  );
-
   const tokenRefs = extractTokenReferences(element.className, scanData);
 
   const withSave = async (fn: () => Promise<void>) => {
@@ -129,12 +120,12 @@ export function EditorPanel({
               </span>
             )}
           </div>
-          {pageRoute && (
+          {componentEntry?.filePath && (
             <div
               className="text-[10px] font-mono truncate"
               style={{ color: "var(--studio-text-dimmed)" }}
             >
-              {pageRoute.filePath}
+              {componentEntry.filePath}
             </div>
           )}
         </div>
@@ -244,7 +235,6 @@ export function EditorPanel({
                   dim={dim}
                   element={element}
                   componentEntry={componentEntry}
-                  pageRoute={pageRoute}
                   instanceIdentifier={instanceIdentifier}
                   withSave={withSave}
                 />
@@ -256,7 +246,7 @@ export function EditorPanel({
                   onClassChange={(oldClass, newClass) => {
                     withSave(() =>
                       handleElementClassChange(
-                        pageRoute?.filePath || "",
+                        componentEntry?.filePath || "",
                         element.className,
                         oldClass,
                         newClass
@@ -280,14 +270,12 @@ function InstanceVariantSection({
   dim,
   element,
   componentEntry,
-  pageRoute,
   instanceIdentifier,
   withSave,
 }: {
   dim: any;
   element: ElementData;
   componentEntry: any;
-  pageRoute: any;
   instanceIdentifier: string;
   withSave: (fn: () => Promise<void>) => Promise<void>;
 }) {
@@ -328,7 +316,7 @@ function InstanceVariantSection({
                 onClick={() =>
                   withSave(() =>
                     handleInstancePropChange(
-                      pageRoute?.filePath || "",
+                      componentEntry?.filePath || "",
                       componentEntry.name,
                       dim.name,
                       opt,

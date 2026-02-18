@@ -3,6 +3,8 @@ interface ShadowPreviewProps {
   size?: number;
   shape?: "square" | "rounded" | "circle";
   background?: string;
+  showBorder?: boolean;
+  borderColor?: string;
 }
 
 export function ShadowPreview({
@@ -10,6 +12,8 @@ export function ShadowPreview({
   size = 32,
   shape = "rounded",
   background = "white",
+  showBorder = false,
+  borderColor = "#e0e0e0",
 }: ShadowPreviewProps) {
   const borderRadius =
     shape === "circle" ? "50%" : shape === "rounded" ? "4px" : "0";
@@ -23,7 +27,7 @@ export function ShadowPreview({
         borderRadius,
         background,
         boxShadow: value,
-        border: "1px solid var(--studio-border-subtle)",
+        border: showBorder ? `1px solid ${borderColor}` : "none",
       }}
     />
   );

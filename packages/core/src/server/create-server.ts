@@ -20,6 +20,8 @@ export interface ToolServerConfig {
   injectScriptPath: string;
   /** URL path prefix for injection script (default: "/tool-inject.js") */
   injectScriptUrl?: string;
+  /** Mount tool-specific routes before the Vite SPA fallback */
+  setupRoutes?: (app: express.Express, projectRoot: string) => void;
 }
 
 export interface ToolServer {
@@ -86,7 +88,12 @@ export async function createToolServer(config: ToolServerConfig): Promise<ToolSe
             });
             stream.on("end", () => {
               const body = Buffer.concat(chunks).toString("utf-8");
-              const injected = body.replace(
+              // Inject <base> so all relative URLs resolve through /proxy/
+              let injected = body.replace(
+                "<head>",
+                `<head><base href="/proxy/">`
+              );
+              injected = injected.replace(
                 "</body>",
                 `<script src="${injectScriptUrl}"></script></body>`
               );
@@ -123,6 +130,11 @@ export async function createToolServer(config: ToolServerConfig): Promise<ToolSe
   wsProxy.on("error", (err) => {
     console.error("WS proxy error:", err.message);
   });
+
+  // --- Tool-specific routes (must come before Vite SPA fallback) ---
+  if (config.setupRoutes) {
+    config.setupRoutes(app, projectRoot);
+  }
 
   // --- Vite dev server for tool UI ---
   const vite = await createViteServer({

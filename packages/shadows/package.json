@@ -1,19 +1,27 @@
 {
   "name": "@designtools/shadows",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "Visual shadow editing CLI — scan, preview, and edit box-shadow values in your project",
   "type": "module",
   "license": "CC-BY-NC-4.0",
   "author": "Andrew Flett",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "tsx src/cli.ts",
     "dev:client": "vite dev src/client",
     "build": "vite build src/client && tsup",
     "prepublishOnly": "npm run build"
   },
-  "bin": { "designtools-shadows": "dist/cli.js" },
-  "files": ["dist", "src/client", "src/inject"],
+  "bin": {
+    "designtools-shadows": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src/client",
+    "src/inject"
+  ],
   "dependencies": {
     "@designtools/core": "*",
     "@radix-ui/react-icons": "^1.3.2",

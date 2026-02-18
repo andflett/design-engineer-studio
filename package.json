@@ -6,7 +6,7 @@
   "author": "Andrew Flett",
   "repository": {
     "type": "git",
-    "url": "https://github.com/andflett/design-engineer-studio"
+    "url": "https://github.com/andflett/designtools"
   },
   "workspaces": [
     "packages/core",
@@ -24,7 +24,8 @@
     "demo": "cd packages/demo && npm run dev",
     "demo:bootstrap": "cd demos/bootstrap-app && npm run dev",
     "demo:w3c-tokens": "cd demos/w3c-tokens-app && npm run dev",
-    "demo:css-vars": "cd demos/css-variables-app && npm run dev"
+    "demo:css-vars": "cd demos/css-variables-app && npm run dev",
+    "publish:all": "bash scripts/publish.sh"
   },
   "engines": {
     "node": ">=18"

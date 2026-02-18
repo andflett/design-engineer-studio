@@ -1,12 +1,20 @@
-# Design Engineer Studio
+# CLI Design Tools
 
-Visual editing CLI for design tokens, component variants, and Tailwind classes — writes changes back to source files.
+Visual editing CLI tools for design tokens, component variants, and shadows — writes changes back to source files.
 
 [Read the write-up](https://www.flett.cc/projects/design-engineer-studio)
 
+## Packages
+
+| Package | Description | CLI command |
+|---------|-------------|-------------|
+| [`@designtools/studio`](packages/studio) | Visual editor for tokens, components, and instances | `npx @designtools/studio` |
+| [`@designtools/shadows`](packages/shadows) | Visual editor for box-shadow values | `npx @designtools/shadows` |
+| `@designtools/core` | Shared scanner, server, and client utilities (internal) | — |
+
 ## Try the demos
 
-Four demo apps cover the major styling approaches. Each is a self-contained Next.js app you can run alongside the studio.
+Four demo apps cover the major styling approaches. Each is a self-contained Next.js app you can run alongside the tools.
 
 | Demo | Styling | Shadows | Port |
 |------|---------|---------|------|
@@ -22,10 +30,10 @@ Four demo apps cover the major styling approaches. Each is a self-contained Next
 ### Setup
 
 ```bash
-git clone https://github.com/andflett/design-engineer-studio.git
-cd design-engineer-studio
+git clone https://github.com/andflett/designtools.git
+cd designtools
 
-# Install monorepo dependencies and build the studio
+# Install monorepo dependencies and build the tools
 npm install
 npm run build
 ```
@@ -33,7 +41,7 @@ npm run build
 Then install the demo you want to try:
 
 ```bash
-# Tailwind demo (existing)
+# Tailwind demo
 cd packages/demo && npm install && cd ../..
 
 # Bootstrap demo
@@ -48,7 +56,7 @@ cd demos/css-variables-app && npm install && cd ../..
 
 ### Run
 
-You need two terminals — one for the demo app, one for the studio.
+You need two terminals — one for the demo app, one for the tool.
 
 **Terminal 1** — start a demo app:
 
@@ -62,33 +70,23 @@ cd demos/w3c-tokens-app && npm run dev     # port 3002
 cd demos/css-variables-app && npm run dev  # port 3003
 ```
 
-**Terminal 2** — start the studio (from the project root):
+**Terminal 2** — start a tool (from the project root):
 
 ```bash
-# Default (connects to port 3000)
-npx design-engineer-studio
+# Studio — default (connects to port 3000)
+npx @designtools/studio
 
-# For other demos, pass --port:
-npx design-engineer-studio --port 3001  # Bootstrap
-npx design-engineer-studio --port 3002  # W3C Tokens
-npx design-engineer-studio --port 3003  # CSS Variables
+# Studio — for other demos, pass --port:
+npx @designtools/studio --port 3001  # Bootstrap
+npx @designtools/studio --port 3002  # W3C Tokens
+npx @designtools/studio --port 3003  # CSS Variables
+
+# Shadows tool
+npx @designtools/shadows
+npx @designtools/shadows --port 3001  # Bootstrap
 ```
 
-The studio opens at [http://localhost:4400](http://localhost:4400) with the demo app proxied inside it.
-
-### Shadows tool
-
-The shadows tool is a standalone editor for box-shadow values. It detects the styling system in use and reads/writes shadows in the appropriate format:
-
-```bash
-# Default (port 3000)
-npx designtools-shadows
-
-# For other demos:
-npx designtools-shadows --port 3001  # Bootstrap
-npx designtools-shadows --port 3002  # W3C Tokens
-npx designtools-shadows --port 3003  # CSS Variables
-```
+The studio opens at [http://localhost:4400](http://localhost:4400) and shadows at [http://localhost:4410](http://localhost:4410), with the demo app proxied inside.
 
 ## What you can edit
 
@@ -112,25 +110,38 @@ All changes are written directly back to your source files.
 ## Use with your own project
 
 ```bash
-npm install -g @flett/design-engineer-studio
+npm install -g @designtools/studio
 ```
 
 Start your dev server, then run the CLI in your project directory:
 
 ```bash
-design-engineer-studio
+designtools-studio
+```
+
+Or use `npx` without installing:
+
+```bash
+npx @designtools/studio
 ```
 
 Pass `--port` if your dev server isn't on port 3000:
 
 ```bash
-design-engineer-studio --port 5173
+designtools-studio --port 5173
+```
+
+For shadows only:
+
+```bash
+npm install -g @designtools/shadows
+designtools-shadows --port 5173
 ```
 
 ## Project structure
 
 ```
-design-engineer-studio/
+designtools/
 ├── packages/
 │   ├── core/          Shared scanner, server, and client utilities
 │   ├── studio/        Main visual editing CLI

@@ -12,7 +12,6 @@ export interface ScanData {
   framework: { name: string; appDir: string; componentDir: string; cssFiles: string[] };
   tokens: { tokens: any[]; cssFilePath: string; groups: Record<string, any[]> };
   components: { components: any[] };
-  routes: { routes: { urlPath: string; filePath: string }[] };
 }
 
 export function App() {
@@ -119,7 +118,6 @@ export function App() {
     <ToolChrome
       toolName="Design Engineer Studio"
       toolIcon={<PaddingIcon style={{ width: 15, height: 15 }} />}
-      routes={scanData?.routes.routes || []}
       selectionMode={selectionMode}
       onToggleSelectionMode={() => setSelectionMode((s) => !s)}
       theme={theme}

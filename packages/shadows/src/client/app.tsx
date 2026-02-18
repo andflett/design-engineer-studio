@@ -16,7 +16,6 @@ export interface ShadowsScanData {
     cssFilePath: string;
     stylingType: string;
   };
-  routes: { routes: { urlPath: string; filePath: string }[] };
 }
 
 export function App() {
@@ -87,7 +86,6 @@ export function App() {
     <ToolChrome
       toolName="Shadows"
       toolIcon={<ShadowIcon style={{ width: 15, height: 15 }} />}
-      routes={scanData?.routes.routes || []}
       selectionMode={selectionMode}
       onToggleSelectionMode={() => setSelectionMode((s) => !s)}
       theme={theme}
