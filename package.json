@@ -21,10 +21,11 @@
     "build": "npm -w packages/studio run build && npm -w packages/shadows run build",
     "build:studio": "npm -w packages/studio run build",
     "build:shadows": "npm -w packages/shadows run build",
-    "demo": "cd packages/demo && npm run dev",
+    "demo": "cd demos/studio-app && npm run dev",
     "demo:bootstrap": "cd demos/bootstrap-app && npm run dev",
     "demo:w3c-tokens": "cd demos/w3c-tokens-app && npm run dev",
     "demo:css-vars": "cd demos/css-variables-app && npm run dev",
+    "demo:tw-shadows": "cd demos/tailwind-shadows-app && npm run dev",
     "publish:all": "bash scripts/publish.sh"
   },
   "engines": {

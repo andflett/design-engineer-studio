@@ -41,12 +41,14 @@ function resolveInjectScript(): string {
 
 export async function startStudioServer(preflight: PreflightResult) {
   const clientRoot = path.join(packageRoot, "src/client");
+  const clientDistRoot = path.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
 
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,
     toolPort: preflight.toolPort,
     clientRoot,
+    clientDistRoot,
     injectScriptPath: actualInjectPath,
     setupRoutes: (app, projectRoot) => {
       app.use("/api/tokens", createTokensRouter(projectRoot));

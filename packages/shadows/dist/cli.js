@@ -319,7 +319,7 @@ async function bootstrap(config) {
 }
 
 // src/server/index.ts
-import path10 from "path";
+import path11 from "path";
 import fs10 from "fs";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -330,6 +330,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import httpProxy from "http-proxy";
 import { WebSocketServer } from "ws";
 import fs4 from "fs";
+import path4 from "path";
 import zlib from "zlib";
 import open from "open";
 import { createServer as createViteServer } from "vite";
@@ -427,14 +428,24 @@ async function createToolServer(config) {
   if (config.setupRoutes) {
     config.setupRoutes(app, projectRoot);
   }
-  const vite = await createViteServer({
-    configFile: false,
-    root: config.clientRoot,
-    plugins: [react(), tailwindcss()],
-    server: { middlewareMode: true },
-    appType: "spa"
-  });
-  app.use(vite.middlewares);
+  const distRoot = config.clientDistRoot ? path4.resolve(config.clientDistRoot) : null;
+  const builtIndex = distRoot ? path4.join(distRoot, "index.html") : null;
+  const hasBuiltClient = builtIndex && fs4.existsSync(builtIndex);
+  if (hasBuiltClient) {
+    app.use(express.static(distRoot));
+    app.use((_req, res) => {
+      res.sendFile(builtIndex);
+    });
+  } else {
+    const vite = await createViteServer({
+      configFile: false,
+      root: config.clientRoot,
+      plugins: [react(), tailwindcss()],
+      server: { middlewareMode: true },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
+  }
   const server = app.listen(config.toolPort, () => {
     console.log(`  Tool running at http://localhost:${config.toolPort}`);
     open(`http://localhost:${config.toolPort}`);
@@ -459,19 +470,19 @@ async function createToolServer(config) {
 }
 
 // ../core/src/server/safe-path.ts
-import path4 from "path";
+import path5 from "path";
 function safePath(projectRoot, filePath) {
   if (!filePath || typeof filePath !== "string") {
     throw new Error("File path is required");
   }
-  if (path4.isAbsolute(filePath)) {
+  if (path5.isAbsolute(filePath)) {
     throw new Error(
       `Absolute paths are not allowed: "${filePath}". Paths must be relative to the project root.`
     );
   }
-  const resolvedRoot = path4.resolve(projectRoot);
-  const resolvedPath = path4.resolve(resolvedRoot, filePath);
-  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path4.sep)) {
+  const resolvedRoot = path5.resolve(projectRoot);
+  const resolvedPath = path5.resolve(resolvedRoot, filePath);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path5.sep)) {
     throw new Error(
       `Path "${filePath}" resolves outside the project directory. Refusing to write.`
     );
@@ -482,11 +493,11 @@ function safePath(projectRoot, filePath) {
 // src/server/api/write-shadows.ts
 import { Router } from "express";
 import fs6 from "fs/promises";
-import path6 from "path";
+import path7 from "path";
 
 // src/server/scanner/presets/w3c-design-tokens.ts
 import fs5 from "fs/promises";
-import path5 from "path";
+import path6 from "path";
 async function findDesignTokenFiles(projectRoot) {
   const candidates = [
     "tokens",
@@ -499,11 +510,11 @@ async function findDesignTokenFiles(projectRoot) {
   const found = [];
   for (const dir of candidates) {
     try {
-      const fullDir = path5.join(projectRoot, dir);
+      const fullDir = path6.join(projectRoot, dir);
       const entries = await fs5.readdir(fullDir);
       for (const entry of entries) {
         if (entry.endsWith(".tokens.json") || entry.endsWith(".tokens")) {
-          found.push(path5.join(dir, entry));
+          found.push(path6.join(dir, entry));
         }
       }
     } catch {
@@ -516,7 +527,7 @@ async function scanDesignTokenShadows(projectRoot, tokenFiles) {
   const tokens = [];
   for (const file of files) {
     try {
-      const content = await fs5.readFile(path5.join(projectRoot, file), "utf-8");
+      const content = await fs5.readFile(path6.join(projectRoot, file), "utf-8");
       const parsed = JSON.parse(content);
       extractShadowTokens(parsed, [], file, tokens);
     } catch {
@@ -729,7 +740,7 @@ function createShadowsRouter(projectRoot) {
       const { filePath, shadows } = req.body;
       const fullPath = safePath(projectRoot, filePath);
       const tokens = buildDesignTokensJson(shadows);
-      await fs6.mkdir(path6.dirname(fullPath), { recursive: true });
+      await fs6.mkdir(path7.dirname(fullPath), { recursive: true });
       await writeDesignTokensFile(fullPath, tokens);
       res.json({ ok: true, filePath, tokenCount: shadows.length });
     } catch (err) {
@@ -850,13 +861,13 @@ import { Router as Router2 } from "express";
 
 // ../core/src/scanner/scan-tokens.ts
 import fs7 from "fs/promises";
-import path7 from "path";
+import path8 from "path";
 async function scanTokens(projectRoot, framework) {
   if (framework.cssFiles.length === 0) {
     return { tokens: [], cssFilePath: "", groups: {} };
   }
   const cssFilePath = framework.cssFiles[0];
-  const fullPath = path7.join(projectRoot, cssFilePath);
+  const fullPath = path8.join(projectRoot, cssFilePath);
   const css = await fs7.readFile(fullPath, "utf-8");
   const rootTokens = parseBlock(css, ":root");
   const darkTokens = parseBlock(css, ".dark");
@@ -966,7 +977,7 @@ function detectColorFormat(value) {
 
 // src/server/scanner/scan-shadows.ts
 import fs9 from "fs/promises";
-import path9 from "path";
+import path10 from "path";
 
 // src/server/scanner/presets/tailwind.ts
 var TAILWIND_SHADOW_PRESETS = [
@@ -1014,7 +1025,7 @@ var TAILWIND_SHADOW_PRESETS = [
 
 // src/server/scanner/presets/bootstrap.ts
 import fs8 from "fs/promises";
-import path8 from "path";
+import path9 from "path";
 var BOOTSTRAP_SHADOW_PRESETS = [
   {
     name: "box-shadow-sm",
@@ -1037,7 +1048,7 @@ async function scanBootstrapScssOverrides(projectRoot, scssFiles) {
   const overrides = [];
   for (const file of scssFiles) {
     try {
-      const content = await fs8.readFile(path8.join(projectRoot, file), "utf-8");
+      const content = await fs8.readFile(path9.join(projectRoot, file), "utf-8");
       const lines = content.split("\n");
       for (const line of lines) {
         const match = line.match(
@@ -1065,7 +1076,7 @@ async function scanBootstrapCssOverrides(projectRoot, cssFiles) {
   const overrides = [];
   for (const file of cssFiles) {
     try {
-      const content = await fs8.readFile(path8.join(projectRoot, file), "utf-8");
+      const content = await fs8.readFile(path9.join(projectRoot, file), "utf-8");
       const propRegex = /(--bs-box-shadow(?:-sm|-lg|-inset)?)\s*:\s*([^;]+);/g;
       let match;
       while ((match = propRegex.exec(content)) !== null) {
@@ -1213,7 +1224,7 @@ async function scanCustomShadows(projectRoot, cssFiles) {
   const shadows = [];
   for (const file of cssFiles) {
     try {
-      const css = await fs9.readFile(path9.join(projectRoot, file), "utf-8");
+      const css = await fs9.readFile(path10.join(projectRoot, file), "utf-8");
       const rootTokens = parseBlock(css, ":root");
       for (const [name, value] of rootTokens) {
         if (name.includes("shadow") || isShadowValue(value)) {
@@ -1351,32 +1362,34 @@ function createShadowsScanRouter(projectRoot) {
 }
 
 // src/server/index.ts
-var __dirname = path10.dirname(fileURLToPath(import.meta.url));
+var __dirname = path11.dirname(fileURLToPath(import.meta.url));
 var require2 = createRequire(import.meta.url);
-var packageRoot = fs10.existsSync(path10.join(__dirname, "../package.json")) ? path10.resolve(__dirname, "..") : path10.resolve(__dirname, "../..");
+var packageRoot = fs10.existsSync(path11.join(__dirname, "../package.json")) ? path11.resolve(__dirname, "..") : path11.resolve(__dirname, "../..");
 function resolveInjectScript() {
-  const compiledInject = path10.join(packageRoot, "dist/inject/selection.js");
+  const compiledInject = path11.join(packageRoot, "dist/inject/selection.js");
   if (fs10.existsSync(compiledInject)) return compiledInject;
   try {
     const corePkg = require2.resolve("@designtools/core/package.json");
-    const coreRoot = path10.dirname(corePkg);
-    const coreInject = path10.join(coreRoot, "src/inject/selection.ts");
+    const coreRoot = path11.dirname(corePkg);
+    const coreInject = path11.join(coreRoot, "src/inject/selection.ts");
     if (fs10.existsSync(coreInject)) return coreInject;
   } catch {
   }
-  const monorepoInject = path10.join(packageRoot, "../core/src/inject/selection.ts");
+  const monorepoInject = path11.join(packageRoot, "../core/src/inject/selection.ts");
   if (fs10.existsSync(monorepoInject)) return monorepoInject;
   throw new Error(
     "Could not find inject script (selection.ts). Ensure @designtools/core is installed."
   );
 }
 async function startShadowsServer(preflight) {
-  const clientRoot = path10.join(packageRoot, "src/client");
+  const clientRoot = path11.join(packageRoot, "src/client");
+  const clientDistRoot = path11.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,
     toolPort: preflight.toolPort,
     clientRoot,
+    clientDistRoot,
     injectScriptPath: actualInjectPath,
     setupRoutes: (app2, projectRoot2) => {
       app2.use("/api/shadows", createShadowsRouter(projectRoot2));

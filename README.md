@@ -14,14 +14,15 @@ Visual editing CLI tools for design tokens, component variants, and shadows — 
 
 ## Try the demos
 
-Four demo apps cover the major styling approaches. Each is a self-contained Next.js app you can run alongside the tools.
+Five demo apps cover the major styling approaches. Each is a self-contained Next.js app you can run alongside the tools.
 
 | Demo | Styling | Shadows | Port |
 |------|---------|---------|------|
-| **Tailwind** (`packages/demo`) | Tailwind CSS v4, CVA, OKLch tokens | `@theme` shadow variables | 3000 |
+| **Studio** (`demos/studio-app`) | Tailwind CSS v4, CVA, OKLch tokens | Component editing demo | 3000 |
 | **Bootstrap** (`demos/bootstrap-app`) | Bootstrap 5 Sass + CSS custom properties | `$box-shadow-*` / `--bs-box-shadow-*` | 3001 |
 | **W3C Tokens** (`demos/w3c-tokens-app`) | W3C Design Tokens Format (DTCG) | `.tokens.json` with `$type: "shadow"` | 3002 |
 | **CSS Variables** (`demos/css-variables-app`) | Plain CSS custom properties | `--shadow-xs` through `--shadow-xl` | 3003 |
+| **Tailwind Shadows** (`demos/tailwind-shadows-app`) | Tailwind CSS v4 `@theme` | `--shadow-xs` through `--shadow-xl` | 3004 |
 
 ### Prerequisites
 
@@ -41,8 +42,8 @@ npm run build
 Then install the demo you want to try:
 
 ```bash
-# Tailwind demo
-cd packages/demo && npm install && cd ../..
+# Studio demo (Tailwind v4 + CVA)
+cd demos/studio-app && npm install && cd ../..
 
 # Bootstrap demo
 cd demos/bootstrap-app && npm install && cd ../..
@@ -52,6 +53,9 @@ cd demos/w3c-tokens-app && npm install && cd ../..
 
 # CSS Variables demo
 cd demos/css-variables-app && npm install && cd ../..
+
+# Tailwind Shadows demo
+cd demos/tailwind-shadows-app && npm install && cd ../..
 ```
 
 ### Run
@@ -61,13 +65,14 @@ You need two terminals — one for the demo app, one for the tool.
 **Terminal 1** — start a demo app:
 
 ```bash
-# Tailwind (port 3000)
+# Studio (port 3000)
 npm run demo
 
 # Or run any demo directly:
-cd demos/bootstrap-app && npm run dev      # port 3001
-cd demos/w3c-tokens-app && npm run dev     # port 3002
-cd demos/css-variables-app && npm run dev  # port 3003
+cd demos/bootstrap-app && npm run dev          # port 3001
+cd demos/w3c-tokens-app && npm run dev         # port 3002
+cd demos/css-variables-app && npm run dev      # port 3003
+cd demos/tailwind-shadows-app && npm run dev   # port 3004
 ```
 
 **Terminal 2** — start a tool (from the project root):
@@ -84,6 +89,7 @@ npx @designtools/studio --port 3003  # CSS Variables
 # Shadows tool
 npx @designtools/shadows
 npx @designtools/shadows --port 3001  # Bootstrap
+npx @designtools/shadows --port 3004  # Tailwind Shadows
 ```
 
 The studio opens at [http://localhost:4400](http://localhost:4400) and shadows at [http://localhost:4410](http://localhost:4410), with the demo app proxied inside.
@@ -145,12 +151,13 @@ designtools/
 ├── packages/
 │   ├── core/          Shared scanner, server, and client utilities
 │   ├── studio/        Main visual editing CLI
-│   ├── shadows/       Shadow-specific editing tool
-│   └── demo/          Tailwind CSS demo app
+│   └── shadows/       Shadow-specific editing tool
 ├── demos/
-│   ├── bootstrap-app/      Bootstrap 5 demo
-│   ├── w3c-tokens-app/     W3C Design Tokens demo
-│   └── css-variables-app/  Plain CSS variables demo
+│   ├── studio-app/              Tailwind CSS v4 + CVA demo
+│   ├── bootstrap-app/           Bootstrap 5 demo
+│   ├── w3c-tokens-app/          W3C Design Tokens demo
+│   ├── css-variables-app/       Plain CSS variables demo
+│   └── tailwind-shadows-app/    Tailwind CSS v4 shadows demo
 ```
 
 ## License

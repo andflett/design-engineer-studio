@@ -14,8 +14,10 @@ import tailwindcss from "@tailwindcss/vite";
 export interface ToolServerConfig {
   targetPort: number;
   toolPort: number;
-  /** Absolute path to the tool's client directory (where index.html lives) */
+  /** Absolute path to the tool's client source directory (for Vite dev mode) */
   clientRoot: string;
+  /** Absolute path to the pre-built client directory (served as static files in production) */
+  clientDistRoot?: string;
   /** Absolute path to the injection script file */
   injectScriptPath: string;
   /** URL path prefix for injection script (default: "/tool-inject.js") */
@@ -136,15 +138,29 @@ export async function createToolServer(config: ToolServerConfig): Promise<ToolSe
     config.setupRoutes(app, projectRoot);
   }
 
-  // --- Vite dev server for tool UI ---
-  const vite = await createViteServer({
-    configFile: false,
-    root: config.clientRoot,
-    plugins: [react(), tailwindcss()],
-    server: { middlewareMode: true },
-    appType: "spa",
-  });
-  app.use(vite.middlewares);
+  // --- Serve tool UI (pre-built static files or Vite dev server) ---
+  const distRoot = config.clientDistRoot ? path.resolve(config.clientDistRoot) : null;
+  const builtIndex = distRoot ? path.join(distRoot, "index.html") : null;
+  const hasBuiltClient = builtIndex && fs.existsSync(builtIndex);
+
+  if (hasBuiltClient) {
+    // Production: serve pre-built static assets
+    app.use(express.static(distRoot!));
+    // SPA fallback: serve index.html for all unmatched routes
+    app.use((_req, res) => {
+      res.sendFile(builtIndex);
+    });
+  } else {
+    // Development: run Vite dev server on source files
+    const vite = await createViteServer({
+      configFile: false,
+      root: config.clientRoot,
+      plugins: [react(), tailwindcss()],
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  }
 
   // --- Start server ---
   const server = app.listen(config.toolPort, () => {

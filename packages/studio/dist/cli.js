@@ -319,7 +319,7 @@ async function bootstrap(config) {
 }
 
 // src/server/index.ts
-import path8 from "path";
+import path9 from "path";
 import fs11 from "fs";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -330,6 +330,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import httpProxy from "http-proxy";
 import { WebSocketServer } from "ws";
 import fs4 from "fs";
+import path4 from "path";
 import zlib from "zlib";
 import open from "open";
 import { createServer as createViteServer } from "vite";
@@ -427,14 +428,24 @@ async function createToolServer(config) {
   if (config.setupRoutes) {
     config.setupRoutes(app, projectRoot);
   }
-  const vite = await createViteServer({
-    configFile: false,
-    root: config.clientRoot,
-    plugins: [react(), tailwindcss()],
-    server: { middlewareMode: true },
-    appType: "spa"
-  });
-  app.use(vite.middlewares);
+  const distRoot = config.clientDistRoot ? path4.resolve(config.clientDistRoot) : null;
+  const builtIndex = distRoot ? path4.join(distRoot, "index.html") : null;
+  const hasBuiltClient = builtIndex && fs4.existsSync(builtIndex);
+  if (hasBuiltClient) {
+    app.use(express.static(distRoot));
+    app.use((_req, res) => {
+      res.sendFile(builtIndex);
+    });
+  } else {
+    const vite = await createViteServer({
+      configFile: false,
+      root: config.clientRoot,
+      plugins: [react(), tailwindcss()],
+      server: { middlewareMode: true },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
+  }
   const server = app.listen(config.toolPort, () => {
     console.log(`  Tool running at http://localhost:${config.toolPort}`);
     open(`http://localhost:${config.toolPort}`);
@@ -459,19 +470,19 @@ async function createToolServer(config) {
 }
 
 // ../core/src/server/safe-path.ts
-import path4 from "path";
+import path5 from "path";
 function safePath(projectRoot, filePath) {
   if (!filePath || typeof filePath !== "string") {
     throw new Error("File path is required");
   }
-  if (path4.isAbsolute(filePath)) {
+  if (path5.isAbsolute(filePath)) {
     throw new Error(
       `Absolute paths are not allowed: "${filePath}". Paths must be relative to the project root.`
     );
   }
-  const resolvedRoot = path4.resolve(projectRoot);
-  const resolvedPath = path4.resolve(resolvedRoot, filePath);
-  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path4.sep)) {
+  const resolvedRoot = path5.resolve(projectRoot);
+  const resolvedPath = path5.resolve(resolvedRoot, filePath);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path5.sep)) {
     throw new Error(
       `Path "${filePath}" resolves outside the project directory. Refusing to write.`
     );
@@ -779,17 +790,17 @@ function addClassToElement(source, classIdentifier, newClass, lineHint) {
 // src/server/scanner/index.ts
 import { Router as Router4 } from "express";
 import fs10 from "fs/promises";
-import path7 from "path";
+import path8 from "path";
 
 // ../core/src/scanner/scan-tokens.ts
 import fs8 from "fs/promises";
-import path5 from "path";
+import path6 from "path";
 async function scanTokens(projectRoot, framework) {
   if (framework.cssFiles.length === 0) {
     return { tokens: [], cssFilePath: "", groups: {} };
   }
   const cssFilePath = framework.cssFiles[0];
-  const fullPath = path5.join(projectRoot, cssFilePath);
+  const fullPath = path6.join(projectRoot, cssFilePath);
   const css = await fs8.readFile(fullPath, "utf-8");
   const rootTokens = parseBlock(css, ":root");
   const darkTokens = parseBlock(css, ".dark");
@@ -899,7 +910,7 @@ function detectColorFormat(value) {
 
 // src/server/scanner/scan-components.ts
 import fs9 from "fs/promises";
-import path6 from "path";
+import path7 from "path";
 async function scanComponents(projectRoot) {
   const componentDirs = [
     "components/ui",
@@ -908,7 +919,7 @@ async function scanComponents(projectRoot) {
   let componentDir = "";
   for (const dir of componentDirs) {
     try {
-      await fs9.access(path6.join(projectRoot, dir));
+      await fs9.access(path7.join(projectRoot, dir));
       componentDir = dir;
       break;
     } catch {
@@ -917,13 +928,13 @@ async function scanComponents(projectRoot) {
   if (!componentDir) {
     return { components: [] };
   }
-  const fullDir = path6.join(projectRoot, componentDir);
+  const fullDir = path7.join(projectRoot, componentDir);
   const files = await fs9.readdir(fullDir);
   const tsxFiles = files.filter((f) => f.endsWith(".tsx"));
   const components = [];
   for (const file of tsxFiles) {
-    const filePath = path6.join(componentDir, file);
-    const source = await fs9.readFile(path6.join(projectRoot, filePath), "utf-8");
+    const filePath = path7.join(componentDir, file);
+    const source = await fs9.readFile(path7.join(projectRoot, filePath), "utf-8");
     const entry = parseComponent(source, filePath);
     if (entry) {
       components.push(entry);
@@ -1077,27 +1088,27 @@ function createStudioScanRouter(projectRoot) {
       const scan = cachedScan || await runScan(projectRoot);
       const appDir = scan.framework.appDir;
       const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").split("/");
-      const dir = path7.join(appDir, ...segments);
+      const dir = path8.join(appDir, ...segments);
       const candidates = [
-        path7.join(dir, "page.tsx"),
-        path7.join(dir, "page.jsx"),
-        path7.join(dir, "page.ts"),
-        path7.join(dir, "page.js"),
+        path8.join(dir, "page.tsx"),
+        path8.join(dir, "page.jsx"),
+        path8.join(dir, "page.ts"),
+        path8.join(dir, "page.js"),
         // Pages Router / Vite
-        path7.join(dir, "index.tsx"),
-        path7.join(dir, "index.jsx")
+        path8.join(dir, "index.tsx"),
+        path8.join(dir, "index.jsx")
       ];
       if (segments.length > 0) {
         const last = segments[segments.length - 1];
         const parent = segments.slice(0, -1);
         candidates.push(
-          path7.join(appDir, ...parent, `${last}.tsx`),
-          path7.join(appDir, ...parent, `${last}.jsx`)
+          path8.join(appDir, ...parent, `${last}.tsx`),
+          path8.join(appDir, ...parent, `${last}.jsx`)
         );
       }
       for (const candidate of candidates) {
         try {
-          await fs10.access(path7.join(projectRoot, candidate));
+          await fs10.access(path8.join(projectRoot, candidate));
           res.json({ filePath: candidate });
           return;
         } catch {
@@ -1112,32 +1123,34 @@ function createStudioScanRouter(projectRoot) {
 }
 
 // src/server/index.ts
-var __dirname = path8.dirname(fileURLToPath(import.meta.url));
+var __dirname = path9.dirname(fileURLToPath(import.meta.url));
 var require2 = createRequire(import.meta.url);
-var packageRoot = fs11.existsSync(path8.join(__dirname, "../package.json")) ? path8.resolve(__dirname, "..") : path8.resolve(__dirname, "../..");
+var packageRoot = fs11.existsSync(path9.join(__dirname, "../package.json")) ? path9.resolve(__dirname, "..") : path9.resolve(__dirname, "../..");
 function resolveInjectScript() {
-  const compiledInject = path8.join(packageRoot, "dist/inject/selection.js");
+  const compiledInject = path9.join(packageRoot, "dist/inject/selection.js");
   if (fs11.existsSync(compiledInject)) return compiledInject;
   try {
     const corePkg = require2.resolve("@designtools/core/package.json");
-    const coreRoot = path8.dirname(corePkg);
-    const coreInject = path8.join(coreRoot, "src/inject/selection.ts");
+    const coreRoot = path9.dirname(corePkg);
+    const coreInject = path9.join(coreRoot, "src/inject/selection.ts");
     if (fs11.existsSync(coreInject)) return coreInject;
   } catch {
   }
-  const monorepoInject = path8.join(packageRoot, "../core/src/inject/selection.ts");
+  const monorepoInject = path9.join(packageRoot, "../core/src/inject/selection.ts");
   if (fs11.existsSync(monorepoInject)) return monorepoInject;
   throw new Error(
     "Could not find inject script (selection.ts). Ensure @designtools/core is installed."
   );
 }
 async function startStudioServer(preflight) {
-  const clientRoot = path8.join(packageRoot, "src/client");
+  const clientRoot = path9.join(packageRoot, "src/client");
+  const clientDistRoot = path9.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,
     toolPort: preflight.toolPort,
     clientRoot,
+    clientDistRoot,
     injectScriptPath: actualInjectPath,
     setupRoutes: (app2, projectRoot2) => {
       app2.use("/api/tokens", createTokensRouter(projectRoot2));
