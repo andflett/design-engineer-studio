@@ -1,0 +1,10 @@
+// Bootstrap variable overrides — loaded before Bootstrap's own variables
+// Customize these to change Bootstrap's shadow defaults.
+
+$box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !default;
+$box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !default;
+$box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175) !default;
+$box-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.075) !default;
+
+$primary: #6366f1;
+$body-bg: #f8f9fc;
