@@ -301,10 +301,26 @@ async function bootstrap(config) {
   }
   console.log("");
   const targetUrl = `http://localhost:${targetPort}`;
-  try {
-    await fetch(targetUrl, { signal: AbortSignal.timeout(2e3) });
+  let targetReachable = false;
+  let waited = false;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    try {
+      await fetch(targetUrl, { signal: AbortSignal.timeout(2e3) });
+      targetReachable = true;
+      break;
+    } catch {
+      if (attempt === 0) {
+        process2.stdout.write(`  ${dim("Waiting for dev server at " + targetUrl + "...")}`);
+        waited = true;
+      }
+      await new Promise((r) => setTimeout(r, 1e3));
+    }
+  }
+  if (waited) process2.stdout.write("\r\x1B[K");
+  if (targetReachable) {
     console.log(`  ${green("\u2713")} Target         ${targetUrl}`);
-  } catch {
+  } else {
+    console.log("");
     console.log(`  ${red("\u2717")} No dev server at ${targetUrl}`);
     console.log(`    ${dim("Start your dev server first, then run this command.")}`);
     console.log(`    ${dim(`Use --port to specify a different port.`)}`);
