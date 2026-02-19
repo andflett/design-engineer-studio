@@ -21,12 +21,16 @@
     "build": "npm -w packages/studio run build && npm -w packages/shadows run build",
     "build:studio": "npm -w packages/studio run build",
     "build:shadows": "npm -w packages/shadows run build",
-    "demo": "cd demos/studio-app && npm run dev",
-    "demo:bootstrap": "cd demos/bootstrap-app && npm run dev",
-    "demo:w3c-tokens": "cd demos/w3c-tokens-app && npm run dev",
-    "demo:css-vars": "cd demos/css-variables-app && npm run dev",
-    "demo:tw-shadows": "cd demos/tailwind-shadows-app && npm run dev",
-    "publish:all": "bash scripts/publish.sh"
+    "publish": "bash scripts/publish.sh",
+    "publish:core": "bash scripts/publish.sh patch core",
+    "publish:studio": "bash scripts/publish.sh patch studio",
+    "publish:shadows": "bash scripts/publish.sh patch shadows",
+    "studio": "rm -rf packages/studio/dist/client && cd demos/studio-app && npm run dev & cd demos/studio-app && npx tsx ../../packages/studio/src/cli.ts",
+    "shadows": "rm -rf packages/shadows/dist/client && cd demos/tailwind-shadows-app && npm run dev & cd demos/tailwind-shadows-app && npx tsx ../../packages/shadows/src/cli.ts",
+    "shadows:bootstrap": "rm -rf packages/shadows/dist/client && cd demos/bootstrap-app && npm run dev & cd demos/bootstrap-app && npx tsx ../../packages/shadows/src/cli.ts",
+    "shadows:css-vars": "rm -rf packages/shadows/dist/client && cd demos/css-variables-app && npm run dev & cd demos/css-variables-app && npx tsx ../../packages/shadows/src/cli.ts",
+    "shadows:w3c-tokens": "rm -rf packages/shadows/dist/client && cd demos/w3c-tokens-app && npm run dev & cd demos/w3c-tokens-app && npx tsx ../../packages/shadows/src/cli.ts",
+    "shadows:studio-app": "rm -rf packages/shadows/dist/client && cd demos/studio-app && npm run dev & cd demos/studio-app && npx tsx ../../packages/shadows/src/cli.ts"
   },
   "engines": {
     "node": ">=18"

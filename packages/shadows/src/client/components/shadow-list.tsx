@@ -275,9 +275,8 @@ function PresetPicker({
     // Soft / diffuse
     { name: "Soft", value: "0px 1px 2px 0px rgb(0 0 0 / 0.04), 0px 2px 4px 0px rgb(0 0 0 / 0.04), 0px 4px 8px 0px rgb(0 0 0 / 0.04)", desc: "Diffuse" },
     { name: "Soft +", value: "0px 1px 2px 0px rgb(0 0 0 / 0.04), 0px 2px 4px 0px rgb(0 0 0 / 0.04), 0px 4px 8px 0px rgb(0 0 0 / 0.04), 0px 8px 16px 0px rgb(0 0 0 / 0.04)", desc: "Elevated" },
-    // Chunky — solid, hard shadow with minimal blur
-    { name: "Chunky", value: "0px 2px 0px 0px rgb(0 0 0 / 0.15), 0px 4px 0px 0px rgb(0 0 0 / 0.1)", desc: "Hard" },
-    { name: "Chunky +", value: "0px 2px 0px 0px rgb(0 0 0 / 0.15), 0px 4px 0px 0px rgb(0 0 0 / 0.1), 0px 8px 0px 0px rgb(0 0 0 / 0.07)", desc: "Elevated" },
+    // Chunky — solid, hard shadow offset to bottom-right
+    { name: "Chunky", value: "3px 3px 0px 0px rgb(0 0 0 / 0.25)", desc: "Hard" },
     // None
     { name: "None", value: "none", desc: "Remove" },
   ];

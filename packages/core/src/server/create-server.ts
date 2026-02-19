@@ -145,10 +145,10 @@ export async function createToolServer(config: ToolServerConfig): Promise<ToolSe
 
   if (hasBuiltClient) {
     // Production: serve pre-built static assets
-    app.use(express.static(distRoot!));
+    app.use(express.static(distRoot!, { dotfiles: "allow" }));
     // SPA fallback: serve index.html for all unmatched routes
     app.use((_req, res) => {
-      res.sendFile(builtIndex);
+      res.sendFile(builtIndex, { dotfiles: "allow" });
     });
   } else {
     // Development: run Vite dev server on source files

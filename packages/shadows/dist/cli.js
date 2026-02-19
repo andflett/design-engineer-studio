@@ -432,9 +432,9 @@ async function createToolServer(config) {
   const builtIndex = distRoot ? path4.join(distRoot, "index.html") : null;
   const hasBuiltClient = builtIndex && fs4.existsSync(builtIndex);
   if (hasBuiltClient) {
-    app.use(express.static(distRoot));
+    app.use(express.static(distRoot, { dotfiles: "allow" }));
     app.use((_req, res) => {
-      res.sendFile(builtIndex);
+      res.sendFile(builtIndex, { dotfiles: "allow" });
     });
   } else {
     const vite = await createViteServer({

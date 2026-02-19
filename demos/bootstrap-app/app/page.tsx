@@ -1,32 +1,36 @@
-const stats = [
-  { label: "Shadow Tokens", value: "6", change: "+2 new", up: true },
-  { label: "Components", value: "42", change: "All elevated", up: true },
-  { label: "Depth Levels", value: "4", change: "sm to xl", up: true },
-  { label: "Avg. Layers", value: "2.5", change: "Per token", up: true },
-];
+function Skeleton({ width, height = 12 }: { width: number | string; height?: number }) {
+  return (
+    <div
+      style={{
+        width,
+        height,
+        borderRadius: 4,
+        background: "currentColor",
+        opacity: 0.06,
+      }}
+    />
+  );
+}
 
-const elevations = [
-  { name: "shadow-sm", usage: "Cards, list items", layers: 2, status: "Active" },
-  { name: "shadow", usage: "Dropdowns, popovers", layers: 3, status: "Active" },
-  { name: "shadow-lg", usage: "Modals, drawers", layers: 3, status: "Active" },
-  { name: "shadow-inset", usage: "Input fields, wells", layers: 1, status: "Active" },
-  { name: "shadow-none", usage: "Flat surfaces", layers: 0, status: "Unused" },
-];
-
-export default function HomePage() {
+export default function ShadowTokensPage() {
   return (
     <>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h1 className="h5 fw-bold mb-0">Demo Site</h1>
+        <Skeleton width={80} height={32} />
+      </div>
+
       {/* Stat cards — shadow-sm */}
       <div className="row g-3 mb-4">
-        {stats.map((s) => (
-          <div key={s.label} className="col-sm-6 col-xl-3">
-            <div className="card shadow-sm border-0 h-100">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="col-sm-6 col-xl-3">
+            <div className="card shadow-sm border-0">
               <div className="card-body">
-                <p className="text-muted small mb-1">{s.label}</p>
-                <h4 className="fw-bold mb-1">{s.value}</h4>
-                <span className={`badge ${s.up ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger"}`}>
-                  {s.change}
-                </span>
+                <Skeleton width={80} height={10} />
+                <div className="my-2">
+                  <Skeleton width={40} height={24} />
+                </div>
+                <Skeleton width={96} height={10} />
               </div>
             </div>
           </div>
@@ -34,40 +38,31 @@ export default function HomePage() {
       </div>
 
       <div className="row g-3">
-        {/* Elevation table — default shadow */}
+        {/* Table — default shadow */}
         <div className="col-lg-8">
-          <div className="card shadow border-0">
-            <div className="card-header bg-white d-flex align-items-center justify-content-between py-3">
-              <h6 className="mb-0 fw-semibold">Elevation Scale</h6>
-              <button className="btn btn-sm btn-outline-primary">Edit Tokens</button>
+          <div className="card shadow border-0 overflow-hidden">
+            <div className="card-header bg-transparent d-flex align-items-center justify-content-between py-3 border-bottom">
+              <Skeleton width={112} height={14} />
+              <Skeleton width={64} height={24} />
             </div>
             <div className="card-body p-0">
               <table className="table table-hover mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th>Token</th>
-                    <th>Usage</th>
-                    <th>Layers</th>
-                    <th>Status</th>
+                    {[64, 96, 64, 56].map((w, i) => (
+                      <th key={i}>
+                        <Skeleton width={w} height={10} />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {elevations.map((e) => (
-                    <tr key={e.name}>
-                      <td className="fw-medium font-monospace" style={{ fontSize: 13 }}>{e.name}</td>
-                      <td>{e.usage}</td>
-                      <td className="text-muted">{e.layers}</td>
-                      <td>
-                        <span
-                          className={`badge rounded-pill ${
-                            e.status === "Active"
-                              ? "bg-success-subtle text-success"
-                              : "bg-warning-subtle text-warning"
-                          }`}
-                        >
-                          {e.status}
-                        </span>
-                      </td>
+                  {[1, 2, 3, 4, 5].map((row) => (
+                    <tr key={row}>
+                      <td><Skeleton width={64} height={10} /></td>
+                      <td><Skeleton width={96} height={10} /></td>
+                      <td><Skeleton width={48} height={10} /></td>
+                      <td><Skeleton width={56} height={18} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -76,49 +71,66 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Sidebar widgets — shadow-lg */}
+        {/* Right column */}
         <div className="col-lg-4 d-flex flex-column gap-3">
-          <div className="card shadow-lg border-0">
+          {/* Activity — shadow-lg */}
+          <div className="card shadow-lg border-0 overflow-hidden">
+            <div className="card-header bg-transparent py-3 border-bottom">
+              <Skeleton width={112} height={14} />
+            </div>
+            <div className="card-body p-0">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className={`px-3 py-2 ${i < 5 ? "border-bottom" : ""}`}
+                >
+                  <Skeleton width="100%" height={10} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Panel — shadow */}
+          <div className="card shadow border-0 text-center">
             <div className="card-body">
-              <h6 className="fw-semibold mb-3">Quick Actions</h6>
-              <div className="d-grid gap-2">
-                <button className="btn btn-primary">Apply Preset</button>
-                <button className="btn btn-outline-secondary">Export CSS</button>
-                <button className="btn btn-outline-secondary">Compare Presets</button>
+              <Skeleton width={96} height={14} />
+              <div className="row g-2 mt-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="col-6">
+                    <Skeleton width="100%" height={28} />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="card shadow border-0">
-            <div className="card-body">
-              <h6 className="fw-semibold mb-3">Recent Changes</h6>
-              <ul className="list-unstyled mb-0">
-                {[
-                  "Switched shadow-sm to crisp 3-layer",
-                  "Reduced shadow-lg opacity to 0.06",
-                  "Added tinted shadow color for cards",
-                  "Updated inset shadow blur radius",
-                ].map((item, i) => (
-                  <li
-                    key={i}
-                    className={`py-2 small ${i < 3 ? "border-bottom" : ""}`}
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Inset shadow example */}
+          {/* Progress — inset shadow */}
           <div
             className="card border-0"
-            style={{ boxShadow: "var(--bs-box-shadow-inset, inset 0 1px 2px rgba(0,0,0,.075))" }}
+            style={{ boxShadow: "var(--bs-box-shadow-lg, 0 1rem 3rem rgba(0,0,0,.175))" }}
           >
-            <div className="card-body text-center">
-              <small className="text-muted">Inset shadow preview</small>
-              <p className="mb-0 fw-semibold">shadow-inset</p>
-              <small className="text-muted">For wells and input fields</small>
+            <div className="card-body">
+              <Skeleton width={128} height={14} />
+              <div
+                className="mt-2 rounded-pill overflow-hidden"
+                style={{
+                  height: 8,
+                  boxShadow: "var(--bs-box-shadow-inset, inset 0 1px 2px rgba(0,0,0,.075))",
+                  background: "var(--bs-secondary-bg, #e9ecef)",
+                }}
+              >
+                <div
+                  className="rounded-pill"
+                  style={{
+                    width: "83%",
+                    height: "100%",
+                    background: "var(--bs-primary, #6366f1)",
+                  }}
+                />
+              </div>
+              <div className="mt-2">
+                <Skeleton width={144} height={10} />
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`bg-text/[0.06] rounded ${className}`} />;
+  return <div className={`rounded ${className}`} style={{ background: "currentColor", opacity: 0.06 }} />;
 }
 
 export default function ShadowTokensPage() {
@@ -15,7 +15,7 @@ export default function ShadowTokensPage() {
       {/* Stat cards — xs shadow */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-card rounded-lg shadow-xs p-5">
+          <div key={i} className="rounded-lg shadow-xs p-5" style={{ background: "var(--color-card)" }}>
             <Skeleton className="h-3 w-20 mb-2" />
             <Skeleton className="h-7 w-10 mb-1.5" />
             <Skeleton className="h-3 w-24" />
@@ -25,8 +25,8 @@ export default function ShadowTokensPage() {
 
       <div className="grid grid-cols-[2fr_1fr] gap-4 mb-6">
         {/* Table — sm shadow */}
-        <div className="bg-card rounded-lg shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="rounded-lg shadow-sm overflow-hidden" style={{ background: "var(--color-card)" }}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--color-border)" }}>
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-6 w-16 rounded-md" />
           </div>
@@ -34,7 +34,7 @@ export default function ShadowTokensPage() {
             <thead>
               <tr>
                 {["w-16", "w-24", "w-16", "w-14"].map((w, i) => (
-                  <th key={i} className="text-left px-5 py-2.5 bg-surface">
+                  <th key={i} className="text-left px-5 py-2.5" style={{ background: "var(--color-surface)" }}>
                     <Skeleton className={`h-3 ${w}`} />
                   </th>
                 ))}
@@ -43,10 +43,10 @@ export default function ShadowTokensPage() {
             <tbody>
               {[1, 2, 3, 4, 5].map((row) => (
                 <tr key={row}>
-                  <td className="px-5 py-2.5 border-t border-border"><Skeleton className="h-3 w-16" /></td>
-                  <td className="px-5 py-2.5 border-t border-border"><Skeleton className="h-3 w-24" /></td>
-                  <td className="px-5 py-2.5 border-t border-border"><Skeleton className="h-3 w-12" /></td>
-                  <td className="px-5 py-2.5 border-t border-border"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                  <td className="px-5 py-2.5" style={{ borderTop: "1px solid var(--color-border)" }}><Skeleton className="h-3 w-16" /></td>
+                  <td className="px-5 py-2.5" style={{ borderTop: "1px solid var(--color-border)" }}><Skeleton className="h-3 w-24" /></td>
+                  <td className="px-5 py-2.5" style={{ borderTop: "1px solid var(--color-border)" }}><Skeleton className="h-3 w-12" /></td>
+                  <td className="px-5 py-2.5" style={{ borderTop: "1px solid var(--color-border)" }}><Skeleton className="h-5 w-14 rounded-full" /></td>
                 </tr>
               ))}
             </tbody>
@@ -56,15 +56,16 @@ export default function ShadowTokensPage() {
         {/* Right column */}
         <div className="flex flex-col gap-4">
           {/* Activity — md shadow */}
-          <div className="bg-card rounded-lg shadow-md overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="rounded-lg shadow-md overflow-hidden" style={{ background: "var(--color-card)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--color-border)" }}>
               <Skeleton className="h-4 w-28" />
             </div>
             <div>
               {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className={`px-5 py-2.5 ${i < 5 ? "border-b border-border" : ""}`}
+                  className="px-5 py-2.5"
+                  style={i < 5 ? { borderBottom: "1px solid var(--color-border)" } : undefined}
                 >
                   <Skeleton className="h-3 w-full" />
                 </div>
@@ -73,7 +74,7 @@ export default function ShadowTokensPage() {
           </div>
 
           {/* Panel — lg shadow */}
-          <div className="bg-card rounded-lg shadow-lg p-5 text-center">
+          <div className="rounded-lg shadow-lg p-5 text-center" style={{ background: "var(--color-card)" }}>
             <Skeleton className="h-4 w-24 mx-auto mb-3" />
             <div className="grid grid-cols-2 gap-2">
               {[1, 2, 3, 4].map((i) => (
@@ -83,10 +84,10 @@ export default function ShadowTokensPage() {
           </div>
 
           {/* Progress — xl shadow + inner shadow */}
-          <div className="bg-card rounded-lg shadow-xl p-5">
+          <div className="rounded-lg shadow-xl p-5" style={{ background: "var(--color-card)" }}>
             <Skeleton className="h-4 w-32 mb-3" />
-            <div className="h-2 rounded-full shadow-inner bg-surface overflow-hidden">
-              <div className="w-[83%] h-full bg-accent rounded-full" />
+            <div className="h-2 rounded-full shadow-inner overflow-hidden" style={{ background: "var(--color-surface)" }}>
+              <div className="w-[83%] h-full rounded-full" style={{ background: "var(--color-accent)" }} />
             </div>
             <Skeleton className="h-3 w-36 mt-2" />
           </div>

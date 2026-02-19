@@ -1,7 +1,6 @@
 /*
  * Design tokens consumed from tokens/shadows.tokens.json.
  * These CSS variables mirror the W3C Design Token values for runtime use.
- * The studio can edit the .tokens.json source directly.
  */
 
 :root {
@@ -9,11 +8,11 @@
   --shadow-none: none;
   --shadow-low: 0px 1px 3px 0px rgba(0, 0, 0, 0.08);
   --shadow-medium: 0px 4px 8px -2px rgba(0, 0, 0, 0.08), 0px 2px 4px -2px rgba(0, 0, 0, 0.04);
-  --shadow-high: 0px 12px 24px -4px rgba(0, 0, 0, 0.12), 0px 4px 8px -2px rgba(0, 0, 0, 0.06);
+  --shadow-high: 0px 0.5px 1px 0px rgb(0 0 0 / 0.1), 0px 1px 3px 0px rgb(0 0 0 / 0.07), 0px 2px 6px 0px rgb(0 0 0 / 0.07);
   --shadow-highest: 0px 24px 48px -8px rgba(0, 0, 0, 0.16), 0px 8px 16px -4px rgba(0, 0, 0, 0.08);
 
   /* Colors */
-  --color-bg: #f9fafb;
+  --color-bg: #f0f4fa;
   --color-surface: #ffffff;
   --color-text: #111827;
   --color-text-secondary: #6b7280;
@@ -28,6 +27,16 @@
   --radius-lg: 12px;
 }
 
+/* Dark mode */
+.dark {
+  --color-bg: #111827;
+  --color-surface: #1f2937;
+  --color-text: #f3f4f6;
+  --color-text-secondary: #9ca3af;
+  --color-border: #374151;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -39,13 +48,32 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Utility classes */
+/* Layout */
+.page-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Card system */
 .card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
   padding: 20px;
 }
 
@@ -54,36 +82,54 @@ body {
 .card-high { box-shadow: var(--shadow-high); }
 .card-highest { box-shadow: var(--shadow-highest); }
 
-.btn {
-  display: inline-flex;
+.card-header {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: var(--radius);
-  border: none;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.btn:hover { opacity: 0.85; }
-
-.btn-accent {
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-}
-.btn-outline {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
+.table th {
+  text-align: left;
+  padding: 10px 20px;
   font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
 }
+
+.table td {
+  padding: 10px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Skeleton */
+.skeleton {
+  background: currentColor;
+  opacity: 0.06;
+}
+
+/* Grid */
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.grid-2-1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+/* Helpers */
+.mb-6 { margin-bottom: 24px; }
+.gap-16 { gap: 16px; }
+.flex-col { display: flex; flex-direction: column; }

@@ -185,10 +185,7 @@ File modifications are regex-based find-and-replace on the source text. No AST p
 
 | Service | Default port |
 |---------|-------------|
-| Target app (Tailwind demo) | 3000 |
-| Bootstrap demo | 3001 |
-| W3C tokens demo | 3002 |
-| CSS variables demo | 3003 |
+| Demos | 3000 |
 | Studio tool | 4400 |
 | Studio Vite dev | 4401 |
 | Shadows tool | 4410 |
@@ -213,7 +210,7 @@ npm run build
 ### Run a demo with a tool
 
 Terminal 1: `npm run demo` (or `npm run demo:bootstrap`, etc.)
-Terminal 2: `npx designtools-studio --port 3001` (or the tool of choice)
+Terminal 2: `npx designtools-studio` (or the tool of choice)
 
 ### Add a framework preset (shadows)
 

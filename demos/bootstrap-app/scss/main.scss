@@ -4,3 +4,37 @@
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+// Dark mode — activated by .dark class on <html>
+.dark {
+  --bs-body-bg: #111827;
+  --bs-body-color: #e5e7eb;
+  --bs-secondary-bg: #1f2937;
+  --bs-tertiary-bg: #374151;
+  --bs-border-color: #374151;
+
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color) !important;
+
+  .card {
+    --bs-card-bg: #1f2937;
+    --bs-card-color: #e5e7eb;
+    --bs-card-border-color: #374151;
+  }
+
+  .table {
+    --bs-table-bg: #1f2937;
+    --bs-table-color: #e5e7eb;
+    --bs-table-border-color: #374151;
+    --bs-table-hover-bg: #374151;
+  }
+
+  .table-light {
+    --bs-table-bg: #111827;
+    --bs-table-color: #9ca3af;
+  }
+
+  .card-header {
+    border-color: #374151;
+  }
+}

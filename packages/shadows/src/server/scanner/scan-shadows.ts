@@ -60,9 +60,9 @@ export async function scanShadows(
   styling: StylingSystem
 ): Promise<ShadowMap> {
   const shadows: ShadowDefinition[] = [];
-  // Prefer framework.cssFiles, fall back to styling.cssFiles
+  // Prefer framework.cssFiles, fall back to styling.cssFiles, then styling.scssFiles
   const allCssFiles = framework.cssFiles.length > 0 ? framework.cssFiles : styling.cssFiles;
-  const cssFilePath = allCssFiles[0] || "";
+  const cssFilePath = allCssFiles[0] || styling.scssFiles?.[0] || "";
 
   // 1. Scan CSS files for custom shadow variables/values
   const customShadows = await scanCustomShadows(projectRoot, allCssFiles);

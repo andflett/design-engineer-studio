@@ -145,12 +145,28 @@ export async function bootstrap(config: ToolConfig): Promise<PreflightResult> {
 
   console.log("");
 
-  // 4. Check target dev server
+  // 4. Check target dev server (retry for up to 15 seconds to allow concurrent startup)
   const targetUrl = `http://localhost:${targetPort}`;
-  try {
-    await fetch(targetUrl, { signal: AbortSignal.timeout(2000) });
+  let targetReachable = false;
+  let waited = false;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    try {
+      await fetch(targetUrl, { signal: AbortSignal.timeout(2000) });
+      targetReachable = true;
+      break;
+    } catch {
+      if (attempt === 0) {
+        process.stdout.write(`  ${dim("Waiting for dev server at " + targetUrl + "...")}`);
+        waited = true;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+  if (waited) process.stdout.write("\r\x1b[K");
+  if (targetReachable) {
     console.log(`  ${green("✓")} Target         ${targetUrl}`);
-  } catch {
+  } else {
+    console.log("");
     console.log(`  ${red("✗")} No dev server at ${targetUrl}`);
     console.log(`    ${dim("Start your dev server first, then run this command.")}`);
     console.log(`    ${dim(`Use --port to specify a different port.`)}`);

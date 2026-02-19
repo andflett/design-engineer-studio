@@ -4,6 +4,7 @@ import {
   TrashIcon,
   MoveIcon,
 } from "@radix-ui/react-icons";
+import { ColorPicker } from "./color-picker.js";
 
 interface ShadowLayer {
   offsetX: string;
@@ -224,21 +225,10 @@ function LayerEditor({
       </div>
 
       {/* Color */}
-      <div className="mt-1.5">
-        <div
-          className="text-[9px] font-medium mb-0.5"
-          style={{ color: "var(--studio-text-dimmed)" }}
-        >
-          Color
-        </div>
-        <input
-          type="text"
-          value={layer.color}
-          onChange={(e) => onChange({ color: e.target.value })}
-          className="studio-input w-full"
-          style={{ fontSize: 10 }}
-        />
-      </div>
+      <ColorPicker
+        color={layer.color}
+        onChange={(color) => onChange({ color })}
+      />
     </div>
   );
 }

@@ -94,6 +94,22 @@ export function ShadowEditorPanel({
           >
             {scanData.shadows.shadows.length} shadow
             {scanData.shadows.shadows.length !== 1 ? "s" : ""} found
+            {scanData.shadows.stylingType && (
+              <span style={{ color: "var(--studio-text-dimmed)" }}>
+                {" "}
+                &middot;{" "}
+                {
+                  ({
+                    "tailwind-v4": "Tailwind CSS v4",
+                    "tailwind-v3": "Tailwind CSS v3",
+                    bootstrap: "Bootstrap",
+                    "css-variables": "CSS Variables",
+                    "plain-css": "Plain CSS",
+                  } as Record<string, string>)[scanData.shadows.stylingType] ??
+                    scanData.shadows.stylingType
+                }
+              </span>
+            )}
           </div>
         </div>
         <ShadowPreviewSettingsButton
