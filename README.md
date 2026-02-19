@@ -65,31 +65,26 @@ You need two terminals — one for the demo app, one for the tool.
 **Terminal 1** — start a demo app:
 
 ```bash
-# Studio (port 3000)
+# Studio 
 npm run demo
 
 # Or run any demo directly:
-cd demos/bootstrap-app && npm run dev          # port 3001
-cd demos/w3c-tokens-app && npm run dev         # port 3002
-cd demos/css-variables-app && npm run dev      # port 3003
-cd demos/tailwind-shadows-app && npm run dev   # port 3004
+cd demos/bootstrap-app && npm run dev         
+cd demos/w3c-tokens-app && npm run dev         
+cd demos/css-variables-app && npm run dev      
+cd demos/tailwind-shadows-app && npm run dev   
 ```
 
 **Terminal 2** — start a tool (from the project root):
 
 ```bash
-# Studio — default (connects to port 3000)
+# Studio — default
+cd demos/studio-app
 npx @designtools/studio
 
-# Studio — for other demos, pass --port:
-npx @designtools/studio --port 3001  # Bootstrap
-npx @designtools/studio --port 3002  # W3C Tokens
-npx @designtools/studio --port 3003  # CSS Variables
-
-# Shadows tool
+# Shadows – Tailwind v4 demo
+cd demos/tailwind-shadows-app
 npx @designtools/shadows
-npx @designtools/shadows --port 3001  # Bootstrap
-npx @designtools/shadows --port 3004  # Tailwind Shadows
 ```
 
 The studio opens at [http://localhost:4400](http://localhost:4400) and shadows at [http://localhost:4410](http://localhost:4410), with the demo app proxied inside.
