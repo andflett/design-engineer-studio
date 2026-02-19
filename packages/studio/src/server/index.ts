@@ -5,7 +5,7 @@ import { createRequire } from "module";
 import { createToolServer } from "@designtools/core/server";
 import { createTokensRouter } from "./api/write-tokens.js";
 import { createComponentRouter } from "./api/write-component.js";
-import { createElementRouter } from "./api/write-element.js";
+import { createElementRouter, cleanupStaleMarkers } from "./api/write-element.js";
 import { createStudioScanRouter } from "./scanner/index.js";
 import type { PreflightResult } from "@designtools/core/cli";
 
@@ -57,6 +57,9 @@ export async function startStudioServer(preflight: PreflightResult) {
       app.use("/scan", createStudioScanRouter(projectRoot));
     },
   });
+
+  // Clean up any data-studio-eid markers left from a previous session
+  cleanupStaleMarkers(projectRoot).catch(() => {});
 
   return { app, wss, projectRoot };
 }

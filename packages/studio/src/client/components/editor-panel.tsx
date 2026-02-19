@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Cross2Icon,
   MixerHorizontalIcon,
@@ -54,6 +54,8 @@ export function EditorPanel({
   const [activeMode, setActiveMode] = useState<EditMode>("instance");
   const [saving, setSaving] = useState(false);
   const [pageFilePath, setPageFilePath] = useState<string | null>(null);
+  const [eid, setEid] = useState<string | null>(null);
+  const eidRef = useRef<{ eid: string; filePath: string } | null>(null);
 
   // Resolve the current iframe route to a source file path for instance/element edits
   useEffect(() => {
@@ -62,6 +64,23 @@ export function EditorPanel({
       .then((data) => setPageFilePath(data.filePath || null))
       .catch(() => setPageFilePath(null));
   }, [iframePath]);
+
+  // Reset eid when a different element is selected, removing old marker
+  useEffect(() => {
+    if (eidRef.current) {
+      removeElementMarker(eidRef.current.filePath, eidRef.current.eid);
+      eidRef.current = null;
+    }
+    setEid(null);
+  }, [element.domPath]);
+
+  const handleClose = () => {
+    if (eidRef.current) {
+      removeElementMarker(eidRef.current.filePath, eidRef.current.eid);
+      eidRef.current = null;
+    }
+    onClose();
+  };
 
   const elementName = isComponent
     ? componentEntry?.name || element.dataSlot
@@ -141,7 +160,7 @@ export function EditorPanel({
           )}
         </div>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="studio-icon-btn"
           style={{ width: 24, height: 24 }}
         >
@@ -256,15 +275,43 @@ export function EditorPanel({
                 <PropertyPanel
                   classes={element.className}
                   onClassChange={(oldClass, newClass) => {
-                    const filePath = pageFilePath || componentEntry?.filePath || "";
-                    withSave(() =>
-                      handleElementClassChange(
-                        filePath,
-                        element.className,
-                        oldClass,
-                        newClass
-                      )
-                    );
+                    if (isComponent && componentEntry) {
+                      // Component instance: add className override on the instance in the page file.
+                      // tailwind-merge will resolve the override over the CVA base classes.
+                      const filePath = pageFilePath || "";
+                      withSave(async () => {
+                        const returnedEid = await handleInstanceOverride(
+                          filePath,
+                          componentEntry.name,
+                          oldClass,
+                          newClass,
+                          eid,
+                          element.textContent?.slice(0, 30)
+                        );
+                        if (returnedEid) {
+                          setEid(returnedEid);
+                          eidRef.current = { eid: returnedEid, filePath };
+                        }
+                      });
+                    } else {
+                      // Plain element: replace class directly in the page file.
+                      const filePath = pageFilePath || componentEntry?.filePath || "";
+                      withSave(async () => {
+                        const returnedEid = await handleElementClassChange(
+                          filePath,
+                          element.className,
+                          oldClass,
+                          newClass,
+                          eid,
+                          element.tag,
+                          element.textContent?.slice(0, 30)
+                        );
+                        if (returnedEid) {
+                          setEid(returnedEid);
+                          eidRef.current = { eid: returnedEid, filePath };
+                        }
+                      });
+                    }
                   }}
                   tokenGroups={scanData?.tokens.groups || {}}
                 />
@@ -519,12 +566,49 @@ async function handleInstancePropChange(
   }
 }
 
+async function handleInstanceOverride(
+  filePath: string,
+  componentName: string,
+  oldClass: string,
+  newClass: string,
+  eid?: string | null,
+  textHint?: string
+): Promise<string | null> {
+  try {
+    const res = await fetch("/api/element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "instanceOverride",
+        filePath,
+        componentName,
+        oldClass,
+        newClass,
+        eid: eid || undefined,
+        textHint,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error("Instance override failed:", data.error);
+      return null;
+    }
+    return data.eid || null;
+  } catch (err) {
+    console.error("Instance override error:", err);
+    return null;
+  }
+}
+
 async function handleElementClassChange(
   filePath: string,
   classIdentifier: string,
   oldClass: string,
-  newClass: string
-) {
+  newClass: string,
+  eid?: string | null,
+  tag?: string,
+  textHint?: string
+): Promise<string | null> {
   try {
     const res = await fetch("/api/element", {
       method: "POST",
@@ -532,23 +616,36 @@ async function handleElementClassChange(
       body: JSON.stringify({
         type: "class",
         filePath,
-        classIdentifier: truncateToWholeClass(classIdentifier, 80),
+        classIdentifier,
         oldClass,
         newClass,
+        eid: eid || undefined,
+        tag,
+        textHint,
       }),
     });
     const data = await res.json();
-    if (!data.ok) console.error("Element write failed:", data.error);
+    if (!data.ok) {
+      console.error("Element write failed:", data.error);
+      return null;
+    }
+    return data.eid || null;
   } catch (err) {
     console.error("Element write error:", err);
+    return null;
   }
 }
 
-function truncateToWholeClass(classStr: string, maxLen: number): string {
-  if (classStr.length <= maxLen) return classStr;
-  const truncated = classStr.slice(0, maxLen);
-  const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
+async function removeElementMarker(filePath: string, eid: string) {
+  try {
+    await fetch("/api/element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "removeMarker", filePath, eid }),
+    });
+  } catch {
+    // Best-effort cleanup; stale markers are removed on next server start
+  }
 }
 
 function extractTokenReferences(

@@ -636,6 +636,7 @@ function replaceClassInComponent(source, oldClass, newClass, variantContext) {
 // src/server/api/write-element.ts
 import { Router as Router3 } from "express";
 import fs7 from "fs/promises";
+import crypto from "crypto";
 function createElementRouter(projectRoot) {
   const router = Router3();
   router.post("/", async (req, res) => {
@@ -644,13 +645,18 @@ function createElementRouter(projectRoot) {
       const fullPath = safePath(projectRoot, body.filePath);
       let source = await fs7.readFile(fullPath, "utf-8");
       if (body.type === "class") {
-        source = replaceClassInElement(
-          source,
-          body.classIdentifier,
-          body.oldClass,
-          body.newClass,
-          body.lineHint
-        );
+        const result = replaceClassInElement(source, {
+          eid: body.eid,
+          classIdentifier: body.classIdentifier,
+          oldClass: body.oldClass,
+          newClass: body.newClass,
+          tag: body.tag,
+          textHint: body.textHint,
+          lineHint: body.lineHint
+        });
+        source = result.source;
+        await fs7.writeFile(fullPath, source, "utf-8");
+        res.json({ ok: true, eid: result.eid });
       } else if (body.type === "prop") {
         source = replacePropInElement(
           source,
@@ -660,16 +666,37 @@ function createElementRouter(projectRoot) {
           body.lineHint,
           body.textHint
         );
+        await fs7.writeFile(fullPath, source, "utf-8");
+        res.json({ ok: true });
       } else if (body.type === "addClass") {
-        source = addClassToElement(
-          source,
-          body.classIdentifier,
-          body.newClass,
-          body.lineHint
-        );
+        const result = addClassToElement(source, {
+          eid: body.eid,
+          classIdentifier: body.classIdentifier,
+          newClass: body.newClass,
+          tag: body.tag,
+          textHint: body.textHint,
+          lineHint: body.lineHint
+        });
+        source = result.source;
+        await fs7.writeFile(fullPath, source, "utf-8");
+        res.json({ ok: true, eid: result.eid });
+      } else if (body.type === "instanceOverride") {
+        const result = overrideClassOnInstance(source, {
+          eid: body.eid,
+          componentName: body.componentName,
+          oldClass: body.oldClass,
+          newClass: body.newClass,
+          textHint: body.textHint,
+          lineHint: body.lineHint
+        });
+        source = result.source;
+        await fs7.writeFile(fullPath, source, "utf-8");
+        res.json({ ok: true, eid: result.eid });
+      } else if (body.type === "removeMarker") {
+        source = removeMarker(source, body.eid);
+        await fs7.writeFile(fullPath, source, "utf-8");
+        res.json({ ok: true });
       }
-      await fs7.writeFile(fullPath, source, "utf-8");
-      res.json({ ok: true });
     } catch (err) {
       console.error("Element write error:", err);
       res.status(500).json({ error: err.message });
@@ -677,39 +704,295 @@ function createElementRouter(projectRoot) {
   });
   return router;
 }
-function replaceClassInElement(source, classIdentifier, oldClass, newClass, lineHint) {
+async function cleanupStaleMarkers(projectRoot) {
+  const ignore = /* @__PURE__ */ new Set(["node_modules", ".next", "dist", ".git"]);
+  const exts = /* @__PURE__ */ new Set([".tsx", ".jsx", ".html"]);
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await fs7.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (ignore.has(entry.name)) continue;
+      const full = dir + "/" + entry.name;
+      if (entry.isDirectory()) {
+        await walk(full);
+      } else if (exts.has(entry.name.slice(entry.name.lastIndexOf(".")))) {
+        const content = await fs7.readFile(full, "utf-8");
+        if (content.includes("data-studio-eid=")) {
+          const cleaned = content.replace(/ data-studio-eid="[^"]*"/g, "");
+          await fs7.writeFile(full, cleaned, "utf-8");
+        }
+      }
+    }
+  }
+  await walk(projectRoot);
+}
+function generateEid() {
+  return "s" + crypto.randomBytes(4).toString("hex");
+}
+function removeMarker(source, eid) {
+  return source.replace(
+    new RegExp(` data-studio-eid="${eid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`, "g"),
+    ""
+  );
+}
+function insertMarkerNearLine(lines, nearIdx, eid) {
+  for (let i = nearIdx; i >= Math.max(0, nearIdx - 10); i--) {
+    const tagMatch = lines[i].match(/<([A-Za-z][A-Za-z0-9.]*)/);
+    if (tagMatch) {
+      const tagPos = lines[i].indexOf(tagMatch[0]) + tagMatch[0].length;
+      lines[i] = lines[i].slice(0, tagPos) + ` data-studio-eid="${eid}"` + lines[i].slice(tagPos);
+      return;
+    }
+  }
+}
+function findElementLine(lines, opts) {
+  if (opts.eid) {
+    const markerStr = `data-studio-eid="${opts.eid}"`;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(markerStr)) {
+        const oldEscaped2 = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b${oldEscaped2}\\b`);
+        for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 10); j++) {
+          if (regex.test(lines[j])) return j;
+        }
+        return i;
+      }
+    }
+  }
+  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const oldClassRegex = new RegExp(`\\b${oldEscaped}\\b`);
+  const candidates = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (oldClassRegex.test(lines[i])) {
+      candidates.push(i);
+    }
+  }
+  if (candidates.length === 0) return -1;
+  if (candidates.length === 1) return candidates[0];
+  const identifierClasses = opts.classIdentifier.split(/\s+/).filter(Boolean);
+  let bestIdx = -1;
+  let bestScore = -Infinity;
+  for (const cIdx of candidates) {
+    let score = 0;
+    const nearbyText = lines.slice(Math.max(0, cIdx - 5), Math.min(lines.length, cIdx + 6)).join(" ");
+    let classMatches = 0;
+    for (const cls of identifierClasses) {
+      const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp(`\\b${escaped}\\b`).test(nearbyText)) {
+        classMatches++;
+        score += 2;
+      }
+    }
+    if (opts.tag) {
+      const lcTag = `<${opts.tag}`;
+      const ucTag = `<${opts.tag.charAt(0).toUpperCase()}${opts.tag.slice(1)}`;
+      if (nearbyText.includes(lcTag) || nearbyText.includes(ucTag)) {
+        score += 5;
+      }
+    }
+    if (opts.textHint) {
+      const textNearby = lines.slice(Math.max(0, cIdx - 2), Math.min(lines.length, cIdx + 5)).join(" ");
+      if (textNearby.includes(opts.textHint)) {
+        score += 3;
+      }
+    }
+    if (opts.lineHint !== void 0) {
+      const distance = Math.abs(cIdx - opts.lineHint);
+      score += Math.max(0, 10 - distance);
+    }
+    const minRequired = Math.min(3, Math.ceil(identifierClasses.length * 0.3));
+    if (classMatches < minRequired) {
+      score = -1e3;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = cIdx;
+    }
+  }
+  return bestIdx;
+}
+function replaceClassInElement(source, opts) {
   const lines = source.split("\n");
-  const searchStart = lineHint ? Math.max(0, lineHint - 5) : 0;
-  const searchEnd = lineHint ? Math.min(lines.length, lineHint + 5) : lines.length;
-  let targetLineIdx = -1;
-  for (let i = searchStart; i < searchEnd; i++) {
-    if (lines[i].includes(classIdentifier)) {
-      targetLineIdx = i;
+  const targetLineIdx = findElementLine(lines, opts);
+  if (targetLineIdx === -1) {
+    throw new Error(
+      `Could not find element with class "${opts.oldClass}" in source`
+    );
+  }
+  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`\\b${oldEscaped}\\b`, "g");
+  let replaced = false;
+  for (let i = Math.max(0, targetLineIdx - 2); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
+    if (regex.test(lines[i])) {
+      regex.lastIndex = 0;
+      lines[i] = lines[i].replace(regex, opts.newClass);
+      replaced = true;
       break;
     }
   }
-  if (targetLineIdx === -1) {
+  if (!replaced) {
+    throw new Error(`Class "${opts.oldClass}" not found near the identified element`);
+  }
+  let eid = opts.eid || "";
+  if (!eid) {
+    eid = generateEid();
+    insertMarkerNearLine(lines, targetLineIdx, eid);
+  }
+  return { source: lines.join("\n"), eid };
+}
+function addClassToElement(source, opts) {
+  const lines = source.split("\n");
+  let targetLineIdx = -1;
+  if (opts.eid) {
+    const markerStr = `data-studio-eid="${opts.eid}"`;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(classIdentifier)) {
+      if (lines[i].includes(markerStr)) {
         targetLineIdx = i;
         break;
       }
     }
   }
   if (targetLineIdx === -1) {
-    throw new Error(
-      `Could not find element with class identifier "${classIdentifier}"`
-    );
-  }
-  const oldEscaped = oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`\\b${oldEscaped}\\b`, "g");
-  for (let i = Math.max(0, targetLineIdx - 2); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
-    if (regex.test(lines[i])) {
-      lines[i] = lines[i].replace(regex, newClass);
-      return lines.join("\n");
+    const identifierClasses = opts.classIdentifier.split(/\s+/).filter(Boolean);
+    const anchor = identifierClasses.sort((a, b) => b.length - a.length)[0];
+    if (anchor) {
+      const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const anchorRegex = new RegExp(`\\b${escaped}\\b`);
+      const candidates = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (anchorRegex.test(lines[i])) candidates.push(i);
+      }
+      if (candidates.length === 1) {
+        targetLineIdx = candidates[0];
+      } else if (candidates.length > 1 && opts.lineHint !== void 0) {
+        targetLineIdx = candidates.reduce(
+          (closest, c) => Math.abs(c - opts.lineHint) < Math.abs(closest - opts.lineHint) ? c : closest
+        );
+      } else if (candidates.length > 0) {
+        targetLineIdx = candidates[0];
+      }
     }
   }
-  throw new Error(`Class "${oldClass}" not found near the identified element`);
+  if (targetLineIdx === -1) {
+    throw new Error(`Could not find element with class identifier "${opts.classIdentifier}"`);
+  }
+  const classNameRegex = /className="([^"]*)"/;
+  for (let i = Math.max(0, targetLineIdx - 3); i <= Math.min(lines.length - 1, targetLineIdx + 5); i++) {
+    const match = lines[i].match(classNameRegex);
+    if (match) {
+      const existingClasses = match[1];
+      lines[i] = lines[i].replace(
+        `className="${existingClasses}"`,
+        `className="${existingClasses} ${opts.newClass}"`
+      );
+      let eid = opts.eid || "";
+      if (!eid) {
+        eid = generateEid();
+        insertMarkerNearLine(lines, i, eid);
+      }
+      return { source: lines.join("\n"), eid };
+    }
+  }
+  throw new Error(`Could not find className near the identified element`);
+}
+function overrideClassOnInstance(source, opts) {
+  const lines = source.split("\n");
+  let componentLineIdx = -1;
+  if (opts.eid) {
+    const markerStr = `data-studio-eid="${opts.eid}"`;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(markerStr)) {
+        componentLineIdx = i;
+        break;
+      }
+    }
+  }
+  if (componentLineIdx === -1) {
+    const candidateLines = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(`<${opts.componentName}`)) {
+        candidateLines.push(i);
+      }
+    }
+    if (candidateLines.length === 0) {
+      throw new Error(`Component <${opts.componentName}> not found`);
+    }
+    if (candidateLines.length === 1) {
+      componentLineIdx = candidateLines[0];
+    } else {
+      let bestIdx = candidateLines[0];
+      let bestScore = -Infinity;
+      for (const cIdx of candidateLines) {
+        let score = 0;
+        if (opts.textHint) {
+          const nearby = lines.slice(cIdx, Math.min(cIdx + 5, lines.length)).join(" ");
+          if (nearby.includes(opts.textHint)) score += 10;
+        }
+        if (opts.lineHint !== void 0) {
+          score += Math.max(0, 20 - Math.abs(cIdx - opts.lineHint));
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = cIdx;
+        }
+      }
+      componentLineIdx = bestIdx;
+    }
+  }
+  let tagEnd = componentLineIdx;
+  let depth = 0;
+  for (let i = componentLineIdx; i < lines.length; i++) {
+    for (const ch of lines[i]) {
+      if (ch === "<") depth++;
+      if (ch === ">") {
+        depth--;
+        if (depth <= 0) {
+          tagEnd = i;
+          break;
+        }
+      }
+    }
+    if (depth <= 0) break;
+  }
+  const classNameRegex = /className="([^"]*)"/;
+  let classNameFound = false;
+  for (let i = componentLineIdx; i <= tagEnd; i++) {
+    const match = lines[i].match(classNameRegex);
+    if (match) {
+      classNameFound = true;
+      const existingClasses = match[1];
+      const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const oldRegex = new RegExp(`\\b${oldEscaped}\\b`);
+      if (oldRegex.test(existingClasses)) {
+        const updated = existingClasses.replace(oldRegex, opts.newClass).replace(/\s+/g, " ").trim();
+        lines[i] = lines[i].replace(
+          `className="${existingClasses}"`,
+          `className="${updated}"`
+        );
+      } else {
+        lines[i] = lines[i].replace(
+          `className="${existingClasses}"`,
+          `className="${existingClasses} ${opts.newClass}"`
+        );
+      }
+      break;
+    }
+  }
+  if (!classNameFound) {
+    const componentTag = lines[componentLineIdx];
+    const insertPos = componentTag.indexOf(`<${opts.componentName}`) + `<${opts.componentName}`.length;
+    lines[componentLineIdx] = componentTag.slice(0, insertPos) + ` className="${opts.newClass}"` + componentTag.slice(insertPos);
+  }
+  let eid = opts.eid || "";
+  if (!eid) {
+    eid = generateEid();
+    insertMarkerNearLine(lines, componentLineIdx, eid);
+  }
+  return { source: lines.join("\n"), eid };
 }
 function replacePropInElement(source, componentName, propName, propValue, lineHint, textHint) {
   const lines = source.split("\n");
@@ -765,42 +1048,6 @@ function replacePropInElement(source, componentName, propName, propValue, lineHi
   const insertPos = componentTag.indexOf(`<${componentName}`) + `<${componentName}`.length;
   lines[componentLineIdx] = componentTag.slice(0, insertPos) + ` ${propName}="${propValue}"` + componentTag.slice(insertPos);
   return lines.join("\n");
-}
-function addClassToElement(source, classIdentifier, newClass, lineHint) {
-  const lines = source.split("\n");
-  const searchStart = lineHint ? Math.max(0, lineHint - 5) : 0;
-  const searchEnd = lineHint ? Math.min(lines.length, lineHint + 5) : lines.length;
-  let targetLineIdx = -1;
-  for (let i = searchStart; i < searchEnd; i++) {
-    if (lines[i].includes(classIdentifier)) {
-      targetLineIdx = i;
-      break;
-    }
-  }
-  if (targetLineIdx === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes(classIdentifier)) {
-        targetLineIdx = i;
-        break;
-      }
-    }
-  }
-  if (targetLineIdx === -1) {
-    throw new Error(`Could not find element with class identifier "${classIdentifier}"`);
-  }
-  const classNameRegex = /className="([^"]*)"/;
-  for (let i = Math.max(0, targetLineIdx - 2); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
-    const match = lines[i].match(classNameRegex);
-    if (match) {
-      const existingClasses = match[1];
-      lines[i] = lines[i].replace(
-        `className="${existingClasses}"`,
-        `className="${existingClasses} ${newClass}"`
-      );
-      return lines.join("\n");
-    }
-  }
-  throw new Error(`Could not find className near the identified element`);
 }
 
 // src/server/scanner/index.ts
@@ -1174,6 +1421,8 @@ async function startStudioServer(preflight) {
       app2.use("/api/element", createElementRouter(projectRoot2));
       app2.use("/scan", createStudioScanRouter(projectRoot2));
     }
+  });
+  cleanupStaleMarkers(projectRoot).catch(() => {
   });
   return { app, wss, projectRoot };
 }
