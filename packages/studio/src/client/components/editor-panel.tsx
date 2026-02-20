@@ -14,6 +14,7 @@ import type { ScanData } from "../app.js";
 import type { ElementData } from "@designtools/core/client/lib/iframe-bridge";
 import { TokenEditor } from "./token-editor.js";
 import { PropertyPanel } from "./property-panel.js";
+import { ComputedPropertyPanel } from "./computed-property-panel.js";
 
 type EditMode = "token" | "component" | "instance";
 
@@ -24,7 +25,9 @@ interface EditorPanelProps {
   iframePath: string;
   onPreviewToken: (token: string, value: string) => void;
   onPreviewClass: (elementPath: string, oldClass: string, newClass: string) => void;
+  onPreviewInlineStyle: (property: string, value: string) => void;
   onRevertPreview: () => void;
+  onRevertInlineStyles: () => void;
   onClose: () => void;
   onRefreshIframe: () => void;
   onReselectElement: () => void;
@@ -37,7 +40,9 @@ export function EditorPanel({
   iframePath,
   onPreviewToken,
   onPreviewClass,
+  onPreviewInlineStyle,
   onRevertPreview,
+  onRevertInlineStyles,
   onClose,
   onRefreshIframe,
   onReselectElement,
@@ -54,10 +59,12 @@ export function EditorPanel({
   const [activeMode, setActiveMode] = useState<EditMode>("instance");
   const [saving, setSaving] = useState(false);
   const [pageFilePath, setPageFilePath] = useState<string | null>(null);
-  const [eid, setEid] = useState<string | null>(null);
   const eidRef = useRef<{ eid: string; filePath: string } | null>(null);
+  // Serialize writes so only one goes at a time — prevents race conditions
+  // where a second write fires before the first returns the eid.
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Resolve the current iframe route to a source file path for instance/element edits
+  // Resolve the source file path for this element's page.
   useEffect(() => {
     fetch(`/scan/resolve-route?path=${encodeURIComponent(iframePath)}`)
       .then((r) => r.json())
@@ -65,14 +72,35 @@ export function EditorPanel({
       .catch(() => setPageFilePath(null));
   }, [iframePath]);
 
-  // Reset eid when a different element is selected, removing old marker
+  // When element or filePath changes: clean up old marker, then eagerly
+  // mark the new element in source so we have an eid BEFORE any writes.
+  const prevElementKeyRef = useRef<string | null>(null);
+  const elementKey = `${element.tag}::${element.textContent?.slice(0, 30) || ""}`;
   useEffect(() => {
-    if (eidRef.current) {
-      removeElementMarker(eidRef.current.filePath, eidRef.current.eid);
-      eidRef.current = null;
+    // Clean up old marker on genuine element switch
+    if (prevElementKeyRef.current !== null && prevElementKeyRef.current !== elementKey) {
+      if (eidRef.current) {
+        removeElementMarker(eidRef.current.filePath, eidRef.current.eid);
+        eidRef.current = null;
+      }
     }
-    setEid(null);
-  }, [element.domPath]);
+    prevElementKeyRef.current = elementKey;
+
+    // Eagerly mark this element in source to get an eid immediately.
+    if (pageFilePath && !eidRef.current) {
+      markElementOnSelection(
+        pageFilePath,
+        element.className,
+        element.tag,
+        element.textContent?.slice(0, 30),
+        element.dataSlot || undefined,
+      ).then((eid) => {
+        if (eid && !eidRef.current) {
+          eidRef.current = { eid, filePath: pageFilePath };
+        }
+      });
+    }
+  }, [elementKey, pageFilePath, element.className, element.tag, element.dataSlot, element.textContent]);
 
   const handleClose = () => {
     if (eidRef.current) {
@@ -89,14 +117,21 @@ export function EditorPanel({
   const tokenRefs = extractTokenReferences(element.className, scanData);
 
   const withSave = async (fn: () => Promise<void>) => {
-    setSaving(true);
-    try {
-      await fn();
-      // After HMR updates the DOM, re-query the selected element for fresh data
-      setTimeout(() => onReselectElement(), 500);
-    } finally {
-      setTimeout(() => setSaving(false), 1200);
-    }
+    // Chain writes sequentially — each waits for the previous to finish.
+    // This ensures the eid from write N is available for write N+1.
+    const queued = writeQueueRef.current.then(async () => {
+      setSaving(true);
+      try {
+        await fn();
+        setTimeout(() => onReselectElement(), 500);
+      } catch (err) {
+        console.error("Write error:", err);
+      } finally {
+        setTimeout(() => setSaving(false), 1200);
+      }
+    });
+    writeQueueRef.current = queued;
+    return queued;
   };
 
   const instanceIdentifier = element.textContent?.slice(0, 30) || element.className.slice(0, 40);
@@ -254,8 +289,8 @@ export function EditorPanel({
               <InfoCircledIcon />
               <span>
                 {isComponent
-                  ? "Edit this element's variant, size, and Tailwind classes."
-                  : "Edit this element's Tailwind classes directly."}
+                  ? "Edit this element's variant, size, and styles."
+                  : "Edit this element's styles."}
               </span>
             </div>
             <div className="">
@@ -271,51 +306,51 @@ export function EditorPanel({
                 />
               ))}
 
-              {element.className && (
-                <PropertyPanel
-                  classes={element.className}
-                  onClassChange={(oldClass, newClass) => {
-                    if (isComponent && componentEntry) {
-                      // Component instance: add className override on the instance in the page file.
-                      // tailwind-merge will resolve the override over the CVA base classes.
-                      const filePath = pageFilePath || "";
-                      withSave(async () => {
-                        const returnedEid = await handleInstanceOverride(
-                          filePath,
-                          componentEntry.name,
-                          oldClass,
-                          newClass,
-                          eid,
-                          element.textContent?.slice(0, 30)
-                        );
-                        if (returnedEid) {
-                          setEid(returnedEid);
-                          eidRef.current = { eid: returnedEid, filePath };
-                        }
-                      });
-                    } else {
-                      // Plain element: replace class directly in the page file.
-                      const filePath = pageFilePath || componentEntry?.filePath || "";
-                      withSave(async () => {
-                        const returnedEid = await handleElementClassChange(
-                          filePath,
-                          element.className,
-                          oldClass,
-                          newClass,
-                          eid,
-                          element.tag,
-                          element.textContent?.slice(0, 30)
-                        );
-                        if (returnedEid) {
-                          setEid(returnedEid);
-                          eidRef.current = { eid: returnedEid, filePath };
-                        }
-                      });
-                    }
-                  }}
-                  tokenGroups={scanData?.tokens.groups || {}}
-                />
-              )}
+              <ComputedPropertyPanel
+                tag={element.tag}
+                className={element.className}
+                computedStyles={element.computedStyles}
+                parentComputedStyles={element.parentComputedStyles || {}}
+                tokenGroups={scanData?.tokens.groups || {}}
+                onPreviewInlineStyle={onPreviewInlineStyle}
+                onRevertInlineStyles={onRevertInlineStyles}
+                onCommitClass={(tailwindClass) => {
+                  const classesForWrite = element.className;
+                  if (isComponent && componentEntry) {
+                    const filePath = pageFilePath || "";
+                    withSave(async () => {
+                      const currentEid = eidRef.current?.eid || null;
+                      const returnedEid = await handleInstanceOverride(
+                        filePath,
+                        componentEntry.name,
+                        "",
+                        tailwindClass,
+                        currentEid,
+                        element.textContent?.slice(0, 30)
+                      );
+                      if (returnedEid) {
+                        eidRef.current = { eid: returnedEid, filePath };
+                      }
+                    });
+                  } else {
+                    const filePath = pageFilePath || componentEntry?.filePath || "";
+                    withSave(async () => {
+                      const currentEid = eidRef.current?.eid || null;
+                      const returnedEid = await handleElementAddClass(
+                        filePath,
+                        classesForWrite,
+                        tailwindClass,
+                        currentEid,
+                        element.tag,
+                        element.textContent?.slice(0, 30)
+                      );
+                      if (returnedEid) {
+                        eidRef.current = { eid: returnedEid, filePath };
+                      }
+                    });
+                  }
+                }}
+              />
             </div>
           </>
         )}
@@ -632,6 +667,68 @@ async function handleElementClassChange(
     return data.eid || null;
   } catch (err) {
     console.error("Element write error:", err);
+    return null;
+  }
+}
+
+async function handleElementAddClass(
+  filePath: string,
+  classIdentifier: string,
+  newClass: string,
+  eid?: string | null,
+  tag?: string,
+  textHint?: string
+): Promise<string | null> {
+  try {
+    const res = await fetch("/api/element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "addClass",
+        filePath,
+        classIdentifier,
+        newClass,
+        eid: eid || undefined,
+        tag,
+        textHint,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error("Element addClass failed:", data.error);
+      return null;
+    }
+    return data.eid || null;
+  } catch (err) {
+    console.error("Element addClass error:", err);
+    return null;
+  }
+}
+
+async function markElementOnSelection(
+  filePath: string,
+  classIdentifier: string,
+  tag: string,
+  textHint?: string,
+  componentName?: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch("/api/element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "markElement",
+        filePath,
+        classIdentifier,
+        tag,
+        textHint,
+        componentName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok && data.eid) return data.eid;
+    return null;
+  } catch {
     return null;
   }
 }

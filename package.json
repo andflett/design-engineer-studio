@@ -14,8 +14,8 @@
     "packages/shadows"
   ],
   "scripts": {
-    "dev:studio": "npm -w packages/studio run dev",
-    "dev:shadows": "npm -w packages/shadows run dev",
+    "dev:studio": "cd demos/studio-app && npx tsx ../../packages/studio/src/cli.ts",
+    "dev:shadows": "cd demos/studio-app && npx tsx ../../packages/shadows/src/cli.ts",
     "dev:studio-client": "npm -w packages/studio run dev:client",
     "dev:shadows-client": "npm -w packages/shadows run dev:client",
     "build": "npm -w packages/studio run build && npm -w packages/shadows run build",

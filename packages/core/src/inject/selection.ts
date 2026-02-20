@@ -13,6 +13,7 @@ let selectedElement: Element | null = null;
 let selectedDomPath: string | null = null;
 let overlayRafId: number | null = null;
 const previewBackups = new Map<Element, string>();
+const inlineStyleBackups = new Map<string, string>();
 
 function createOverlays() {
   highlightOverlay = document.createElement("div");
@@ -93,17 +94,50 @@ function extractElementData(el: Element) {
   const computed = getComputedStyle(el);
   const rect = el.getBoundingClientRect();
   const relevantProps = [
-    "color", "backgroundColor", "borderColor", "borderRadius",
-    "padding", "margin", "gap", "fontSize", "fontWeight",
-    "lineHeight", "letterSpacing", "display", "flexDirection",
-    "alignItems", "justifyContent", "width", "height",
-    "boxShadow",
+    // Layout
+    "display", "position", "top", "right", "bottom", "left",
+    "z-index", "overflow", "overflow-x", "overflow-y",
+    // Flexbox / Grid
+    "flex-direction", "flex-wrap", "justify-content", "align-items",
+    "align-self", "flex-grow", "flex-shrink", "flex-basis", "order",
+    "grid-template-columns", "grid-template-rows",
+    "gap", "row-gap", "column-gap",
+    // Size
+    "width", "height", "min-width", "min-height", "max-width", "max-height",
+    // Spacing
+    "margin-top", "margin-right", "margin-bottom", "margin-left",
+    "padding-top", "padding-right", "padding-bottom", "padding-left",
+    // Typography
+    "font-family", "font-size", "font-weight", "line-height",
+    "letter-spacing", "text-align", "text-decoration", "text-transform",
+    "color", "white-space",
+    // Background
+    "background-color", "background-image", "background-size", "background-position",
+    // Border
+    "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
+    "border-style", "border-color",
+    "border-top-left-radius", "border-top-right-radius",
+    "border-bottom-right-radius", "border-bottom-left-radius",
+    // Effects
+    "opacity", "box-shadow", "transform", "transition",
   ];
   const computedStyles: Record<string, string> = {};
   for (const prop of relevantProps) {
-    computedStyles[prop] = computed.getPropertyValue(
-      prop.replace(/([A-Z])/g, "-$1").toLowerCase()
-    );
+    computedStyles[prop] = computed.getPropertyValue(prop);
+  }
+
+  // Capture parent computed styles for inheritable properties (to detect inheritance)
+  const inheritableProps = [
+    "color", "font-family", "font-size", "font-weight", "line-height",
+    "letter-spacing", "text-align", "text-transform", "white-space",
+  ];
+  const parentComputedStyles: Record<string, string> = {};
+  const parentEl = el.parentElement;
+  if (parentEl) {
+    const parentComputed = getComputedStyle(parentEl);
+    for (const prop of inheritableProps) {
+      parentComputedStyles[prop] = parentComputed.getPropertyValue(prop);
+    }
   }
   const attributes: Record<string, string> = {};
   for (const attr of Array.from(el.attributes)) {
@@ -118,6 +152,7 @@ function extractElementData(el: Element) {
     dataVariant: el.getAttribute("data-variant"),
     dataSize: el.getAttribute("data-size"),
     computedStyles,
+    parentComputedStyles,
     boundingRect: rect,
     domPath: getDomPath(el),
     textContent: (el.textContent || "").trim().slice(0, 100),
@@ -297,6 +332,31 @@ function onMessage(e: MessageEvent) {
     case "tool:reselectElement":
       reselectCurrentElement();
       break;
+    case "tool:previewInlineStyle": {
+      if (selectedElement && selectedElement instanceof HTMLElement) {
+        const prop = msg.property as string;
+        const value = msg.value as string;
+        // Back up original inline value so we can revert
+        if (!inlineStyleBackups.has(prop)) {
+          inlineStyleBackups.set(prop, selectedElement.style.getPropertyValue(prop));
+        }
+        selectedElement.style.setProperty(prop, value, "important");
+      }
+      break;
+    }
+    case "tool:revertInlineStyles": {
+      if (selectedElement && selectedElement instanceof HTMLElement) {
+        for (const [prop, original] of inlineStyleBackups) {
+          if (original) {
+            selectedElement.style.setProperty(prop, original);
+          } else {
+            selectedElement.style.removeProperty(prop);
+          }
+        }
+        inlineStyleBackups.clear();
+      }
+      break;
+    }
     case "tool:setTheme":
       if (msg.theme === "dark") {
         document.documentElement.classList.add("dark");

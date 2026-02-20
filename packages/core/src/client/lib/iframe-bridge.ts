@@ -12,7 +12,9 @@ export type BaseToolToIframe =
   | { type: "tool:previewClass"; elementPath: string; oldClass: string; newClass: string }
   | { type: "tool:revertPreview" }
   | { type: "tool:reselectElement" }
-  | { type: "tool:setTheme"; theme: "light" | "dark" };
+  | { type: "tool:setTheme"; theme: "light" | "dark" }
+  | { type: "tool:previewInlineStyle"; property: string; value: string }
+  | { type: "tool:revertInlineStyles" };
 
 export type BaseIframeToTool =
   | { type: "tool:injectedReady" }
@@ -26,6 +28,7 @@ export interface ElementData {
   dataVariant: string | null;
   dataSize: string | null;
   computedStyles: Record<string, string>;
+  parentComputedStyles: Record<string, string>;
   boundingRect: DOMRect;
   domPath: string;
   textContent: string;

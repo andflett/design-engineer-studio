@@ -109,6 +109,40 @@ const CLASS_PATTERNS: ClassPattern[] = [
   { regex: /^size-([\d.]+|full|auto|px)$/, category: "size", property: "size", label: "Size", extractValue: (m) => m[1] },
   { regex: /^(flex-1|flex-auto|flex-initial|flex-none)$/, category: "size", property: "flex", label: "Flex", extractValue: (m) => m[1] },
   { regex: /^(grow|grow-0|shrink|shrink-0)$/, category: "size", property: "flexGrowShrink", label: "Grow/Shrink", extractValue: (m) => m[1] },
+
+  // Arbitrary values — must come after named patterns so named values match first
+  // Typography
+  { regex: /^text-\[(-?[\w.%]+)\]$/, category: "typography", property: "fontSize", label: "Font Size", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^leading-\[(-?[\w.%]+)\]$/, category: "typography", property: "lineHeight", label: "Line Height", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^tracking-\[(-?[\w.%]+)\]$/, category: "typography", property: "letterSpacing", label: "Letter Spacing", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^font-\[(-?[\w.%]+)\]$/, category: "typography", property: "fontWeight", label: "Font Weight", extractValue: (m) => `[${m[1]}]` },
+  // Spacing
+  { regex: /^p-\[(-?[\w.%]+)\]$/, category: "spacing", property: "padding", label: "Padding", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^px-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingX", label: "Padding X", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^py-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingY", label: "Padding Y", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^pt-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingTop", label: "Padding Top", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^pr-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingRight", label: "Padding Right", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^pb-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingBottom", label: "Padding Bottom", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^pl-\[(-?[\w.%]+)\]$/, category: "spacing", property: "paddingLeft", label: "Padding Left", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^m-\[(-?[\w.%]+)\]$/, category: "spacing", property: "margin", label: "Margin", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^mx-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginX", label: "Margin X", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^my-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginY", label: "Margin Y", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^mt-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginTop", label: "Margin Top", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^mr-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginRight", label: "Margin Right", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^mb-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginBottom", label: "Margin Bottom", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^ml-\[(-?[\w.%]+)\]$/, category: "spacing", property: "marginLeft", label: "Margin Left", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^gap-\[(-?[\w.%]+)\]$/, category: "spacing", property: "gap", label: "Gap", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^gap-x-\[(-?[\w.%]+)\]$/, category: "spacing", property: "gapX", label: "Gap X", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^gap-y-\[(-?[\w.%]+)\]$/, category: "spacing", property: "gapY", label: "Gap Y", extractValue: (m) => `[${m[1]}]` },
+  // Size
+  { regex: /^w-\[(-?[\w.%]+)\]$/, category: "size", property: "width", label: "Width", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^h-\[(-?[\w.%]+)\]$/, category: "size", property: "height", label: "Height", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^min-w-\[(-?[\w.%]+)\]$/, category: "size", property: "minWidth", label: "Min Width", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^min-h-\[(-?[\w.%]+)\]$/, category: "size", property: "minHeight", label: "Min Height", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^max-w-\[(-?[\w.%]+)\]$/, category: "size", property: "maxWidth", label: "Max Width", extractValue: (m) => `[${m[1]}]` },
+  { regex: /^max-h-\[(-?[\w.%]+)\]$/, category: "size", property: "maxHeight", label: "Max Height", extractValue: (m) => `[${m[1]}]` },
+  // Shape
+  { regex: /^rounded-\[(-?[\w.%]+)\]$/, category: "shape", property: "borderRadius", label: "Radius", extractValue: (m) => `[${m[1]}]` },
 ];
 
 function stripPrefix(cls: string): { prefix: string | undefined; core: string } {
@@ -256,6 +290,23 @@ export function buildClass(
 
   const core = builder(newValue);
   return prefix ? `${prefix}${core}` : core;
+}
+
+/** Check if a parsed value is an arbitrary value (wrapped in brackets). */
+export function isArbitraryValue(value: string): boolean {
+  return value.startsWith("[") && value.endsWith("]");
+}
+
+/** Extract the inner value from an arbitrary bracket value. "[1.75rem]" → "1.75rem" */
+export function unwrapArbitrary(value: string): string {
+  if (isArbitraryValue(value)) return value.slice(1, -1);
+  return value;
+}
+
+/** Wrap a raw value in brackets for arbitrary syntax. "1.75rem" → "[1.75rem]" */
+export function wrapArbitrary(value: string): string {
+  if (isArbitraryValue(value)) return value;
+  return `[${value}]`;
 }
 
 export const SPACING_SCALE = [

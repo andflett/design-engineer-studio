@@ -107,6 +107,25 @@ export function App() {
     }
   }, []);
 
+  const previewInlineStyle = useCallback(
+    (property: string, value: string) => {
+      if (iframeRef.current) {
+        sendToIframe(iframeRef.current, {
+          type: "tool:previewInlineStyle",
+          property,
+          value,
+        });
+      }
+    },
+    []
+  );
+
+  const revertInlineStyles = useCallback(() => {
+    if (iframeRef.current) {
+      sendToIframe(iframeRef.current, { type: "tool:revertInlineStyles" });
+    }
+  }, []);
+
   const refreshIframe = useCallback(() => {
     if (iframeRef.current) {
       const src = iframeRef.current.src;
@@ -139,7 +158,9 @@ export function App() {
             iframePath={iframePath}
             onPreviewToken={previewToken}
             onPreviewClass={previewClass}
+            onPreviewInlineStyle={previewInlineStyle}
             onRevertPreview={revertPreview}
+            onRevertInlineStyles={revertInlineStyles}
             onRefreshIframe={refreshIframe}
             onReselectElement={reselectElement}
             onClose={() => setSelectedElement(null)}

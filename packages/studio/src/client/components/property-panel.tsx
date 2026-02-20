@@ -18,6 +18,9 @@ import { ColorPopover } from "./color-popover.js";
 import {
   buildClass,
   parseClasses,
+  isArbitraryValue,
+  unwrapArbitrary,
+  wrapArbitrary,
   SPACING_SCALE,
   RADIUS_SCALE,
   FONT_SIZE_SCALE,
@@ -478,6 +481,23 @@ function SpacingCell({
   prop: ParsedProperty;
   onClassChange: (oldClass: string, newClass: string) => void;
 }) {
+  const arbitrary = isArbitraryValue(prop.value);
+
+  if (arbitrary) {
+    return (
+      <div>
+        <PropLabel label={label} prefix={prefix} />
+        <ArbitraryInput
+          value={unwrapArbitrary(prop.value)}
+          onCommit={(raw) => {
+            const newClass = buildClass(prop.property, wrapArbitrary(raw), prop.prefix);
+            onClassChange(prop.fullClass, newClass);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PropLabel label={label} prefix={prefix} />
@@ -567,6 +587,47 @@ function GenericRows({
   );
 }
 
+/** Text input for editing arbitrary Tailwind values like [1.75rem]. */
+function ArbitraryInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (raw: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [focused, setFocused] = useState(false);
+
+  // Sync from prop when not focused
+  const displayValue = focused ? draft : value;
+
+  return (
+    <input
+      type="text"
+      value={displayValue}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => {
+        setDraft(value);
+        setFocused(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        const trimmed = draft.trim();
+        if (trimmed && trimmed !== value) {
+          onCommit(trimmed);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      className="studio-select w-full font-mono"
+      style={{ fontSize: 11 }}
+    />
+  );
+}
+
 function GenericRow({
   property,
   category,
@@ -605,6 +666,23 @@ function GenericRow({
   };
 
   const options = getOptions();
+  const arbitrary = isArbitraryValue(property.value);
+
+  // Arbitrary value: show editable text input
+  if (arbitrary) {
+    return (
+      <div>
+        <PropLabel label={property.label} prefix={property.prefix} />
+        <ArbitraryInput
+          value={unwrapArbitrary(property.value)}
+          onCommit={(raw) => {
+            const newClass = buildClass(property.property, wrapArbitrary(raw), property.prefix);
+            onClassChange(property.fullClass, newClass);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

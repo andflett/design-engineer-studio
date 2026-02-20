@@ -60,6 +60,19 @@ export function createElementRouter(projectRoot: string) {
         source = result.source;
         await fs.writeFile(fullPath, source, "utf-8");
         res.json({ ok: true, eid: result.eid });
+      } else if (body.type === "markElement") {
+        // Insert an eid marker on element selection, before any writes.
+        // This guarantees every subsequent write has an eid.
+        const result = markElementInSource(source, {
+          classIdentifier: body.classIdentifier,
+          componentName: body.componentName,
+          tag: body.tag,
+          textHint: body.textHint,
+        });
+        if (result.modified) {
+          await fs.writeFile(fullPath, result.source, "utf-8");
+        }
+        res.json({ ok: true, eid: result.eid });
       } else if (body.type === "removeMarker") {
         source = removeMarker(source, body.eid);
         await fs.writeFile(fullPath, source, "utf-8");
@@ -149,6 +162,14 @@ type ElementWriteRequest =
       type: "removeMarker";
       filePath: string;
       eid: string;
+    }
+  | {
+      type: "markElement";
+      filePath: string;
+      classIdentifier: string;
+      componentName?: string;
+      tag?: string;
+      textHint?: string;
     };
 
 // --- Marker helpers ---
@@ -182,6 +203,118 @@ function insertMarkerNearLine(lines: string[], nearIdx: number, eid: string): vo
   }
 }
 
+/**
+ * Mark an element with a data-studio-eid attribute on selection,
+ * before any class writes. Uses classIdentifier to find the element.
+ * Returns the eid (new or existing if already marked).
+ */
+function markElementInSource(
+  source: string,
+  opts: { classIdentifier: string; componentName?: string; tag?: string; textHint?: string }
+): { source: string; eid: string; modified: boolean } {
+  const lines = source.split("\n");
+
+  let targetLineIdx = -1;
+
+  const identifierClasses = opts.classIdentifier.split(/\s+/).filter(Boolean);
+
+  // Multi-strategy scoring: score every candidate line and pick the best.
+  // This handles components where DOM className !== source className (e.g. cn() merging).
+  let bestLine = -1;
+  let bestScore = -Infinity;
+
+  // Precompute PascalCase component name for matching
+  let pascalComponent: string | null = null;
+  if (opts.componentName) {
+    pascalComponent = opts.componentName.includes("-")
+      ? opts.componentName.replace(/(^|-)([a-z])/g, (_m: string, _sep: string, c: string) => c.toUpperCase())
+      : opts.componentName;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    let score = 0;
+    const line = lines[i];
+    const nearby = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 4)).join(" ");
+
+    // Strategy 1: Component tag match (e.g. <CardTitle) — strong signal.
+    if (pascalComponent) {
+      if (nearby.includes(`<${pascalComponent}`) || nearby.includes(`<${opts.componentName}`)) {
+        score += 10;
+      }
+    }
+
+    // Strategy 2: Tag match (e.g. <h3, <div)
+    if (opts.tag && nearby.includes(`<${opts.tag}`)) {
+      score += 3;
+    }
+
+    // Strategy 3: Text content match — very strong disambiguation
+    if (opts.textHint && opts.textHint.length >= 2) {
+      if (nearby.includes(opts.textHint)) {
+        score += 15;
+      }
+    }
+
+    // Strategy 4: Class matching — only count if the line has className
+    if (identifierClasses.length > 0 && line.includes("class")) {
+      const matchCount = identifierClasses.filter((c: string) => lineContainsClass(line, c)).length;
+      const ratio = 0.3;
+      const threshold = Math.max(1, Math.ceil(identifierClasses.length * ratio));
+      if (matchCount >= threshold) {
+        score += matchCount * 2;
+      }
+    }
+
+    // Only consider lines with some match signal
+    if (score > 0 && score > bestScore) {
+      bestScore = score;
+      bestLine = i;
+    }
+  }
+
+  if (bestLine !== -1) {
+    targetLineIdx = bestLine;
+  }
+
+  if (targetLineIdx === -1) {
+    // Can't find the element — return a generated eid anyway so writes have something.
+    // The eid won't be in the file, but addClassToElement will fall back to classIdentifier.
+    const eid = generateEid();
+    return { source, eid, modified: false };
+  }
+
+  // Check if there's already a marker near this line
+  for (let i = Math.max(0, targetLineIdx - 5); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
+    const existingMatch = lines[i].match(/data-studio-eid="([^"]+)"/);
+    if (existingMatch) {
+      return { source, eid: existingMatch[1], modified: false };
+    }
+  }
+
+  // Insert a new marker
+  const eid = generateEid();
+  insertMarkerNearLine(lines, targetLineIdx, eid);
+  return { source: lines.join("\n"), eid, modified: true };
+}
+
+// --- Class boundary helpers ---
+
+/**
+ * Build a regex that matches a CSS class name surrounded by class-boundary characters
+ * (whitespace, quotes, template-literal backticks, or start/end of string).
+ * Unlike \b, this handles Tailwind classes with special chars: `sm:text-[3.5rem]`, `tracking-[-0.07rem]`.
+ */
+function classBoundaryRegex(cls: string, flags = ""): RegExp {
+  const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Lookbehind for start-of-string or a class separator; lookahead likewise
+  return new RegExp(`(?<=^|[\\s"'\`])${escaped}(?=$|[\\s"'\`])`, flags);
+}
+
+/** Test whether `line` contains `cls` as a whole class (boundary-aware). */
+function lineContainsClass(line: string, cls: string): boolean {
+  return classBoundaryRegex(cls).test(line);
+}
+
 // --- Element finding ---
 
 /**
@@ -205,10 +338,8 @@ function findElementLine(
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes(markerStr)) {
         // Found the marker — now find oldClass nearby
-        const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`\\b${oldEscaped}\\b`);
         for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 10); j++) {
-          if (regex.test(lines[j])) return j;
+          if (lineContainsClass(lines[j], opts.oldClass)) return j;
         }
         return i; // Return marker line even if oldClass not found nearby
       }
@@ -216,12 +347,9 @@ function findElementLine(
   }
 
   // Strategy 2: Find by oldClass + scoring
-  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const oldClassRegex = new RegExp(`\\b${oldEscaped}\\b`);
-
   const candidates: number[] = [];
   for (let i = 0; i < lines.length; i++) {
-    if (oldClassRegex.test(lines[i])) {
+    if (lineContainsClass(lines[i], opts.oldClass)) {
       candidates.push(i);
     }
   }
@@ -245,8 +373,7 @@ function findElementLine(
 
     let classMatches = 0;
     for (const cls of identifierClasses) {
-      const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\b${escaped}\\b`).test(nearbyText)) {
+      if (lineContainsClass(nearbyText, cls)) {
         classMatches++;
         score += 2;
       }
@@ -318,14 +445,12 @@ function replaceClassInElement(
   }
 
   // Replace the old class
-  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`\\b${oldEscaped}\\b`, "g");
+  const replaceRegex = classBoundaryRegex(opts.oldClass, "g");
 
   let replaced = false;
   for (let i = Math.max(0, targetLineIdx - 2); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
-    if (regex.test(lines[i])) {
-      regex.lastIndex = 0; // Reset after test()
-      lines[i] = lines[i].replace(regex, opts.newClass);
+    if (lineContainsClass(lines[i], opts.oldClass)) {
+      lines[i] = lines[i].replace(replaceRegex, opts.newClass);
       replaced = true;
       break;
     }
@@ -373,25 +498,21 @@ function addClassToElement(
   }
 
   if (targetLineIdx === -1) {
-    // Fall back to finding by individual classes from the identifier
     const identifierClasses = opts.classIdentifier.split(/\s+/).filter(Boolean);
-    // Pick the most specific class (longest) to search for
-    const anchor = identifierClasses.sort((a, b) => b.length - a.length)[0];
-    if (anchor) {
-      const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const anchorRegex = new RegExp(`\\b${escaped}\\b`);
-      const candidates: number[] = [];
+    if (identifierClasses.length > 0) {
+      let bestLine = -1;
+      let bestScore = 0;
+      const threshold = Math.max(1, Math.ceil(identifierClasses.length * 0.5));
       for (let i = 0; i < lines.length; i++) {
-        if (anchorRegex.test(lines[i])) candidates.push(i);
+        if (!lines[i].includes("class")) continue;
+        const matchCount = identifierClasses.filter((c) => lineContainsClass(lines[i], c)).length;
+        if (matchCount >= threshold && matchCount > bestScore) {
+          bestScore = matchCount;
+          bestLine = i;
+        }
       }
-      if (candidates.length === 1) {
-        targetLineIdx = candidates[0];
-      } else if (candidates.length > 1 && opts.lineHint !== undefined) {
-        targetLineIdx = candidates.reduce((closest, c) =>
-          Math.abs(c - opts.lineHint!) < Math.abs(closest - opts.lineHint!) ? c : closest
-        );
-      } else if (candidates.length > 0) {
-        targetLineIdx = candidates[0];
+      if (bestLine !== -1) {
+        targetLineIdx = bestLine;
       }
     }
   }
@@ -523,12 +644,9 @@ function overrideClassOnInstance(
       classNameFound = true;
       const existingClasses = match[1];
       // Check if oldClass is already in the className (from a prior override)
-      const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const oldRegex = new RegExp(`\\b${oldEscaped}\\b`);
-
-      if (oldRegex.test(existingClasses)) {
+      if (lineContainsClass(existingClasses, opts.oldClass)) {
         // Replace old override with new one
-        const updated = existingClasses.replace(oldRegex, opts.newClass).replace(/\s+/g, " ").trim();
+        const updated = existingClasses.replace(classBoundaryRegex(opts.oldClass), opts.newClass).replace(/\s+/g, " ").trim();
         lines[i] = lines[i].replace(
           `className="${existingClasses}"`,
           `className="${updated}"`

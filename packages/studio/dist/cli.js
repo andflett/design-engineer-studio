@@ -749,25 +749,28 @@ function insertMarkerNearLine(lines, nearIdx, eid) {
     }
   }
 }
+function classBoundaryRegex(cls, flags = "") {
+  const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<=^|[\\s"'\`])${escaped}(?=$|[\\s"'\`])`, flags);
+}
+function lineContainsClass(line, cls) {
+  return classBoundaryRegex(cls).test(line);
+}
 function findElementLine(lines, opts) {
   if (opts.eid) {
     const markerStr = `data-studio-eid="${opts.eid}"`;
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].includes(markerStr)) {
-        const oldEscaped2 = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`\\b${oldEscaped2}\\b`);
         for (let j = Math.max(0, i - 5); j <= Math.min(lines.length - 1, i + 10); j++) {
-          if (regex.test(lines[j])) return j;
+          if (lineContainsClass(lines[j], opts.oldClass)) return j;
         }
         return i;
       }
     }
   }
-  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const oldClassRegex = new RegExp(`\\b${oldEscaped}\\b`);
   const candidates = [];
   for (let i = 0; i < lines.length; i++) {
-    if (oldClassRegex.test(lines[i])) {
+    if (lineContainsClass(lines[i], opts.oldClass)) {
       candidates.push(i);
     }
   }
@@ -781,8 +784,7 @@ function findElementLine(lines, opts) {
     const nearbyText = lines.slice(Math.max(0, cIdx - 5), Math.min(lines.length, cIdx + 6)).join(" ");
     let classMatches = 0;
     for (const cls of identifierClasses) {
-      const escaped = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\b${escaped}\\b`).test(nearbyText)) {
+      if (lineContainsClass(nearbyText, cls)) {
         classMatches++;
         score += 2;
       }
@@ -823,13 +825,11 @@ function replaceClassInElement(source, opts) {
       `Could not find element with class "${opts.oldClass}" in source`
     );
   }
-  const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(`\\b${oldEscaped}\\b`, "g");
+  const replaceRegex = classBoundaryRegex(opts.oldClass, "g");
   let replaced = false;
   for (let i = Math.max(0, targetLineIdx - 2); i <= Math.min(lines.length - 1, targetLineIdx + 2); i++) {
-    if (regex.test(lines[i])) {
-      regex.lastIndex = 0;
-      lines[i] = lines[i].replace(regex, opts.newClass);
+    if (lineContainsClass(lines[i], opts.oldClass)) {
+      lines[i] = lines[i].replace(replaceRegex, opts.newClass);
       replaced = true;
       break;
     }
@@ -965,10 +965,8 @@ function overrideClassOnInstance(source, opts) {
     if (match) {
       classNameFound = true;
       const existingClasses = match[1];
-      const oldEscaped = opts.oldClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const oldRegex = new RegExp(`\\b${oldEscaped}\\b`);
-      if (oldRegex.test(existingClasses)) {
-        const updated = existingClasses.replace(oldRegex, opts.newClass).replace(/\s+/g, " ").trim();
+      if (lineContainsClass(existingClasses, opts.oldClass)) {
+        const updated = existingClasses.replace(classBoundaryRegex(opts.oldClass), opts.newClass).replace(/\s+/g, " ").trim();
         lines[i] = lines[i].replace(
           `className="${existingClasses}"`,
           `className="${updated}"`
@@ -1350,39 +1348,95 @@ function createStudioScanRouter(projectRoot) {
       const routePath = req.query.path || "/";
       const scan = cachedScan || await runScan(projectRoot);
       const appDir = scan.framework.appDir;
-      const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").split("/");
-      const dir = path8.join(appDir, ...segments);
-      const candidates = [
-        path8.join(dir, "page.tsx"),
-        path8.join(dir, "page.jsx"),
-        path8.join(dir, "page.ts"),
-        path8.join(dir, "page.js"),
-        // Pages Router / Vite
-        path8.join(dir, "index.tsx"),
-        path8.join(dir, "index.jsx")
-      ];
-      if (segments.length > 0) {
-        const last = segments[segments.length - 1];
-        const parent = segments.slice(0, -1);
-        candidates.push(
-          path8.join(appDir, ...parent, `${last}.tsx`),
-          path8.join(appDir, ...parent, `${last}.jsx`)
-        );
-      }
-      for (const candidate of candidates) {
-        try {
-          await fs10.access(path8.join(projectRoot, candidate));
-          res.json({ filePath: candidate });
-          return;
-        } catch {
-        }
-      }
-      res.json({ filePath: null });
+      const result = await resolveRouteToFile(projectRoot, appDir, routePath);
+      res.json({ filePath: result });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
   return router;
+}
+var PAGE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js"];
+async function resolveRouteToFile(projectRoot, appDir, routePath) {
+  const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").replace(/\/$/, "").split("/");
+  const absAppDir = path8.join(projectRoot, appDir);
+  const result = await matchSegments(absAppDir, segments, 0);
+  if (result) {
+    return path8.relative(projectRoot, result);
+  }
+  return null;
+}
+async function findPageFile(dir) {
+  for (const ext of PAGE_EXTENSIONS) {
+    const candidate = path8.join(dir, `page${ext}`);
+    try {
+      await fs10.access(candidate);
+      return candidate;
+    } catch {
+    }
+  }
+  for (const ext of PAGE_EXTENSIONS) {
+    const candidate = path8.join(dir, `index${ext}`);
+    try {
+      await fs10.access(candidate);
+      return candidate;
+    } catch {
+    }
+  }
+  return null;
+}
+async function listDirs(dir) {
+  try {
+    const entries = await fs10.readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+async function matchSegments(currentDir, segments, index) {
+  if (index >= segments.length) {
+    const page = await findPageFile(currentDir);
+    if (page) return page;
+    const dirs2 = await listDirs(currentDir);
+    for (const d of dirs2) {
+      if (d.startsWith("(") && d.endsWith(")")) {
+        const page2 = await findPageFile(path8.join(currentDir, d));
+        if (page2) return page2;
+      }
+    }
+    return null;
+  }
+  const segment = segments[index];
+  const dirs = await listDirs(currentDir);
+  if (dirs.includes(segment)) {
+    const result = await matchSegments(path8.join(currentDir, segment), segments, index + 1);
+    if (result) return result;
+  }
+  for (const d of dirs) {
+    if (d.startsWith("(") && d.endsWith(")")) {
+      const result = await matchSegments(path8.join(currentDir, d), segments, index);
+      if (result) return result;
+    }
+  }
+  for (const d of dirs) {
+    if (d.startsWith("[") && d.endsWith("]") && !d.startsWith("[...") && !d.startsWith("[[")) {
+      const result = await matchSegments(path8.join(currentDir, d), segments, index + 1);
+      if (result) return result;
+    }
+  }
+  for (const d of dirs) {
+    if (d.startsWith("[...") && d.endsWith("]")) {
+      const page = await findPageFile(path8.join(currentDir, d));
+      if (page) return page;
+    }
+  }
+  for (const d of dirs) {
+    if (d.startsWith("[[...") && d.endsWith("]]")) {
+      const page = await findPageFile(path8.join(currentDir, d));
+      if (page) return page;
+    }
+  }
+  return null;
 }
 
 // src/server/index.ts

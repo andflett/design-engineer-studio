@@ -77,41 +77,8 @@ export function createStudioScanRouter(projectRoot: string) {
       const scan = cachedScan || await runScan(projectRoot);
       const appDir = scan.framework.appDir; // e.g. "app"
 
-      // Next.js App Router: /foo/bar → app/foo/bar/page.tsx
-      const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").split("/");
-      const dir = path.join(appDir, ...segments);
-
-      const candidates = [
-        path.join(dir, "page.tsx"),
-        path.join(dir, "page.jsx"),
-        path.join(dir, "page.ts"),
-        path.join(dir, "page.js"),
-        // Pages Router / Vite
-        path.join(dir, "index.tsx"),
-        path.join(dir, "index.jsx"),
-      ];
-
-      // Also try the route as a direct file (e.g. "src/pages/about.tsx")
-      if (segments.length > 0) {
-        const last = segments[segments.length - 1];
-        const parent = segments.slice(0, -1);
-        candidates.push(
-          path.join(appDir, ...parent, `${last}.tsx`),
-          path.join(appDir, ...parent, `${last}.jsx`)
-        );
-      }
-
-      for (const candidate of candidates) {
-        try {
-          await fs.access(path.join(projectRoot, candidate));
-          res.json({ filePath: candidate });
-          return;
-        } catch {
-          // try next
-        }
-      }
-
-      res.json({ filePath: null });
+      const result = await resolveRouteToFile(projectRoot, appDir, routePath);
+      res.json({ filePath: result });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -119,3 +86,128 @@ export function createStudioScanRouter(projectRoot: string) {
 
   return router;
 }
+
+const PAGE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js"];
+
+/**
+ * Resolve an iframe URL path to the Next.js source file that renders it.
+ * Handles route groups like (marketing), dynamic segments [slug],
+ * catch-all [...slug], and optional catch-all [[...slug]].
+ */
+async function resolveRouteToFile(
+  projectRoot: string,
+  appDir: string,
+  routePath: string
+): Promise<string | null> {
+  const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").replace(/\/$/, "").split("/");
+  const absAppDir = path.join(projectRoot, appDir);
+
+  // Recursively walk the directory tree, matching URL segments to filesystem entries.
+  // At each level, we try: exact match, route group (parenthesized dirs), dynamic [param],
+  // catch-all [...param], and optional catch-all [[...param]].
+  const result = await matchSegments(absAppDir, segments, 0);
+  if (result) {
+    // Return relative to projectRoot
+    return path.relative(projectRoot, result);
+  }
+  return null;
+}
+
+async function findPageFile(dir: string): Promise<string | null> {
+  for (const ext of PAGE_EXTENSIONS) {
+    const candidate = path.join(dir, `page${ext}`);
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {}
+  }
+  // Fallback for Pages Router / Vite
+  for (const ext of PAGE_EXTENSIONS) {
+    const candidate = path.join(dir, `index${ext}`);
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {}
+  }
+  return null;
+}
+
+async function listDirs(dir: string): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Recursively match URL segments against the filesystem.
+ * Returns the absolute path to the page file, or null.
+ */
+async function matchSegments(
+  currentDir: string,
+  segments: string[],
+  index: number
+): Promise<string | null> {
+  // All segments consumed — look for page file here
+  if (index >= segments.length) {
+    // Check current directory for a page file
+    const page = await findPageFile(currentDir);
+    if (page) return page;
+
+    // Check route groups at this level — e.g. app/(home)/page.tsx for "/"
+    const dirs = await listDirs(currentDir);
+    for (const d of dirs) {
+      if (d.startsWith("(") && d.endsWith(")")) {
+        const page = await findPageFile(path.join(currentDir, d));
+        if (page) return page;
+      }
+    }
+    return null;
+  }
+
+  const segment = segments[index];
+  const dirs = await listDirs(currentDir);
+
+  // 1. Exact directory match
+  if (dirs.includes(segment)) {
+    const result = await matchSegments(path.join(currentDir, segment), segments, index + 1);
+    if (result) return result;
+  }
+
+  // 2. Route groups — transparent directories like (marketing) that don't consume a segment
+  for (const d of dirs) {
+    if (d.startsWith("(") && d.endsWith(")")) {
+      const result = await matchSegments(path.join(currentDir, d), segments, index);
+      if (result) return result;
+    }
+  }
+
+  // 3. Dynamic segment [param] — matches any single segment
+  for (const d of dirs) {
+    if (d.startsWith("[") && d.endsWith("]") && !d.startsWith("[...") && !d.startsWith("[[")) {
+      const result = await matchSegments(path.join(currentDir, d), segments, index + 1);
+      if (result) return result;
+    }
+  }
+
+  // 4. Catch-all [...param] — matches one or more remaining segments
+  for (const d of dirs) {
+    if (d.startsWith("[...") && d.endsWith("]")) {
+      const page = await findPageFile(path.join(currentDir, d));
+      if (page) return page;
+    }
+  }
+
+  // 5. Optional catch-all [[...param]] — matches zero or more remaining segments
+  for (const d of dirs) {
+    if (d.startsWith("[[...") && d.endsWith("]]")) {
+      const page = await findPageFile(path.join(currentDir, d));
+      if (page) return page;
+    }
+  }
+
+  return null;
+}
+

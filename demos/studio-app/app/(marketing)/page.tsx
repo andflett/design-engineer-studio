@@ -11,19 +11,19 @@ import {
 
 export default function HomePage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
+    <div className="mx-auto max-w-[72rem] px-[1.5rem] py-[3rem] grid flex">
       {/* Hero */}
-      <section className="flex flex-col items-center gap-4 text-center">
+      <section className="flex flex-col items-center gap-[1.25rem] text-center text-secondary-foreground hidden">
         <Badge>New Release</Badge>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+        <h1 className="text-[2.75rem] font-bold tracking-[-0.04em] leading-[1.1] sm:text-[3.5rem] text-card-foreground text-center">
           Build better interfaces
         </h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">
+        <p className="max-w-[40rem] text-[1.125rem] leading-[1.6] text-muted-foreground">
           A demo application showcasing components, tokens, and variants that
           Component Studio can inspect and edit.
         </p>
         <div className="flex gap-3">
-          <Button size="lg">Get Started</Button>
+          <Button className="rounded-xl" size="lg">Get Started</Button>
           <Button variant="outline" size="lg">
             Learn More
           </Button>
@@ -31,7 +31,7 @@ export default function HomePage() {
       </section>
 
       {/* Feature Cards */}
-      <section className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mt-[4rem] grid gap-[1.5rem] sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Tokens</CardTitle>
@@ -46,7 +46,7 @@ export default function HomePage() {
             </p>
           </CardContent>
           <CardFooter>
-            <Button variant="link" size="sm">
+            <Button data-studio-eid="s4fd3930e" className="gap-2 gap-[19px] gap-2 font-normal" variant="link" size="sm">
               Explore
             </Button>
           </CardFooter>
@@ -94,25 +94,29 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="mt-16 rounded-lg border bg-card p-8 text-center">
-        <h2 className="text-2xl font-semibold">Ready to try it?</h2>
-        <p className="mt-2 text-muted-foreground">
+      <section className="mt-[4rem] rounded-[0.75rem] border bg-card p-[2rem] text-center">
+        <h2 className="text-[1.5rem] font-semibold tracking-[-0.02em]">
+          Ready to try it?
+        </h2>
+        <p className="mt-[0.5rem] text-muted-foreground leading-[1.5]">
           Run{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono">
+          <code className="rounded-[0.25rem] bg-muted px-[0.375rem] py-[0.125rem] text-[0.875rem] font-mono">
             npx component-studio
           </code>{" "}
           next to your dev server.
         </p>
-        <div className="mt-6 flex justify-center gap-3">
+        <div className="mt-[1.5rem] flex justify-center gap-3">
           <Button>Install Now</Button>
           <Button variant="ghost">View Docs</Button>
         </div>
       </section>
 
       {/* Badge Variants */}
-      <section className="mt-16">
-        <h2 className="mb-4 text-xl font-semibold">Badge Variants</h2>
-        <div className="flex flex-wrap gap-2">
+      <section className="mt-[4rem]">
+        <h2 className="mb-[1rem] text-[1.25rem] font-semibold tracking-[-0.01em]">
+          Badge Variants
+        </h2>
+        <div className="flex flex-wrap gap-[0.5rem]">
           <Badge>Default</Badge>
           <Badge variant="secondary">Secondary</Badge>
           <Badge variant="destructive">Destructive</Badge>
@@ -121,9 +125,11 @@ export default function HomePage() {
       </section>
 
       {/* Button Variants */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-xl font-semibold">Button Variants</h2>
-        <div className="flex flex-wrap gap-3">
+      <section className="mt-[2rem]">
+        <h2 className="mb-[1rem] text-[1.25rem] font-semibold tracking-[-0.01em]">
+          Button Variants
+        </h2>
+        <div className="flex flex-wrap gap-[0.75rem]">
           <Button>Default</Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="destructive">Destructive</Button>

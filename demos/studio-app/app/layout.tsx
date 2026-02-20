@@ -34,6 +34,12 @@ export default function RootLayout({
             >
               Settings
             </a>
+            <a
+              href="/blog"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Blog
+            </a>
           </div>
         </nav>
         <main>{children}</main>
