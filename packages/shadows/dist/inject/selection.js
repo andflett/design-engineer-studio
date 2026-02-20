@@ -7,6 +7,7 @@ let selectedElement = null;
 let selectedDomPath = null;
 let overlayRafId = null;
 const previewBackups = /* @__PURE__ */ new Map();
+const inlineStyleBackups = /* @__PURE__ */ new Map();
 function createOverlays() {
   highlightOverlay = document.createElement("div");
   highlightOverlay.id = "tool-highlight";
@@ -81,35 +82,121 @@ function extractElementData(el) {
   const computed = getComputedStyle(el);
   const rect = el.getBoundingClientRect();
   const relevantProps = [
-    "color",
-    "backgroundColor",
-    "borderColor",
-    "borderRadius",
-    "padding",
-    "margin",
-    "gap",
-    "fontSize",
-    "fontWeight",
-    "lineHeight",
-    "letterSpacing",
+    // Layout
     "display",
-    "flexDirection",
-    "alignItems",
-    "justifyContent",
+    "position",
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "z-index",
+    "overflow",
+    "overflow-x",
+    "overflow-y",
+    // Flexbox / Grid
+    "flex-direction",
+    "flex-wrap",
+    "justify-content",
+    "align-items",
+    "align-self",
+    "flex-grow",
+    "flex-shrink",
+    "flex-basis",
+    "order",
+    "grid-template-columns",
+    "grid-template-rows",
+    "gap",
+    "row-gap",
+    "column-gap",
+    // Size
     "width",
     "height",
-    "boxShadow"
+    "min-width",
+    "min-height",
+    "max-width",
+    "max-height",
+    // Spacing
+    "margin-top",
+    "margin-right",
+    "margin-bottom",
+    "margin-left",
+    "padding-top",
+    "padding-right",
+    "padding-bottom",
+    "padding-left",
+    // Typography
+    "font-family",
+    "font-size",
+    "font-weight",
+    "line-height",
+    "letter-spacing",
+    "text-align",
+    "text-decoration",
+    "text-transform",
+    "color",
+    "white-space",
+    // Background
+    "background-color",
+    "background-image",
+    "background-size",
+    "background-position",
+    // Border
+    "border-top-width",
+    "border-right-width",
+    "border-bottom-width",
+    "border-left-width",
+    "border-style",
+    "border-color",
+    "border-top-left-radius",
+    "border-top-right-radius",
+    "border-bottom-right-radius",
+    "border-bottom-left-radius",
+    // Effects
+    "opacity",
+    "box-shadow",
+    "transform",
+    "transition"
   ];
   const computedStyles = {};
   for (const prop of relevantProps) {
-    computedStyles[prop] = computed.getPropertyValue(
-      prop.replace(/([A-Z])/g, "-$1").toLowerCase()
-    );
+    computedStyles[prop] = computed.getPropertyValue(prop);
+  }
+  const inheritableProps = [
+    "color",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "line-height",
+    "letter-spacing",
+    "text-align",
+    "text-transform",
+    "white-space"
+  ];
+  const parentComputedStyles = {};
+  const parentEl = el.parentElement;
+  if (parentEl) {
+    const parentComputed = getComputedStyle(parentEl);
+    for (const prop of inheritableProps) {
+      parentComputedStyles[prop] = parentComputed.getPropertyValue(prop);
+    }
   }
   const attributes = {};
   for (const attr of Array.from(el.attributes)) {
     if (attr.name.startsWith("data-")) {
       attributes[attr.name] = attr.value;
+    }
+  }
+  let sourceFile = null;
+  let sourceLine = null;
+  let sourceCol = null;
+  const dataSource = el.getAttribute("data-source");
+  if (dataSource) {
+    const lastColon = dataSource.lastIndexOf(":");
+    const secondLastColon = dataSource.lastIndexOf(":", lastColon - 1);
+    if (secondLastColon > 0) {
+      sourceFile = dataSource.slice(0, secondLastColon);
+      sourceLine = parseInt(dataSource.slice(secondLastColon + 1, lastColon), 10);
+      sourceCol = parseInt(dataSource.slice(lastColon + 1), 10);
     }
   }
   return {
@@ -119,10 +206,14 @@ function extractElementData(el) {
     dataVariant: el.getAttribute("data-variant"),
     dataSize: el.getAttribute("data-size"),
     computedStyles,
+    parentComputedStyles,
     boundingRect: rect,
     domPath: getDomPath(el),
     textContent: (el.textContent || "").trim().slice(0, 100),
-    attributes
+    attributes,
+    sourceFile,
+    sourceLine,
+    sourceCol
   };
 }
 function positionOverlay(overlay, rect) {
@@ -284,6 +375,30 @@ function onMessage(e) {
     case "tool:reselectElement":
       reselectCurrentElement();
       break;
+    case "tool:previewInlineStyle": {
+      if (selectedElement && selectedElement instanceof HTMLElement) {
+        const prop = msg.property;
+        const value = msg.value;
+        if (!inlineStyleBackups.has(prop)) {
+          inlineStyleBackups.set(prop, selectedElement.style.getPropertyValue(prop));
+        }
+        selectedElement.style.setProperty(prop, value, "important");
+      }
+      break;
+    }
+    case "tool:revertInlineStyles": {
+      if (selectedElement && selectedElement instanceof HTMLElement) {
+        for (const [prop, original] of inlineStyleBackups) {
+          if (original) {
+            selectedElement.style.setProperty(prop, original);
+          } else {
+            selectedElement.style.removeProperty(prop);
+          }
+        }
+        inlineStyleBackups.clear();
+      }
+      break;
+    }
     case "tool:setTheme":
       if (msg.theme === "dark") {
         document.documentElement.classList.add("dark");

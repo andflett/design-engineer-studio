@@ -457,7 +457,10 @@ async function createToolServer(config) {
       configFile: false,
       root: config.clientRoot,
       plugins: [react(), tailwindcss()],
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: { server: void 0, port: config.toolPort + 1 }
+      },
       appType: "spa"
     });
     app.use(vite.middlewares);
@@ -1380,7 +1383,16 @@ function createShadowsScanRouter(projectRoot) {
 // src/server/index.ts
 var __dirname = path11.dirname(fileURLToPath(import.meta.url));
 var require2 = createRequire(import.meta.url);
-var packageRoot = fs10.existsSync(path11.join(__dirname, "../package.json")) ? path11.resolve(__dirname, "..") : path11.resolve(__dirname, "../..");
+function findPackageRoot(dir) {
+  let d = dir;
+  while (d !== path11.dirname(d)) {
+    if (fs10.existsSync(path11.join(d, "package.json"))) return d;
+    d = path11.dirname(d);
+  }
+  return dir;
+}
+var packageRoot = findPackageRoot(__dirname);
+var isDev = __dirname.includes(path11.sep + "src" + path11.sep);
 function resolveInjectScript() {
   const compiledInject = path11.join(packageRoot, "dist/inject/selection.js");
   if (fs10.existsSync(compiledInject)) return compiledInject;
@@ -1399,7 +1411,7 @@ function resolveInjectScript() {
 }
 async function startShadowsServer(preflight) {
   const clientRoot = path11.join(packageRoot, "src/client");
-  const clientDistRoot = path11.join(packageRoot, "dist/client");
+  const clientDistRoot = isDev ? void 0 : path11.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,

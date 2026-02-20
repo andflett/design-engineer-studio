@@ -457,7 +457,10 @@ async function createToolServer(config) {
       configFile: false,
       root: config.clientRoot,
       plugins: [react(), tailwindcss()],
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: { server: void 0, port: config.toolPort + 1 }
+      },
       appType: "spa"
     });
     app.use(vite.middlewares);
@@ -664,7 +667,6 @@ function createElementRouter(projectRoot) {
       if (body.type === "class") {
         const result = replaceClassInElement(source, parser, {
           eid: body.eid,
-          classIdentifier: body.classIdentifier,
           oldClass: body.oldClass,
           newClass: body.newClass,
           tag: body.tag,
@@ -689,7 +691,6 @@ function createElementRouter(projectRoot) {
       } else if (body.type === "addClass") {
         const result = addClassToElement(source, parser, {
           eid: body.eid,
-          classIdentifier: body.classIdentifier,
           newClass: body.newClass,
           tag: body.tag,
           textHint: body.textHint,
@@ -712,7 +713,6 @@ function createElementRouter(projectRoot) {
         res.json({ ok: true, eid: result.eid });
       } else if (body.type === "markElement") {
         const result = markElementInSource(source, parser, {
-          classIdentifier: body.classIdentifier,
           componentName: body.componentName,
           tag: body.tag,
           textHint: body.textHint,
@@ -786,14 +786,6 @@ function findAttr(openingElement, attrName) {
   }
   return null;
 }
-function getClassNameString(openingElement) {
-  const attr = findAttr(openingElement, "className");
-  if (!attr) return null;
-  if (n.StringLiteral.check(attr.value) || n.Literal.check(attr.value)) {
-    return typeof attr.value.value === "string" ? attr.value.value : null;
-  }
-  return null;
-}
 function findElementAtLine(ast, lineHint) {
   let best = null;
   let bestDist = Infinity;
@@ -830,7 +822,6 @@ function findElementByEid(ast, eid) {
   return found;
 }
 function findElementByScoring(ast, opts) {
-  const identifierClasses = (opts.classIdentifier || "").split(/\s+/).filter(Boolean);
   let pascalComponent = null;
   if (opts.componentName) {
     pascalComponent = opts.componentName.includes("-") ? opts.componentName.replace(/(^|-)([a-z])/g, (_m, _sep, c) => c.toUpperCase()) : opts.componentName;
@@ -845,17 +836,6 @@ function findElementByScoring(ast, opts) {
         score += 10;
       } else if (opts.tag && tagName.toLowerCase() === opts.tag.toLowerCase()) {
         score += 3;
-      }
-      const classStr = getClassNameString(path10.node);
-      if (classStr && identifierClasses.length > 0) {
-        let matchCount = 0;
-        for (const cls of identifierClasses) {
-          if (classStr.includes(cls)) matchCount++;
-        }
-        const threshold = Math.max(1, Math.ceil(identifierClasses.length * 0.3));
-        if (matchCount >= threshold) {
-          score += matchCount * 2;
-        }
       }
       if (opts.textHint && opts.textHint.length >= 2) {
         const parent = path10.parent;
@@ -1019,7 +999,6 @@ function classBoundaryRegex(cls, flags = "") {
 function markElementInSource(source, parser, opts) {
   const ast = parseSource(source, parser);
   const elementPath = findElement(ast, {
-    classIdentifier: opts.classIdentifier,
     tag: opts.tag,
     textHint: opts.textHint,
     componentName: opts.componentName,
@@ -1064,7 +1043,7 @@ function addClassToElement(source, parser, opts) {
   const ast = parseSource(source, parser);
   const elementPath = findElement(ast, opts);
   if (!elementPath) {
-    throw new Error(`Could not find element with class identifier "${opts.classIdentifier}"`);
+    throw new Error("Could not find target element in source");
   }
   const classAttr = findAttr(elementPath.node, "className");
   if (classAttr) {
@@ -1537,7 +1516,16 @@ async function matchSegments(currentDir, segments, index) {
 // src/server/index.ts
 var __dirname = path9.dirname(fileURLToPath(import.meta.url));
 var require2 = createRequire(import.meta.url);
-var packageRoot = fs11.existsSync(path9.join(__dirname, "../package.json")) ? path9.resolve(__dirname, "..") : path9.resolve(__dirname, "../..");
+function findPackageRoot(dir) {
+  let d = dir;
+  while (d !== path9.dirname(d)) {
+    if (fs11.existsSync(path9.join(d, "package.json"))) return d;
+    d = path9.dirname(d);
+  }
+  return dir;
+}
+var packageRoot = findPackageRoot(__dirname);
+var isDev = __dirname.includes(path9.sep + "src" + path9.sep);
 function resolveInjectScript() {
   const compiledInject = path9.join(packageRoot, "dist/inject/selection.js");
   if (fs11.existsSync(compiledInject)) return compiledInject;
@@ -1556,7 +1544,7 @@ function resolveInjectScript() {
 }
 async function startStudioServer(preflight) {
   const clientRoot = path9.join(packageRoot, "src/client");
-  const clientDistRoot = path9.join(packageRoot, "dist/client");
+  const clientDistRoot = isDev ? void 0 : path9.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
   const { app, wss, projectRoot } = await createToolServer({
     targetPort: preflight.targetPort,

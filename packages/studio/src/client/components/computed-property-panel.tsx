@@ -77,6 +77,7 @@ import {
   LETTER_SPACING_SCALE,
   SPACING_SCALE,
   RADIUS_SCALE,
+  OPACITY_SCALE,
 } from "@designtools/core/client/lib/tailwind-parser";
 import { ColorPopover } from "./color-popover.js";
 
@@ -181,9 +182,9 @@ function UnifiedSection({
   displayValue: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const activeProps = properties.filter((p) => p.hasValue);
   const addableProps = properties.filter((p) => !p.hasValue);
   const count = activeProps.length;
@@ -311,7 +312,7 @@ function LayoutSection({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const displayProp = properties.find((p) => p.cssProperty === "display");
   const alignProp = properties.find((p) => p.cssProperty === "align-items");
@@ -331,7 +332,11 @@ function LayoutSection({
   const handleSegmentedChange = (cssProp: string, cssValue: string) => {
     onPreviewInlineStyle(cssProp, cssValue);
     const match = computedToTailwindClass(cssProp, cssValue);
-    if (match) onCommitClass(match.tailwindClass);
+    if (match) {
+      const prop = properties.find((p) => p.cssProperty === cssProp);
+      const oldClass = prop?.fullClass || undefined;
+      onCommitClass(match.tailwindClass, oldClass);
+    }
   };
 
   return (
@@ -414,7 +419,7 @@ function SizeSection({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const active = properties.filter((p) => p.hasValue);
   const widthProp = active.find((p) => p.cssProperty === "width");
@@ -476,7 +481,7 @@ function SpacingSection({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const [paddingExpanded, setPaddingExpanded] = useState(false);
   const [marginExpanded, setMarginExpanded] = useState(false);
@@ -491,13 +496,19 @@ function SpacingSection({
   const axisPadding = !uniformPadding ? getAxisBoxValues(computedStyles, "padding") : null;
   const axisMargin = !uniformMargin ? getAxisBoxValues(computedStyles, "margin") : null;
 
-  // Compute summary for collapsed view
+  // Compute summary for collapsed view — show computed values, "—" for zero defaults
+  const formatSpacingValue = (p: UnifiedProperty) => {
+    const v = p.computedValue;
+    if (!p.tailwindValue && (v === "0px" || v === "0")) return "—";
+    return v;
+  };
+
   const paddingSummary = uniformPadding
     ? null  // will use ScaleInput with the uniform value
     : axisPadding
     ? `${axisPadding.y} ${axisPadding.x}`
     : paddingProps.length > 0
-    ? paddingProps.map((p) => p.tailwindValue || p.computedValue).join(" ")
+    ? paddingProps.map(formatSpacingValue).join(" ")
     : null;
 
   const marginSummary = uniformMargin
@@ -505,7 +516,7 @@ function SpacingSection({
     : axisMargin
     ? `${axisMargin.y} ${axisMargin.x}`
     : marginProps.length > 0
-    ? marginProps.map((p) => p.tailwindValue || p.computedValue).join(" ")
+    ? marginProps.map(formatSpacingValue).join(" ")
     : null;
 
   // Find individual side props from all properties (including addable ones)
@@ -539,7 +550,9 @@ function SpacingSection({
             uniformPadding ? (
               <ScaleInput
                 icon={PaddingIcon}
-                value={paddingProps[0]?.tailwindValue || uniformPadding}
+                value={paddingProps[0]?.tailwindValue || (uniformPadding === "0px" || uniformPadding === "0" ? "—" : uniformPadding)}
+                computedValue={uniformPadding || "0"}
+                currentClass={paddingProps[0]?.fullClass || null}
                 scale={SPACING_SCALE as string[]}
                 prefix="p"
                 cssProp="padding"
@@ -556,6 +569,8 @@ function SpacingSection({
                   icon={PaddingIcon}
                   label="X"
                   value={axisPadding.x}
+                  computedValue={axisPadding.x}
+                  currentClass={null}
                   scale={SPACING_SCALE as string[]}
                   prefix="px"
                   cssProp="padding-left"
@@ -573,6 +588,8 @@ function SpacingSection({
                   icon={PaddingIcon}
                   label="Y"
                   value={axisPadding.y}
+                  computedValue={axisPadding.y}
+                  currentClass={null}
                   scale={SPACING_SCALE as string[]}
                   prefix="py"
                   cssProp="padding-top"
@@ -611,6 +628,8 @@ function SpacingSection({
                     key={side}
                     label={sideLabel}
                     value={prop?.tailwindValue || prop?.computedValue || "0"}
+                    computedValue={prop?.computedValue || "0"}
+                    currentClass={prop?.fullClass || null}
                     scale={SPACING_SCALE as string[]}
                     prefix={sidePrefix}
                     cssProp={side}
@@ -653,7 +672,9 @@ function SpacingSection({
             uniformMargin ? (
               <ScaleInput
                 icon={MarginIcon}
-                value={marginProps[0]?.tailwindValue || uniformMargin}
+                value={marginProps[0]?.tailwindValue || (uniformMargin === "0px" || uniformMargin === "0" ? "—" : uniformMargin)}
+                computedValue={uniformMargin || "0"}
+                currentClass={marginProps[0]?.fullClass || null}
                 scale={SPACING_SCALE as string[]}
                 prefix="m"
                 cssProp="margin"
@@ -670,6 +691,8 @@ function SpacingSection({
                   icon={MarginIcon}
                   label="X"
                   value={axisMargin.x}
+                  computedValue={axisMargin.x}
+                  currentClass={null}
                   scale={SPACING_SCALE as string[]}
                   prefix="mx"
                   cssProp="margin-left"
@@ -687,6 +710,8 @@ function SpacingSection({
                   icon={MarginIcon}
                   label="Y"
                   value={axisMargin.y}
+                  computedValue={axisMargin.y}
+                  currentClass={null}
                   scale={SPACING_SCALE as string[]}
                   prefix="my"
                   cssProp="margin-top"
@@ -724,6 +749,8 @@ function SpacingSection({
                     key={side}
                     label={sideLabel}
                     value={prop?.tailwindValue || prop?.computedValue || "0"}
+                    computedValue={prop?.computedValue || "0"}
+                    currentClass={prop?.fullClass || null}
                     scale={SPACING_SCALE as string[]}
                     prefix={sidePrefix}
                     cssProp={side}
@@ -791,7 +818,7 @@ function TypographySection({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const findProp = (cssProp: string) => properties.find((p) => p.cssProperty === cssProp);
 
@@ -807,7 +834,12 @@ function TypographySection({
   const handleSegmentedChange = (cssProp: string, cssValue: string) => {
     onPreviewInlineStyle(cssProp, cssValue);
     const match = computedToTailwindClass(cssProp, cssValue);
-    if (match) onCommitClass(match.tailwindClass);
+    if (match) {
+      // Find the old class to replace (from the prop's current fullClass)
+      const prop = findProp(cssProp);
+      const oldClass = prop?.fullClass || undefined;
+      onCommitClass(match.tailwindClass, oldClass);
+    }
   };
 
   // Addable props that aren't one of the 8 main typography controls
@@ -824,6 +856,8 @@ function TypographySection({
           <ScaleInput
             icon={FontFamilyIcon}
             value={fontFamily.tailwindValue || fontFamily.computedValue}
+            computedValue={fontFamily.computedValue}
+            currentClass={fontFamily.fullClass}
             scale={FONT_FAMILY_SCALE}
             prefix="font"
             cssProp="font-family"
@@ -846,6 +880,8 @@ function TypographySection({
               <ScaleInput
                 icon={FontSizeIcon}
                 value={fontSize.tailwindValue || fontSize.computedValue}
+                computedValue={fontSize.computedValue}
+                currentClass={fontSize.fullClass}
                 scale={FONT_SIZE_SCALE as string[]}
                 prefix="text"
                 cssProp="font-size"
@@ -864,6 +900,8 @@ function TypographySection({
               <ScaleInput
                 icon={FontBoldIcon}
                 value={fontWeight.tailwindValue || fontWeight.computedValue}
+                computedValue={fontWeight.computedValue}
+                currentClass={fontWeight.fullClass}
                 scale={FONT_WEIGHT_SCALE as string[]}
                 prefix="font"
                 cssProp="font-weight"
@@ -888,6 +926,8 @@ function TypographySection({
               <ScaleInput
                 icon={LineHeightIcon}
                 value={lineHeight.tailwindValue || lineHeight.computedValue}
+                computedValue={lineHeight.computedValue}
+                currentClass={lineHeight.fullClass}
                 scale={LINE_HEIGHT_SCALE as string[]}
                 prefix="leading"
                 cssProp="line-height"
@@ -906,6 +946,8 @@ function TypographySection({
               <ScaleInput
                 icon={LetterSpacingIcon}
                 value={letterSpacing.tailwindValue || letterSpacing.computedValue}
+                computedValue={letterSpacing.computedValue}
+                currentClass={letterSpacing.fullClass}
                 scale={LETTER_SPACING_SCALE as string[]}
                 prefix="tracking"
                 cssProp="letter-spacing"
@@ -999,7 +1041,7 @@ function BorderSection({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const active = properties.filter((p) => p.hasValue);
   const radiusProps = active.filter((p) => p.cssProperty.includes("radius"));
@@ -1009,6 +1051,7 @@ function BorderSection({
   );
 
   const uniformRadius = getUniformBoxValue(computedStyles, "border-radius");
+  const uniformBorderWidth = getUniformBoxValue(computedStyles, "border-width");
 
   return (
     <>
@@ -1019,6 +1062,8 @@ function BorderSection({
             <ScaleInput
               icon={CornersIcon}
               value={radiusProps[0]?.tailwindValue || uniformRadius}
+              computedValue={uniformRadius || "0"}
+              currentClass={radiusProps[0]?.fullClass || null}
               scale={RADIUS_SCALE as string[]}
               prefix="rounded"
               cssProp="border-radius"
@@ -1049,16 +1094,29 @@ function BorderSection({
       {widthProps.length > 0 && (
         <>
           <SubSectionLabel label="Width" />
-          {widthProps.map((prop) => (
-            <UnifiedControl
-              key={prop.cssProperty}
-              prop={prop}
-              tokenGroups={tokenGroups}
-              onPreviewInlineStyle={onPreviewInlineStyle}
-              onRevertInlineStyles={onRevertInlineStyles}
-              onCommitClass={onCommitClass}
+          {uniformBorderWidth ? (
+            <ScrubInput
+              icon={BorderWidthIcon}
+              value={uniformBorderWidth}
+              cssProp="border-width"
+              onPreview={(v) => onPreviewInlineStyle("border-width", v)}
+              onCommit={(v) => {
+                const match = computedToTailwindClass("border-width", v);
+                if (match) onCommitClass(match.tailwindClass);
+              }}
             />
-          ))}
+          ) : (
+            widthProps.map((prop) => (
+              <UnifiedControl
+                key={prop.cssProperty}
+                prop={prop}
+                tokenGroups={tokenGroups}
+                onPreviewInlineStyle={onPreviewInlineStyle}
+                onRevertInlineStyles={onRevertInlineStyles}
+                onCommitClass={onCommitClass}
+              />
+            ))
+          )}
         </>
       )}
 
@@ -1091,7 +1149,7 @@ function AddableRows({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const [activated, setActivated] = useState<Set<string>>(new Set());
 
@@ -1168,7 +1226,7 @@ function UnifiedControl({
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   // 1. Color controls
   if (prop.controlType === "color") {
@@ -1220,15 +1278,34 @@ function UnifiedControl({
     );
   }
 
+  // 4a. Opacity → slider
+  if (prop.cssProperty === "opacity") {
+    return (
+      <div>
+        <PropLabel label={prop.label} inherited={prop.inherited} />
+        <SliderInput
+          value={prop.computedValue}
+          onPreview={(v) => onPreviewInlineStyle("opacity", v)}
+          onCommitClass={onCommitClass}
+        />
+      </div>
+    );
+  }
+
   // 4. Tailwind scale → ScaleInput
   const twScale = CSS_PROP_TO_TW_SCALE[prop.cssProperty];
   if (twScale) {
+    // Show "—" for zero/default computed values when no explicit class exists
+    const isZeroDefault = !prop.tailwindValue && (prop.computedValue === "0px" || prop.computedValue === "0");
+    const displayValue = isZeroDefault ? "—" : (prop.tailwindValue || prop.computedValue);
     return (
       <div>
         <PropLabel label={prop.label} inherited={prop.inherited} />
         <ScaleInput
           icon={getPropertyIcon(prop.cssProperty)}
-          value={prop.tailwindValue || prop.computedValue}
+          value={displayValue}
+          computedValue={prop.computedValue}
+          currentClass={prop.fullClass}
           scale={twScale.scale as string[]}
           prefix={twScale.prefix}
           cssProp={prop.cssProperty}
@@ -1288,6 +1365,8 @@ function ScaleInput({
   icon: Icon,
   label,
   value,
+  computedValue,
+  currentClass,
   scale,
   prefix,
   cssProp,
@@ -1297,7 +1376,12 @@ function ScaleInput({
 }: {
   icon?: React.ComponentType<{ style?: React.CSSProperties }>;
   label?: string;
+  /** Display value — the scale suffix (e.g. "2xl") or "—" for zero defaults */
   value: string;
+  /** Raw CSS computed value (e.g. "30px", "700") — shown in arbitrary/CSS mode */
+  computedValue: string;
+  /** The actual Tailwind class on this element (e.g. "text-2xl"), if any */
+  currentClass: string | null;
   scale: string[];
   prefix: string;
   cssProp: string;
@@ -1305,50 +1389,78 @@ function ScaleInput({
   onCommitClass: (c: string, oldClass?: string) => void;
   onCommitValue?: (v: string) => void;
 }) {
-  const isInScale = scale.includes(value);
-  const [arbitraryMode, setArbitraryMode] = useState(!isInScale && value !== "" && value !== "0" && value !== "0px");
-  const [draft, setDraft] = useState(value);
+  // Strip prefix from value if present (e.g. "text-base" → "base", "font-bold" → "bold")
+  const normalizedValue = value.startsWith(prefix + "-")
+    ? value.slice(prefix.length + 1)
+    : value;
+  const isInScale = scale.includes(normalizedValue);
+  const isDash = normalizedValue === "—" || normalizedValue === "";
+  const [arbitraryMode, setArbitraryMode] = useState(!isInScale && !isDash && normalizedValue !== "0" && normalizedValue !== "0px");
+  const [draft, setDraft] = useState(arbitraryMode ? computedValue : normalizedValue);
   const [focused, setFocused] = useState(false);
+  // Track what class we last wrote so subsequent changes replace the correct one
+  const lastWrittenClassRef = useRef<string | null>(currentClass);
 
-  // Sync draft when value changes externally
+  // Keep ref in sync with prop when element re-selects
+  useEffect(() => {
+    lastWrittenClassRef.current = currentClass;
+  }, [currentClass]);
+
+  // Sync draft when the external value changes (e.g. element re-selected)
+  const prevNormalizedRef = useRef(normalizedValue);
   useEffect(() => {
     if (!focused) {
-      setDraft(value);
-      // If the value is now in the scale, switch back to scale mode
-      if (scale.includes(value)) {
+      setDraft(arbitraryMode ? computedValue : normalizedValue);
+    }
+    // Only auto-switch back to scale mode when the value ACTUALLY changes externally
+    if (prevNormalizedRef.current !== normalizedValue) {
+      prevNormalizedRef.current = normalizedValue;
+      if (scale.includes(normalizedValue)) {
         setArbitraryMode(false);
       }
     }
-  }, [value, focused, scale]);
+  }, [normalizedValue, computedValue, focused, scale, arbitraryMode]);
+
+  // Get the old class to replace — use our tracked ref, fall back to currentClass prop
+  const getOldClass = (): string | undefined => {
+    return lastWrittenClassRef.current || currentClass || undefined;
+  };
 
   const handleScaleChange = (selected: string) => {
     if (selected === "__custom__") {
       setArbitraryMode(true);
+      setDraft(computedValue);
       return;
     }
     const newClass = `${prefix}-${selected}`;
-    // Pass the old class so the editor can replace instead of append.
-    // value may be the full class ("text-2xl") — strip prefix to check scale membership.
-    const suffix = value.startsWith(prefix + "-") ? value.slice(prefix.length + 1) : value;
-    const oldClass = scale.includes(suffix) ? `${prefix}-${suffix}` : undefined;
+    const oldClass = getOldClass();
     onCommitClass(newClass, oldClass);
+    lastWrittenClassRef.current = newClass;
   };
 
   const handleArbitraryCommit = (v: string) => {
     const trimmed = v.trim();
     if (!trimmed) return;
+    const oldClass = getOldClass();
     // Check if the entered value matches a scale value
     if (scale.includes(trimmed)) {
-      onCommitClass(`${prefix}-${trimmed}`);
+      const newClass = `${prefix}-${trimmed}`;
+      onCommitClass(newClass, oldClass);
+      lastWrittenClassRef.current = newClass;
       setArbitraryMode(false);
       return;
     }
     // Try as arbitrary value: prefix-[value]
-    onCommitClass(`${prefix}-[${trimmed}]`);
+    const newClass = `${prefix}-[${trimmed}]`;
+    onCommitClass(newClass, oldClass);
+    lastWrittenClassRef.current = newClass;
   };
 
   return (
-    <div className="studio-scale-input">
+    <div
+      className="studio-scale-input"
+      style={arbitraryMode ? { borderLeft: "2px solid var(--studio-accent)" } : undefined}
+    >
       {Icon && (
         <div className="studio-scrub-icon" title={label || cssProp}>
           <Icon style={{ width: 12, height: 12 }} />
@@ -1362,7 +1474,7 @@ function ScaleInput({
 
       {!arbitraryMode ? (
         <select
-          value={isInScale ? value : "__custom__"}
+          value={isInScale ? normalizedValue : "__custom__"}
           onChange={(e) => handleScaleChange(e.target.value)}
           style={{
             flex: 1,
@@ -1380,32 +1492,32 @@ function ScaleInput({
         >
           {!isInScale && (
             <option value="__custom__">
-              {value || "—"}
+              {normalizedValue || "—"}
             </option>
           )}
           {scale.map((val) => (
             <option key={val} value={val}>
-              {prefix}-{val}
+              {val}
             </option>
           ))}
         </select>
       ) : (
         <input
           type="text"
-          value={focused ? draft : value}
-          placeholder={`${prefix}-[value]`}
+          value={focused ? draft : computedValue}
+          placeholder="e.g. 16px"
           onChange={(e) => {
             setDraft(e.target.value);
             if (onPreview) onPreview(e.target.value);
           }}
           onFocus={() => {
-            setDraft(value);
+            setDraft(computedValue);
             setFocused(true);
           }}
           onBlur={() => {
             setFocused(false);
             const trimmed = draft.trim();
-            if (trimmed && trimmed !== value) {
+            if (trimmed && trimmed !== computedValue) {
               if (onCommitValue) onCommitValue(trimmed);
               else handleArbitraryCommit(trimmed);
             }
@@ -1413,7 +1525,7 @@ function ScaleInput({
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             if (e.key === "Escape") {
-              setDraft(value);
+              setDraft(computedValue);
               setFocused(false);
             }
           }}
@@ -1432,15 +1544,20 @@ function ScaleInput({
       )}
 
       <button
-        onClick={() => setArbitraryMode(!arbitraryMode)}
+        onClick={() => {
+          setArbitraryMode(!arbitraryMode);
+          if (!arbitraryMode) setDraft(computedValue);
+        }}
         className="studio-scale-toggle"
-        title={arbitraryMode ? "Switch to scale" : "Switch to arbitrary value"}
+        title={arbitraryMode ? "Custom CSS value — click for token scale" : "Token scale — click for custom CSS"}
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "0.02em",
+          fontFamily: '"SF Mono", "Fira Code", monospace',
+        }}
       >
-        {arbitraryMode ? (
-          <ChevronDownIcon style={{ width: 12, height: 12 }} />
-        ) : (
-          <span style={{ fontSize: 9, fontWeight: 600 }}>#</span>
-        )}
+        {arbitraryMode ? "CSS" : "Token"}
       </button>
     </div>
   );
@@ -1580,6 +1697,85 @@ function ScrubInput({
 }
 
 // ---------------------------------------------------------------------------
+// SliderInput — range slider for opacity (0–100)
+// ---------------------------------------------------------------------------
+
+function SliderInput({
+  value,
+  onPreview,
+  onCommitClass,
+}: {
+  value: string;
+  onPreview: (v: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
+}) {
+  // Parse current opacity: could be "1", "0.5", "50%", etc.
+  const parseOpacity = (v: string): number => {
+    const n = parseFloat(v);
+    if (isNaN(n)) return 100;
+    // If value looks like 0-1 range (e.g. "0.5"), convert to percentage
+    return n <= 1 && v !== "100" ? Math.round(n * 100) : Math.round(n);
+  };
+
+  const [sliderValue, setSliderValue] = useState(() => parseOpacity(value));
+
+  useEffect(() => {
+    setSliderValue(parseOpacity(value));
+  }, [value]);
+
+  const commitValue = (pct: number) => {
+    // Find closest value in OPACITY_SCALE
+    const closest = OPACITY_SCALE.reduce((prev, curr) =>
+      Math.abs(parseInt(curr) - pct) < Math.abs(parseInt(prev) - pct) ? curr : prev
+    );
+    onCommitClass(`opacity-${closest}`);
+  };
+
+  return (
+    <div className="studio-scrub-input" style={{ gap: 6 }}>
+      <div className="studio-scrub-icon" title="Opacity">
+        <OpacityIcon style={{ width: 12, height: 12 }} />
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={sliderValue}
+        onChange={(e) => {
+          const v = parseInt(e.target.value);
+          setSliderValue(v);
+          onPreview(`${v / 100}`);
+        }}
+        onMouseUp={() => commitValue(sliderValue)}
+        onKeyUp={(e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight") commitValue(sliderValue);
+        }}
+        style={{
+          flex: 1,
+          accentColor: "var(--studio-accent)",
+          cursor: "pointer",
+          height: 14,
+        }}
+      />
+      <span
+        className="studio-scrub-value"
+        style={{
+          width: 32,
+          textAlign: "right",
+          fontSize: 11,
+          fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
+          color: "var(--studio-text)",
+          flexShrink: 0,
+        }}
+      >
+        {sliderValue}%
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Property icon mapping — complete for all properties
 // ---------------------------------------------------------------------------
 
@@ -1673,13 +1869,22 @@ function SegmentedIcons({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
   return (
     <div className="studio-segmented" style={{ width: "100%" }}>
       {options.map((opt) => (
         <button
           key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={value === opt.value ? "active" : ""}
+          onClick={() => {
+            setLocalValue(opt.value);
+            onChange(opt.value);
+          }}
+          className={localValue === opt.value ? "active" : ""}
           title={opt.tooltip || opt.label || opt.value}
           style={{ flex: 1, cursor: "pointer" }}
         >
@@ -1705,7 +1910,7 @@ function TokenPickerControl({
 }: {
   prop: UnifiedProperty;
   onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const tokenMatch = prop.tokenMatch!;
   const twPrefix = CSS_PROP_TO_TW_PREFIX[prop.cssProperty] || "";
@@ -1755,7 +1960,7 @@ function ColorControl({
   prop: UnifiedProperty;
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -1789,15 +1994,12 @@ function ColorControl({
       >
         <div
           className="studio-swatch"
-          style={{ "--swatch-color": prop.computedValue } as React.CSSProperties}
+          style={{
+            "--swatch-color": prop.computedValue,
+            ...(hasToken ? { boxShadow: "0 0 0 2px var(--studio-accent)" } : {}),
+          } as React.CSSProperties}
+          title={hasToken ? "Design token" : undefined}
         />
-        {hasToken && (
-          <div
-            className="shrink-0 w-1.5 h-3 rounded-sm"
-            style={{ background: "var(--studio-accent)" }}
-            title="Design token"
-          />
-        )}
         <span className="flex-1 truncate text-left font-mono text-[11px]">
           {hasToken ? prop.tokenMatch!.tokenName : (prop.tailwindValue || prop.computedValue)}
         </span>
@@ -1832,7 +2034,7 @@ function KeywordControl({
 }: {
   prop: UnifiedProperty;
   onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string) => void;
+  onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const options = getKeywordOptions(prop.cssProperty);
 

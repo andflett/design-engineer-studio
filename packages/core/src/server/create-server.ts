@@ -156,7 +156,10 @@ export async function createToolServer(config: ToolServerConfig): Promise<ToolSe
       configFile: false,
       root: config.clientRoot,
       plugins: [react(), tailwindcss()],
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: { port: config.toolPort + 1 },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

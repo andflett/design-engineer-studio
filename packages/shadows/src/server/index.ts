@@ -10,9 +10,19 @@ import type { PreflightResult } from "@designtools/core/cli";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-const packageRoot = fs.existsSync(path.join(__dirname, "../package.json"))
-  ? path.resolve(__dirname, "..")
-  : path.resolve(__dirname, "../..");
+// Find package root — walk up from __dirname until we find package.json
+function findPackageRoot(dir: string): string {
+  let d = dir;
+  while (d !== path.dirname(d)) {
+    if (fs.existsSync(path.join(d, "package.json"))) return d;
+    d = path.dirname(d);
+  }
+  return dir;
+}
+const packageRoot = findPackageRoot(__dirname);
+
+// Dev mode: running from src/ via tsx; production: running from dist/ via npx
+const isDev = __dirname.includes(path.sep + "src" + path.sep);
 
 function resolveInjectScript(): string {
   // 1. Check for compiled inject script in this package's dist
@@ -38,7 +48,7 @@ function resolveInjectScript(): string {
 
 export async function startShadowsServer(preflight: PreflightResult) {
   const clientRoot = path.join(packageRoot, "src/client");
-  const clientDistRoot = path.join(packageRoot, "dist/client");
+  const clientDistRoot = isDev ? undefined : path.join(packageRoot, "dist/client");
   const actualInjectPath = resolveInjectScript();
 
   const { app, wss, projectRoot } = await createToolServer({

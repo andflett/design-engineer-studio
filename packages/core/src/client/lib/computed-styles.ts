@@ -594,14 +594,16 @@ export function buildUnifiedProperties(
       // alwaysShow: always include, even if computed value is empty or hidden
       const displayValue = computedValue || getDefaultValue(def.property);
       const twMatch = displayValue ? computedToTailwindClass(def.property, displayValue) : null;
+      // Don't show computed-to-tailwind matches for zero/default values — they're not real classes
+      const isZeroDefault = (displayValue === "0px" || displayValue === "0" || displayValue === "0%");
       prop = {
         cssProperty: def.property,
         label: def.label,
         category: def.category,
         controlType: def.controlType,
         source: computedValue ? "computed" : "none",
-        tailwindValue: twMatch?.exact ? twMatch.tailwindClass : null,
-        fullClass: twMatch ? twMatch.tailwindClass : null,
+        tailwindValue: (twMatch?.exact && !isZeroDefault) ? twMatch.tailwindClass : null,
+        fullClass: null, // computed/default — not an actual class on the element
         computedValue: displayValue,
         inherited,
         tokenMatch,
@@ -619,7 +621,7 @@ export function buildUnifiedProperties(
         controlType: def.controlType,
         source: "computed",
         tailwindValue: twMatch?.exact ? twMatch.tailwindClass : null,
-        fullClass: twMatch ? twMatch.tailwindClass : null,
+        fullClass: null, // computed — not an actual class on the element
         computedValue,
         inherited,
         tokenMatch,

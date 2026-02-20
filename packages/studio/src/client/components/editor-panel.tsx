@@ -96,7 +96,6 @@ export function EditorPanel({
     if (pageFilePath && !eidRef.current) {
       markElementOnSelection(
         pageFilePath,
-        element.className,
         element.tag,
         element.textContent?.slice(0, 30),
         element.dataSlot || undefined,
@@ -255,7 +254,7 @@ export function EditorPanel({
             <div className="studio-tab-explainer">
               <InfoCircledIcon />
               <div>
-                Edit the component definition Changes apply to all instances.
+                Edit the component definition. Changes apply to all instances.
                 <div className="studio-explainer-file truncate">
                   {componentEntry.filePath}
                 </div>
@@ -286,7 +285,7 @@ export function EditorPanel({
             className="px-4 py-3 text-[11px]"
             style={{ color: "var(--studio-text-dimmed)" }}
           >
-            Component definition not found in scan data.
+            This component doesn't use variant definitions (CVA). Edit its styles directly in the Element tab.
           </div>
         )}
 
@@ -322,7 +321,6 @@ export function EditorPanel({
                 onPreviewInlineStyle={onPreviewInlineStyle}
                 onRevertInlineStyles={onRevertInlineStyles}
                 onCommitClass={(tailwindClass, oldClass) => {
-                  const classesForWrite = element.className;
                   if (isComponent && componentEntry) {
                     const filePath = pageFilePath || "";
                     withSave(async () => {
@@ -347,7 +345,6 @@ export function EditorPanel({
                       const currentEid = eidRef.current?.eid || null;
                       const returnedEid = await handleElementClassChange(
                         filePath,
-                        classesForWrite,
                         oldClass,
                         tailwindClass,
                         currentEid,
@@ -366,7 +363,6 @@ export function EditorPanel({
                       const currentEid = eidRef.current?.eid || null;
                       const returnedEid = await handleElementAddClass(
                         filePath,
-                        classesForWrite,
                         tailwindClass,
                         currentEid,
                         element.tag,
@@ -668,7 +664,6 @@ async function handleInstanceOverride(
 
 async function handleElementClassChange(
   filePath: string,
-  classIdentifier: string,
   oldClass: string,
   newClass: string,
   eid?: string | null,
@@ -683,7 +678,6 @@ async function handleElementClassChange(
       body: JSON.stringify({
         type: "class",
         filePath,
-        classIdentifier,
         oldClass,
         newClass,
         eid: eid || undefined,
@@ -706,7 +700,6 @@ async function handleElementClassChange(
 
 async function handleElementAddClass(
   filePath: string,
-  classIdentifier: string,
   newClass: string,
   eid?: string | null,
   tag?: string,
@@ -720,7 +713,6 @@ async function handleElementAddClass(
       body: JSON.stringify({
         type: "addClass",
         filePath,
-        classIdentifier,
         newClass,
         eid: eid || undefined,
         tag,
@@ -742,7 +734,6 @@ async function handleElementAddClass(
 
 async function markElementOnSelection(
   filePath: string,
-  classIdentifier: string,
   tag: string,
   textHint?: string,
   componentName?: string,
@@ -755,7 +746,6 @@ async function markElementOnSelection(
       body: JSON.stringify({
         type: "markElement",
         filePath,
-        classIdentifier,
         tag,
         textHint,
         componentName,

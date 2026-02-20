@@ -37,7 +37,6 @@ export function createElementRouter(projectRoot: string) {
       if (body.type === "class") {
         const result = replaceClassInElement(source, parser, {
           eid: body.eid,
-          classIdentifier: body.classIdentifier,
           oldClass: body.oldClass,
           newClass: body.newClass,
           tag: body.tag,
@@ -62,7 +61,6 @@ export function createElementRouter(projectRoot: string) {
       } else if (body.type === "addClass") {
         const result = addClassToElement(source, parser, {
           eid: body.eid,
-          classIdentifier: body.classIdentifier,
           newClass: body.newClass,
           tag: body.tag,
           textHint: body.textHint,
@@ -85,7 +83,6 @@ export function createElementRouter(projectRoot: string) {
         res.json({ ok: true, eid: result.eid });
       } else if (body.type === "markElement") {
         const result = markElementInSource(source, parser, {
-          classIdentifier: body.classIdentifier,
           componentName: body.componentName,
           tag: body.tag,
           textHint: body.textHint,
@@ -144,7 +141,6 @@ type ElementWriteRequest =
       type: "class";
       filePath: string;
       eid?: string;
-      classIdentifier: string;
       oldClass: string;
       newClass: string;
       tag?: string;
@@ -164,7 +160,6 @@ type ElementWriteRequest =
       type: "addClass";
       filePath: string;
       eid?: string;
-      classIdentifier: string;
       newClass: string;
       tag?: string;
       textHint?: string;
@@ -188,7 +183,6 @@ type ElementWriteRequest =
   | {
       type: "markElement";
       filePath: string;
-      classIdentifier: string;
       componentName?: string;
       tag?: string;
       textHint?: string;
@@ -235,15 +229,6 @@ function findAttr(openingElement: any, attrName: string): any | null {
   return null;
 }
 
-/** Get the string value of a className attribute, or null if it's an expression */
-function getClassNameString(openingElement: any): string | null {
-  const attr = findAttr(openingElement, "className");
-  if (!attr) return null;
-  if (n.StringLiteral.check(attr.value) || n.Literal.check(attr.value)) {
-    return typeof attr.value.value === "string" ? attr.value.value : null;
-  }
-  return null;
-}
 
 /**
  * Find a JSXOpeningElement at or near a given line number.
@@ -303,14 +288,11 @@ function findElementByEid(ast: any, eid: string): any | null {
 function findElementByScoring(
   ast: any,
   opts: {
-    classIdentifier?: string;
     tag?: string;
     textHint?: string;
     componentName?: string;
   }
 ): any | null {
-  const identifierClasses = (opts.classIdentifier || "").split(/\s+/).filter(Boolean);
-
   // Precompute PascalCase component name
   let pascalComponent: string | null = null;
   if (opts.componentName) {
@@ -332,19 +314,6 @@ function findElementByScoring(
         score += 10;
       } else if (opts.tag && tagName.toLowerCase() === opts.tag.toLowerCase()) {
         score += 3;
-      }
-
-      // className content match
-      const classStr = getClassNameString(path.node);
-      if (classStr && identifierClasses.length > 0) {
-        let matchCount = 0;
-        for (const cls of identifierClasses) {
-          if (classStr.includes(cls)) matchCount++;
-        }
-        const threshold = Math.max(1, Math.ceil(identifierClasses.length * 0.3));
-        if (matchCount >= threshold) {
-          score += matchCount * 2;
-        }
       }
 
       // Text content match — check JSXText children of parent JSXElement
@@ -383,7 +352,6 @@ function findElement(
   opts: {
     eid?: string;
     lineHint?: number;
-    classIdentifier?: string;
     tag?: string;
     textHint?: string;
     componentName?: string;
@@ -596,12 +564,11 @@ function classBoundaryRegex(cls: string, flags = ""): RegExp {
 function markElementInSource(
   source: string,
   parser: any,
-  opts: { classIdentifier: string; componentName?: string; tag?: string; textHint?: string; lineHint?: number }
+  opts: { componentName?: string; tag?: string; textHint?: string; lineHint?: number }
 ): { source: string; eid: string; modified: boolean } {
   const ast = parseSource(source, parser);
 
   const elementPath = findElement(ast, {
-    classIdentifier: opts.classIdentifier,
     tag: opts.tag,
     textHint: opts.textHint,
     componentName: opts.componentName,
@@ -632,7 +599,6 @@ function replaceClassInElement(
   parser: any,
   opts: {
     eid?: string;
-    classIdentifier: string;
     oldClass: string;
     newClass: string;
     tag?: string;
@@ -672,7 +638,6 @@ function addClassToElement(
   parser: any,
   opts: {
     eid?: string;
-    classIdentifier: string;
     newClass: string;
     tag?: string;
     textHint?: string;
@@ -683,7 +648,7 @@ function addClassToElement(
 
   const elementPath = findElement(ast, opts);
   if (!elementPath) {
-    throw new Error(`Could not find element with class identifier "${opts.classIdentifier}"`);
+    throw new Error("Could not find target element in source");
   }
 
   const classAttr = findAttr(elementPath.node, "className");
