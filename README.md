@@ -1,28 +1,50 @@
-# CLI Design Tools
+# Design Tools
 
-Visual editing CLI tools for design tokens, component variants, and shadows — writes changes back to source files.
+Visual editing CLI tools for web applications — edit styles, tokens, and components visually with changes written back to source files.
 
 [Read the write-up](https://www.flett.cc/projects/design-engineer-studio)
 
 ## Packages
 
-| Package | Description | CLI command |
-|---------|-------------|-------------|
-| [`@designtools/studio`](packages/studio) | Visual editor for tokens, components, and instances | `npx @designtools/studio` |
-| [`@designtools/shadows`](packages/shadows) | Visual editor for box-shadow values | `npx @designtools/shadows` |
-| `@designtools/core` | Shared scanner, server, and client utilities (internal) | — |
+| Package | Description | Status |
+|---------|-------------|--------|
+| [`@designtools/codecanvas`](packages/codecanvas) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app | **Active development** |
+| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<Studio />` | **Active development** |
+| [`@designtools/studio`](packages/studio) | Visual editor for tokens, components, and instances (proxy-based) | Legacy |
+| [`@designtools/shadows`](packages/shadows) | Visual editor for box-shadow values (proxy-based) | Legacy |
+| `@designtools/core` | Shared scanner, server, and client utilities | Legacy (shared) |
 
-## Try the demos
+## Architecture
 
-Five demo apps cover the major styling approaches. Each is a self-contained Next.js app you can run alongside the tools.
+CodeCanvas uses a hybrid architecture where the **selection component** (`<Studio />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
 
-| Demo | Styling | Shadows | Port |
-|------|---------|---------|------|
-| **Studio** (`demos/studio-app`) | Tailwind CSS v4, CVA, OKLch tokens | Component editing demo | 3000 |
-| **Bootstrap** (`demos/bootstrap-app`) | Bootstrap 5 Sass + CSS custom properties | `$box-shadow-*` / `--bs-box-shadow-*` | 3001 |
-| **W3C Tokens** (`demos/w3c-tokens-app`) | W3C Design Tokens Format (DTCG) | `.tokens.json` with `$type: "shadow"` | 3002 |
-| **CSS Variables** (`demos/css-variables-app`) | Plain CSS custom properties | `--shadow-xs` through `--shadow-xl` | 3003 |
-| **Tailwind Shadows** (`demos/tailwind-shadows-app`) | Tailwind CSS v4 `@theme` | `--shadow-xs` through `--shadow-xl` | 3004 |
+```
+Editor UI (Vite, 4400)
+  |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
+  |       |
+  |       +-- Target app with <Studio /> component
+  |               mounted by withDesigntools()
+  |               communicates via postMessage
+  |
+  +-- Write server (API routes on same port)
+```
+
+Key design decisions:
+- `data-source` attributes (injected at compile time) provide exact file:line:col mapping for every element
+- CSS property/value pairs as the universal editing primitive, with styling-system hints to preserve tokens
+- Framework plugins (Next.js, Vite, etc.) and styling-system adapters (Tailwind, CSS variables, etc.) are orthogonal
+
+See [architecture plan](.claude/studio-hybrid-architecture-plan.md) and [exploration history](.claude/exploration-history.md) for full context.
+
+## Demo apps
+
+| Demo | Styling | Port |
+|------|---------|------|
+| **Studio** (`demos/studio-app`) | Tailwind CSS v4, CVA, OKLch tokens | 3000 |
+| **Bootstrap** (`demos/bootstrap-app`) | Bootstrap 5 Sass + CSS custom properties | 3001 |
+| **W3C Tokens** (`demos/w3c-tokens-app`) | W3C Design Tokens Format (DTCG) | 3002 |
+| **CSS Variables** (`demos/css-variables-app`) | Plain CSS custom properties | 3003 |
+| **Tailwind Shadows** (`demos/tailwind-shadows-app`) | Tailwind CSS v4 `@theme` | 3004 |
 
 ### Prerequisites
 
@@ -34,7 +56,7 @@ Five demo apps cover the major styling approaches. Each is a self-contained Next
 git clone https://github.com/andflett/designtools.git
 cd designtools
 
-# Install monorepo dependencies and build the tools
+# Install monorepo dependencies and build
 npm install
 npm run build
 ```
@@ -42,101 +64,41 @@ npm run build
 Then install the demo you want to try:
 
 ```bash
-# Studio demo (Tailwind v4 + CVA)
 cd demos/studio-app && npm install && cd ../..
-
-# Bootstrap demo
-cd demos/bootstrap-app && npm install && cd ../..
-
-# W3C Design Tokens demo
-cd demos/w3c-tokens-app && npm install && cd ../..
-
-# CSS Variables demo
-cd demos/css-variables-app && npm install && cd ../..
-
-# Tailwind Shadows demo
-cd demos/tailwind-shadows-app && npm install && cd ../..
 ```
 
 ### Run
 
-You need two terminals — one for the demo app, one for the tool.
-
-**Terminal 1** — start a demo app:
-
 ```bash
-# Studio 
-npm run demo
+# Terminal 1 — start a demo app
+cd demos/studio-app && npm run dev
 
-# Or run any demo directly:
-cd demos/bootstrap-app && npm run dev         
-cd demos/w3c-tokens-app && npm run dev         
-cd demos/css-variables-app && npm run dev      
-cd demos/tailwind-shadows-app && npm run dev   
+# Terminal 2 — start codecanvas
+npm run dev:codecanvas
 ```
 
-**Terminal 2** — start a tool (from the project root):
-
-```bash
-# Studio — default
-cd demos/studio-app
-npx @designtools/studio
-
-# Shadows – Tailwind v4 demo
-cd demos/tailwind-shadows-app
-npx @designtools/shadows
-```
-
-The studio opens at [http://localhost:4400](http://localhost:4400) and shadows at [http://localhost:4410](http://localhost:4410), with the demo app proxied inside.
-
-## What you can edit
-
-- **Tokens** — CSS custom properties (colors, spacing, radius) at the system level
-- **Components** — CVA variant definitions (button sizes, badge styles, etc.)
-- **Instances** — individual component classNames in your source code
-- **Shadows** — box-shadow values across Tailwind, Bootstrap, W3C Design Tokens, and plain CSS
-
-All changes are written directly back to your source files.
+The editor opens at [http://localhost:4400](http://localhost:4400) with the target app loaded in an iframe.
 
 ## Supported styling systems
 
-| System | Detection | Shadow format |
-|--------|-----------|---------------|
-| Tailwind CSS v4 | `tailwindcss ^4` in package.json | `@theme { --shadow-*: ... }` |
-| Tailwind CSS v3 | `tailwindcss ^3` + config file | `:root` CSS custom properties |
-| Bootstrap 5 | `bootstrap` in package.json | Sass `$box-shadow-*` and CSS `--bs-box-shadow-*` |
-| W3C Design Tokens | `.tokens.json` files with `$type: "shadow"` | DTCG composite values |
-| CSS Variables | `--*` custom properties in `:root` | Standard `box-shadow` values |
+| System | Detection | Write format |
+|--------|-----------|-------------|
+| Tailwind CSS v4 | `tailwindcss ^4` in package.json | Utility class replacement via resolved theme |
+| Tailwind CSS v3 | `tailwindcss ^3` + config file | Utility class replacement |
+| Bootstrap 5 | `bootstrap` in package.json | Sass variables / CSS custom properties |
+| W3C Design Tokens | `.tokens.json` files with `$type` | DTCG composite values |
+| CSS Variables | `--*` custom properties in `:root` | Direct property writes |
 
-## Use with your own project
+## Legacy tools
 
-```bash
-npm install -g @designtools/studio
-```
-
-Start your dev server, then run the CLI in your project directory:
+The original `@designtools/studio` and `@designtools/shadows` packages are still in the repo and buildable. They use a proxy-based architecture that is being replaced by CodeCanvas. See the [exploration history](.claude/exploration-history.md) for why.
 
 ```bash
-designtools-studio
-```
+# Legacy studio
+npm run dev:studio
 
-Or use `npx` without installing:
-
-```bash
-npx @designtools/studio
-```
-
-Pass `--port` if your dev server isn't on port 3000:
-
-```bash
-designtools-studio --port 5173
-```
-
-For shadows only:
-
-```bash
-npm install -g @designtools/shadows
-designtools-shadows --port 5173
+# Legacy shadows
+npm run dev:shadows
 ```
 
 ## Project structure
@@ -144,9 +106,11 @@ designtools-shadows --port 5173
 ```
 designtools/
 ├── packages/
-│   ├── core/          Shared scanner, server, and client utilities
-│   ├── studio/        Main visual editing CLI
-│   └── shadows/       Shadow-specific editing tool
+│   ├── codecanvas/    Hybrid visual editor (active)
+│   ├── next-plugin/   Next.js config wrapper + data-source transform
+│   ├── core/          Shared scanner, server, and client utilities (legacy)
+│   ├── studio/        Proxy-based visual editor (legacy)
+│   └── shadows/       Shadow-specific editing tool (legacy)
 ├── demos/
 │   ├── studio-app/              Tailwind CSS v4 + CVA demo
 │   ├── bootstrap-app/           Bootstrap 5 demo

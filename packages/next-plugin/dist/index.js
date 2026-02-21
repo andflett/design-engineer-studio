@@ -51,6 +51,18 @@ function withDesigntools(nextConfig = {}) {
             }
           ]
         });
+        config.module.rules.push({
+          test: /layout\.(tsx|jsx)$/,
+          include: [
+            import_path.default.resolve(context.dir, "app"),
+            import_path.default.resolve(context.dir, "src/app")
+          ],
+          use: [
+            {
+              loader: import_path.default.resolve(__dirname, "codecanvas-mount-loader.js")
+            }
+          ]
+        });
       }
       if (typeof nextConfig.webpack === "function") {
         return nextConfig.webpack(config, context);

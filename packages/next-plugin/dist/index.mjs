@@ -19,6 +19,18 @@ function withDesigntools(nextConfig = {}) {
             }
           ]
         });
+        config.module.rules.push({
+          test: /layout\.(tsx|jsx)$/,
+          include: [
+            path.resolve(context.dir, "app"),
+            path.resolve(context.dir, "src/app")
+          ],
+          use: [
+            {
+              loader: path.resolve(__dirname, "codecanvas-mount-loader.js")
+            }
+          ]
+        });
       }
       if (typeof nextConfig.webpack === "function") {
         return nextConfig.webpack(config, context);

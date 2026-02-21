@@ -11,15 +11,19 @@
   "workspaces": [
     "packages/core",
     "packages/next-plugin",
+    "packages/codecanvas",
     "packages/studio",
     "packages/shadows"
   ],
   "scripts": {
+    "codecanvas": "cd demos/studio-app && npm run dev & cd demos/studio-app && npx tsx ../../packages/codecanvas/src/cli.ts",
+    "build:codecanvas": "npm -w packages/codecanvas run build",
+    "publish:codecanvas": "bash scripts/publish.sh patch codecanvas",
     "dev:studio": "cd demos/studio-app && npx tsx ../../packages/studio/src/cli.ts",
     "dev:shadows": "cd demos/studio-app && npx tsx ../../packages/shadows/src/cli.ts",
     "dev:studio-client": "npm -w packages/studio run dev:client",
     "dev:shadows-client": "npm -w packages/shadows run dev:client",
-    "build": "npm -w packages/studio run build && npm -w packages/shadows run build",
+    "build": "npm -w packages/codecanvas run build && npm -w packages/studio run build && npm -w packages/shadows run build",
     "build:studio": "npm -w packages/studio run build",
     "build:shadows": "npm -w packages/shadows run build",
     "publish": "bash scripts/publish.sh",

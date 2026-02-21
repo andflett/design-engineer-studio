@@ -1,5 +1,6 @@
 /**
- * Next.js config wrapper that adds the designtools source annotation loader.
+ * Next.js config wrapper that adds the designtools source annotation loader
+ * and auto-mounts the <CodeCanvas /> selection component in development.
  *
  * Usage:
  *   import { withDesigntools } from "@designtools/next-plugin";

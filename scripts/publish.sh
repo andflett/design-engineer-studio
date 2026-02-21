@@ -4,7 +4,7 @@ set -e
 BUMP="${1:-patch}"
 shift 2>/dev/null || true
 
-ALL_PACKAGES=(core studio shadows)
+ALL_PACKAGES=(core codecanvas studio shadows)
 
 # If no packages specified, default to all
 if [ $# -eq 0 ]; then
@@ -16,7 +16,7 @@ fi
 # Validate package names
 for pkg in "${PACKAGES[@]}"; do
   case "$pkg" in
-    core|studio|shadows) ;;
+    core|codecanvas|studio|shadows) ;;
     *) echo "Unknown package: $pkg (valid: ${ALL_PACKAGES[*]})" && exit 1 ;;
   esac
 done
