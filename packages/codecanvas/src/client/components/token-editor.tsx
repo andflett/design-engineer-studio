@@ -69,22 +69,24 @@ export function TokenEditor({
       {/* Colors — always visible */}
       <Section title="Colors" count={colorTokenGroups.reduce((sum, [_, g]) => sum + (g as any[]).filter(t => t.category === "color").length, 0)} defaultCollapsed>
         {colorTokenGroups.length > 0 ? (
-          colorTokenGroups.map(([groupName, groupTokens]) => (
-            <SubSection key={groupName} title={groupName} count={(groupTokens as any[]).filter(t => t.category === "color").length}>
-              {(groupTokens as any[])
-                .filter((t) => t.category === "color")
-                .map((token: any) => (
-                  <TokenRow
-                    key={token.name}
-                    token={token}
-                    theme={theme}
-                    onPreview={onPreviewToken}
-                    cssFilePath={cssFilePath}
-                    allTokens={tokens}
-                  />
-                ))}
-            </SubSection>
-          ))
+          <div className="studio-tree">
+            {colorTokenGroups.map(([groupName, groupTokens]) => (
+              <SubSection key={groupName} title={groupName} count={(groupTokens as any[]).filter(t => t.category === "color").length}>
+                {(groupTokens as any[])
+                  .filter((t) => t.category === "color")
+                  .map((token: any) => (
+                    <TokenRow
+                      key={token.name}
+                      token={token}
+                      theme={theme}
+                      onPreview={onPreviewToken}
+                      cssFilePath={cssFilePath}
+                      allTokens={tokens}
+                    />
+                  ))}
+              </SubSection>
+            ))}
+          </div>
         ) : (
           <EmptyState message="No color tokens found in your CSS." />
         )}
@@ -172,17 +174,19 @@ function SubSection({
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    <div className="ml-2">
+    <div className="studio-tree-node">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="studio-section-hdr"
         style={{ fontSize: 10 }}
       >
         {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        {title}
+        <span style={{ color: "var(--studio-text)", fontWeight: 600 }}>
+          {title}
+        </span>
         {count !== undefined && <span className="count">{count}</span>}
       </button>
-      {!collapsed && <div className="pb-1">{children}</div>}
+      {!collapsed && <div className="studio-tree-content">{children}</div>}
     </div>
   );
 }

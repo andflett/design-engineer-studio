@@ -75,6 +75,7 @@ export function EditorPanel({
     : ["token", "instance"];
 
   const [activeMode, setActiveMode] = useState<EditMode>("token");
+  const [componentSubTab, setComponentSubTab] = useState<"styles" | "variants">("styles");
   const [saving, setSaving] = useState(false);
   // Serialize writes so only one goes at a time
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -102,7 +103,6 @@ export function EditorPanel({
       componentName: element.componentName,
     });
     if (src.col != null) params.set("col", String(src.col));
-    if (element.textContent) params.set("textHint", element.textContent.slice(0, 30));
     fetch(`/api/write-element/instance-props?${params}`)
       .then((r) => r.json())
       .then((data) => setInstanceProps(data.props ?? null))
@@ -260,7 +260,9 @@ export function EditorPanel({
             <div className="studio-tab-explainer">
               <InfoCircledIcon />
               <div>
-                Edit the component definition. Changes apply to all instances.
+                {componentSubTab === "styles"
+                  ? "Edit the component's root element styles. Changes apply to all instances."
+                  : "Edit variant definitions. Changes apply to all instances."}
                 <button
                   onClick={() => openInEditor(componentEntry.filePath)}
                   className="studio-explainer-file truncate block text-left w-full"
@@ -273,42 +275,93 @@ export function EditorPanel({
                 </button>
               </div>
             </div>
-            <div className="">
-              {componentEntry.variants.map((dim: any) => (
-                <ComponentVariantSection
-                  key={dim.name}
-                  dim={dim}
-                  componentEntry={componentEntry}
-                  scanData={scanData}
-                  onClassChange={(oldClass, newClass, variantContext) => {
-                    withSave(async () => {
-                      await handleComponentClassChange(
-                        componentEntry.filePath,
-                        oldClass,
-                        newClass,
-                        variantContext,
-                      );
-                    });
-                  }}
-                />
-              ))}
 
-              {componentEntry.baseClasses && (
-                <ComponentBaseSection
-                  componentEntry={componentEntry}
-                  scanData={scanData}
-                  onClassChange={(oldClass, newClass) => {
-                    withSave(async () => {
-                      await handleComponentClassChange(
-                        componentEntry.filePath,
-                        oldClass,
-                        newClass,
-                      );
-                    });
+            {/* Sub-tabs: Styles vs Variants */}
+            <div className="px-4 pb-2">
+              <div className="studio-segmented" style={{ width: "100%" }}>
+                <button
+                  onClick={() => setComponentSubTab("styles")}
+                  className={componentSubTab === "styles" ? "active" : ""}
+                  style={{ flex: 1 }}
+                >
+                  Styles
+                </button>
+                <button
+                  onClick={() => setComponentSubTab("variants")}
+                  className={componentSubTab === "variants" ? "active" : ""}
+                  style={{ flex: 1 }}
+                >
+                  Variants
+                </button>
+              </div>
+            </div>
+
+            {componentSubTab === "styles" && (
+              <div className="">
+                <ComputedPropertyPanel
+                  tag={element.tag}
+                  className={element.className}
+                  computedStyles={element.computed}
+                  parentComputedStyles={element.parentComputed || {}}
+                  tokenGroups={scanData?.tokens.groups || {}}
+                  onPreviewInlineStyle={onPreviewInlineStyle}
+                  onRevertInlineStyles={onRevertInlineStyles}
+                  onCommitClass={(tailwindClass, oldClass) => {
+                    if (oldClass && tailwindClass === oldClass) return;
+                    if (!element.source) return;
+                    const source = element.source;
+                    if (oldClass) {
+                      withSave(async () => {
+                        await handleWriteElement(source, "replaceClass", tailwindClass, oldClass);
+                      });
+                    } else {
+                      withSave(async () => {
+                        await handleWriteElement(source, "addClass", tailwindClass);
+                      });
+                    }
                   }}
                 />
-              )}
-            </div>
+              </div>
+            )}
+
+            {componentSubTab === "variants" && (
+              <div className="">
+                {componentEntry.variants.map((dim: any) => (
+                  <ComponentVariantSection
+                    key={dim.name}
+                    dim={dim}
+                    componentEntry={componentEntry}
+                    scanData={scanData}
+                    onClassChange={(oldClass, newClass, variantContext) => {
+                      withSave(async () => {
+                        await handleComponentClassChange(
+                          componentEntry.filePath,
+                          oldClass,
+                          newClass,
+                          variantContext,
+                        );
+                      });
+                    }}
+                  />
+                ))}
+
+                {componentEntry.baseClasses && (
+                  <ComponentBaseSection
+                    componentEntry={componentEntry}
+                    scanData={scanData}
+                    onClassChange={(oldClass, newClass) => {
+                      withSave(async () => {
+                        await handleComponentClassChange(
+                          componentEntry.filePath,
+                          oldClass,
+                          newClass,
+                        );
+                      });
+                    }}
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -355,7 +408,6 @@ export function EditorPanel({
                           element.componentName!,
                           dim.name,
                           value,
-                          element.textContent?.slice(0, 30),
                         );
                         setInstancePropsVersion((v) => v + 1);
                       });
@@ -384,7 +436,6 @@ export function EditorPanel({
                         element.componentName!,
                         tailwindClass,
                         oldClass || undefined,
-                        element.textContent?.slice(0, 30),
                       );
                     });
                   } else if (element.source) {
@@ -512,7 +563,7 @@ function ComponentBaseSection({
         Base
       </button>
       {!collapsed && (
-        <div className="px-4 pb-3">
+        <div className="studio-tree-content">
           <PropertyPanel
             classes={componentEntry.baseClasses}
             onClassChange={onClassChange}
@@ -622,7 +673,6 @@ async function handleInstanceOverride(
   componentName: string,
   newClass: string,
   oldClass?: string,
-  textHint?: string,
 ) {
   try {
     const res = await fetch("/api/write-element", {
@@ -634,7 +684,6 @@ async function handleInstanceOverride(
         componentName,
         newClass,
         oldClass: oldClass || undefined,
-        textHint,
       }),
     });
     const data = await res.json();
@@ -649,13 +698,12 @@ async function handleInstancePropChange(
   componentName: string,
   propName: string,
   propValue: string,
-  textHint?: string,
 ) {
   try {
     const res = await fetch("/api/write-element", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "prop", source, componentName, propName, propValue, textHint }),
+      body: JSON.stringify({ type: "prop", source, componentName, propName, propValue }),
     });
     const data = await res.json();
     if (!data.ok) console.error("Prop write failed:", data.error);

@@ -410,6 +410,23 @@ function findElementAtSource(ast, line, col) {
   });
   return found;
 }
+function findComponentAtSource(ast, componentName, line, col) {
+  let found = null;
+  visit(ast, {
+    visitJSXOpeningElement(path13) {
+      const name = path13.node.name;
+      if (n2.JSXIdentifier.check(name) && name.name === componentName) {
+        const loc = path13.node.loc;
+        if (loc && loc.start.line === line && loc.start.column === col) {
+          found = path13;
+          return false;
+        }
+      }
+      this.traverse(path13);
+    }
+  });
+  return found;
+}
 function findComponentNearSource(ast, componentName, lineHint, textHint) {
   const candidates = [];
   visit(ast, {
@@ -993,6 +1010,7 @@ function createWriteElementRouter(config) {
     try {
       const file = req.query.file;
       const line = parseInt(req.query.line, 10);
+      const col = req.query.col ? parseInt(req.query.col, 10) : void 0;
       const componentName = req.query.componentName;
       const textHint = req.query.textHint || void 0;
       if (!file || !line || !componentName) {
@@ -1003,7 +1021,7 @@ function createWriteElementRouter(config) {
       const parser = await getParser();
       const source = await fs3.readFile(fullPath, "utf-8");
       const ast = parseSource(source, parser);
-      const elementPath = findComponentNearSource(ast, componentName, line, textHint);
+      const elementPath = col !== void 0 ? findComponentAtSource(ast, componentName, line, col) || findComponentNearSource(ast, componentName, line, textHint) : findComponentNearSource(ast, componentName, line, textHint);
       if (!elementPath) {
         res.status(404).json({
           error: `Component <${componentName}> not found near line ${line} in ${file}`
@@ -1041,12 +1059,7 @@ function createWriteElementRouter(config) {
         const parser2 = await getParser();
         const source2 = await fs3.readFile(fullPath2, "utf-8");
         const ast2 = parseSource(source2, parser2);
-        const elementPath2 = findComponentNearSource(
-          ast2,
-          body.componentName,
-          body.source.line,
-          body.textHint
-        );
+        const elementPath2 = body.source.col !== void 0 && body.source.col !== null ? findComponentAtSource(ast2, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast2, body.componentName, body.source.line, body.textHint) : findComponentNearSource(ast2, body.componentName, body.source.line, body.textHint);
         if (!elementPath2) {
           res.status(404).json({
             error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`
@@ -1079,12 +1092,7 @@ function createWriteElementRouter(config) {
         const parser2 = await getParser();
         const source2 = await fs3.readFile(fullPath2, "utf-8");
         const ast2 = parseSource(source2, parser2);
-        const elementPath2 = findComponentNearSource(
-          ast2,
-          body.componentName,
-          body.source.line,
-          body.textHint
-        );
+        const elementPath2 = body.source.col !== void 0 && body.source.col !== null ? findComponentAtSource(ast2, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast2, body.componentName, body.source.line, body.textHint) : findComponentNearSource(ast2, body.componentName, body.source.line, body.textHint);
         if (!elementPath2) {
           res.status(404).json({
             error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`

@@ -459,7 +459,7 @@ async function createToolServer(config) {
       plugins: [react(), tailwindcss()],
       server: {
         middlewareMode: true,
-        hmr: { server: void 0, port: config.toolPort + 1 }
+        hmr: { port: config.toolPort + 1 }
       },
       appType: "spa"
     });

@@ -106,16 +106,21 @@ export async function createServer(config: ServerConfig) {
   const clientDistPath = path.join(__dirname, "client");
   const isDev = !fs.existsSync(path.join(clientDistPath, "index.html"));
 
+  let viteDevServer: any = null;
+
   if (isDev) {
     // Vite middleware mode — serve the client SPA via Vite
     const { createServer: createViteServer } = await import("vite");
     const viteRoot = path.resolve(__dirname, "../client");
-    const vite = await createViteServer({
+    viteDevServer = await createViteServer({
       configFile: path.resolve(__dirname, "../../vite.config.ts"),
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: { port: 24679 },
+      },
       appType: "custom",
     });
-    app.use(vite.middlewares);
+    app.use(viteDevServer.middlewares);
 
     // Serve index.html for SPA — must come after Vite middlewares
     // so Vite handles module requests, but we handle HTML navigation
@@ -124,10 +129,10 @@ export async function createServer(config: ServerConfig) {
         const url = req.originalUrl || "/";
         const htmlPath = path.join(viteRoot, "index.html");
         let html = fs.readFileSync(htmlPath, "utf-8");
-        html = await vite.transformIndexHtml(url, html);
+        html = await viteDevServer.transformIndexHtml(url, html);
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       } catch (err) {
-        vite.ssrFixStacktrace(err as Error);
+        viteDevServer.ssrFixStacktrace(err as Error);
         next(err);
       }
     });
@@ -139,5 +144,5 @@ export async function createServer(config: ServerConfig) {
     });
   }
 
-  return app;
+  return { app, viteDevServer };
 }

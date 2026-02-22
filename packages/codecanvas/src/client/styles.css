@@ -198,6 +198,46 @@ body {
   transition: transform 0.15s;
 }
 
+/* Tree structure for nested collapsibles */
+.studio-tree {
+  position: relative;
+  margin-left: 16px;
+  border-left: 1px solid var(--studio-border-subtle);
+  margin-bottom: 2px;
+}
+.studio-tree-node {
+  position: relative;
+}
+.studio-tree-node::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 10px;
+  height: 1px;
+  background: var(--studio-border-subtle);
+}
+.studio-tree-node:last-child::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--studio-surface);
+}
+.studio-tree-node > button {
+  padding-left: 14px;
+}
+.studio-tree-node .studio-section-hdr {
+  padding: 5px 16px 5px 14px;
+}
+.studio-tree-content {
+  padding-left: 14px;
+  padding-right: 8px;
+  padding-bottom: 6px;
+}
+
 /* Property row */
 .studio-prop-row {
   display: flex;

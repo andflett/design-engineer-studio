@@ -14,5 +14,11 @@ export default defineConfig({
   },
   server: {
     port: 4401,
+    hmr: {
+      // Use a specific HMR port so it doesn't conflict with the target app's Vite.
+      // strictPort: false lets Vite pick the next available port if this one is busy.
+      port: 24679,
+    },
+    strictPort: false,
   },
 });

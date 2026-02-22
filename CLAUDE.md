@@ -163,6 +163,20 @@ CLI (bootstrap) -> Server (createToolServer) -> Express app
 | Legacy Studio | 4400 |
 | Legacy Shadows | 4410 |
 
+## Process cleanup
+
+When running dev servers (codecanvas, demo apps), always kill them when done. Stale processes hold ports (especially Vite's HMR WebSocket on port 24679) and cause "Port is already in use" errors.
+
+```bash
+# Kill stale codecanvas/node processes on known ports
+lsof -ti :4400 -ti :4401 -ti :24679 | xargs kill 2>/dev/null
+
+# Or kill all node processes started from this project
+pkill -f "designtools-codecanvas"
+```
+
+**Important**: If you start a dev server in a background task, make sure to stop it (via `TaskStop` or `kill`) before finishing. Do not leave orphan processes.
+
 ## Common tasks
 
 ### Type-check everything

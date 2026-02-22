@@ -16,7 +16,7 @@ import {
   appendClassToAttr,
   addClassNameAttr,
 } from "../lib/ast-helpers.js";
-import { findElementAtSource, findComponentAtSource, findComponentNearSource } from "../lib/find-element.js";
+import { findElementAtSource, findComponentAtSource } from "../lib/find-element.js";
 import { computedToTailwindClass } from "../../shared/tailwind-map.js";
 import { parseClasses } from "../../shared/tailwind-parser.js";
 
@@ -44,7 +44,6 @@ interface WriteElementBody {
   oldClass?: string;
   newClass?: string;
   componentName?: string;
-  textHint?: string;
   propName?: string;
   propValue?: string;
 }
@@ -86,10 +85,14 @@ export function createWriteElementRouter(config: WriteElementConfig) {
       const line = parseInt(req.query.line as string, 10);
       const col = req.query.col ? parseInt(req.query.col as string, 10) : undefined;
       const componentName = req.query.componentName as string;
-      const textHint = (req.query.textHint as string) || undefined;
 
       if (!file || !line || !componentName) {
         res.status(400).json({ error: "Missing file, line, or componentName" });
+        return;
+      }
+
+      if (col == null) {
+        res.status(400).json({ error: "Missing col — rebuild next-plugin" });
         return;
       }
 
@@ -98,14 +101,10 @@ export function createWriteElementRouter(config: WriteElementConfig) {
       const source = await fs.readFile(fullPath, "utf-8");
       const ast = parseSource(source, parser);
 
-      // Use exact line:col match when available (from data-instance-source),
-      // fall back to fuzzy near-source match for backwards compatibility
-      const elementPath = (col !== undefined)
-        ? findComponentAtSource(ast, componentName, line, col) || findComponentNearSource(ast, componentName, line, textHint)
-        : findComponentNearSource(ast, componentName, line, textHint);
+      const elementPath = findComponentAtSource(ast, componentName, line, col);
       if (!elementPath) {
         res.status(404).json({
-          error: `Component <${componentName}> not found near line ${line} in ${file}`,
+          error: `Component <${componentName}> not found at ${file}:${line}:${col}`,
         });
         return;
       }
@@ -148,15 +147,15 @@ export function createWriteElementRouter(config: WriteElementConfig) {
         const source = await fs.readFile(fullPath, "utf-8");
         const ast = parseSource(source, parser);
 
-        // Use exact line:col match when col is available (from data-instance-source),
-        // fall back to fuzzy near-source match for backwards compatibility
-        const elementPath = (body.source.col !== undefined && body.source.col !== null)
-          ? findComponentAtSource(ast, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast, body.componentName, body.source.line, body.textHint)
-          : findComponentNearSource(ast, body.componentName, body.source.line, body.textHint);
+        if (body.source.col == null) {
+          res.status(400).json({ error: "Missing col — rebuild next-plugin" });
+          return;
+        }
+        const elementPath = findComponentAtSource(ast, body.componentName, body.source.line, body.source.col);
 
         if (!elementPath) {
           res.status(404).json({
-            error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`,
+            error: `Component <${body.componentName}> not found at ${body.source.file}:${body.source.line}:${body.source.col}`,
           });
           return;
         }
@@ -193,15 +192,15 @@ export function createWriteElementRouter(config: WriteElementConfig) {
         const source = await fs.readFile(fullPath, "utf-8");
         const ast = parseSource(source, parser);
 
-        // Use exact line:col match when col is available (from data-instance-source),
-        // fall back to fuzzy near-source match for backwards compatibility
-        const elementPath = (body.source.col !== undefined && body.source.col !== null)
-          ? findComponentAtSource(ast, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast, body.componentName, body.source.line, body.textHint)
-          : findComponentNearSource(ast, body.componentName, body.source.line, body.textHint);
+        if (body.source.col == null) {
+          res.status(400).json({ error: "Missing col — rebuild next-plugin" });
+          return;
+        }
+        const elementPath = findComponentAtSource(ast, body.componentName, body.source.line, body.source.col);
 
         if (!elementPath) {
           res.status(404).json({
-            error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`,
+            error: `Component <${body.componentName}> not found at ${body.source.file}:${body.source.line}:${body.source.col}`,
           });
           return;
         }
