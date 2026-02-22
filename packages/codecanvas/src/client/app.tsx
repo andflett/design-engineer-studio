@@ -16,6 +16,18 @@ export interface ScanData {
   components: {
     components: any[];
   };
+  shadows: {
+    shadows: any[];
+    cssFilePath: string;
+    stylingType: string;
+    designTokenFiles: string[];
+  };
+  styling: {
+    type: string;
+    cssFiles: string[];
+    scssFiles: string[];
+    hasDarkMode: boolean;
+  };
 }
 
 export function App() {
@@ -107,6 +119,11 @@ export function App() {
     // For now, the token editor saves directly to CSS
   }, []);
 
+  const handlePreviewShadow = useCallback((_variableName: string, _value: string, _shadowName?: string) => {
+    // Shadow preview could be implemented via postMessage to set CSS custom
+    // properties on the target app. For now, shadows save directly to CSS.
+  }, []);
+
   const handleCloseEditor = useCallback(() => {
     setSelectedElement(null);
   }, []);
@@ -129,10 +146,17 @@ export function App() {
       theme={theme}
       iframePath={iframePath}
       onPreviewToken={handlePreviewToken}
+      onPreviewShadow={handlePreviewShadow}
       onPreviewInlineStyle={handlePreviewInlineStyle}
       onRevertInlineStyles={handleRevertInlineStyles}
       onClose={handleCloseEditor}
       onReselectElement={handleReselectElement}
+      onRescan={() => {
+        fetch("/scan/rescan", { method: "POST" })
+          .then((r) => r.json())
+          .then((data) => setScanData(data))
+          .catch(console.error);
+      }}
     />
   );
 

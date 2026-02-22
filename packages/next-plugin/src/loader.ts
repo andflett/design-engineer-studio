@@ -49,16 +49,9 @@ export default function designtoolsLoader(this: LoaderContext, source: string): 
               JSXOpeningElement(nodePath: any) {
                 const t = babel.types;
                 const attrs = nodePath.node.attributes;
-
-                // Skip if already has data-source
-                if (attrs.some((a: any) =>
-                  t.isJSXAttribute(a) &&
-                  t.isJSXIdentifier(a.name) &&
-                  a.name.name === "data-source"
-                )) return;
+                const name = nodePath.node.name;
 
                 // Skip fragments
-                const name = nodePath.node.name;
                 if (t.isJSXIdentifier(name) && name.name === "Fragment") return;
                 if (t.isJSXMemberExpression(name) &&
                     t.isJSXIdentifier(name.property) &&
@@ -68,12 +61,44 @@ export default function designtoolsLoader(this: LoaderContext, source: string): 
                 if (!loc) return;
 
                 const value = `${relativePath}:${loc.start.line}:${loc.start.column}`;
-                attrs.push(
-                  t.jsxAttribute(
-                    t.jsxIdentifier("data-source"),
-                    t.stringLiteral(value)
-                  )
-                );
+
+                // Detect component elements (uppercase first letter or member expression like Foo.Bar)
+                const isComponent =
+                  (t.isJSXIdentifier(name) && name.name[0] === name.name[0].toUpperCase() && name.name[0] !== name.name[0].toLowerCase()) ||
+                  t.isJSXMemberExpression(name);
+
+                if (isComponent) {
+                  // Component elements get data-instance-source — this attribute
+                  // propagates through {...props} spread to the rendered DOM element,
+                  // carrying the exact page-level coordinates of each component usage.
+                  // The component's own data-source (on its root native element) won't
+                  // collide because it uses a different attribute name.
+                  const attrName = "data-instance-source";
+                  if (attrs.some((a: any) =>
+                    t.isJSXAttribute(a) &&
+                    t.isJSXIdentifier(a.name) &&
+                    a.name.name === attrName
+                  )) return;
+                  attrs.push(
+                    t.jsxAttribute(
+                      t.jsxIdentifier(attrName),
+                      t.stringLiteral(value)
+                    )
+                  );
+                } else {
+                  // Native elements get data-source as before
+                  if (attrs.some((a: any) =>
+                    t.isJSXAttribute(a) &&
+                    t.isJSXIdentifier(a.name) &&
+                    a.name.name === "data-source"
+                  )) return;
+                  attrs.push(
+                    t.jsxAttribute(
+                      t.jsxIdentifier("data-source"),
+                      t.stringLiteral(value)
+                    )
+                  );
+                }
               },
             },
           };

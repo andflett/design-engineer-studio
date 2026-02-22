@@ -35,10 +35,12 @@ interface EditorPanelProps {
   theme: "light" | "dark";
   iframePath: string;
   onPreviewToken: (token: string, value: string) => void;
+  onPreviewShadow: (variableName: string, value: string, shadowName?: string) => void;
   onPreviewInlineStyle: (property: string, value: string) => void;
   onRevertInlineStyles: () => void;
   onClose: () => void;
   onReselectElement: () => void;
+  onRescan: () => void;
 }
 
 /** Open a file in the user's editor via the local server. */
@@ -55,10 +57,12 @@ export function EditorPanel({
   theme,
   iframePath,
   onPreviewToken,
+  onPreviewShadow,
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onClose,
   onReselectElement,
+  onRescan,
 }: EditorPanelProps) {
   const dataSlot = element?.attributes?.["data-slot"] || null;
   const isComponent = !!dataSlot;
@@ -83,6 +87,28 @@ export function EditorPanel({
 
   const tokenRefs = extractTokenReferences(element?.className || "", scanData);
 
+  // Fetch current prop values for component instances (variant, size, etc.)
+  const [instanceProps, setInstanceProps] = useState<Record<string, string> | null>(null);
+  const [instancePropsVersion, setInstancePropsVersion] = useState(0);
+  useEffect(() => {
+    if (!isComponent || !element?.instanceSource || !element?.componentName) {
+      setInstanceProps(null);
+      return;
+    }
+    const src = element.instanceSource;
+    const params = new URLSearchParams({
+      file: src.file,
+      line: String(src.line),
+      componentName: element.componentName,
+    });
+    if (src.col != null) params.set("col", String(src.col));
+    if (element.textContent) params.set("textHint", element.textContent.slice(0, 30));
+    fetch(`/api/write-element/instance-props?${params}`)
+      .then((r) => r.json())
+      .then((data) => setInstanceProps(data.props ?? null))
+      .catch(() => setInstanceProps(null));
+  }, [element?.instanceSource?.file, element?.instanceSource?.line, element?.instanceSource?.col, element?.componentName, isComponent, instancePropsVersion]);
+
   const withSave = async (fn: () => Promise<void>) => {
     const queued = writeQueueRef.current.then(async () => {
       setSaving(true);
@@ -94,6 +120,7 @@ export function EditorPanel({
         setTimeout(() => {
           onReselectElement();
           onRevertInlineStyles();
+          onRescan();
         }, 500);
       } catch (err) {
         console.error("Write error:", err);
@@ -106,7 +133,7 @@ export function EditorPanel({
   };
 
   const modeConfig: Record<EditMode, { icon: any; label: string }> = {
-    token: { icon: MixerHorizontalIcon, label: "Token" },
+    token: { icon: MixerHorizontalIcon, label: "Tokens" },
     component: { icon: Component1Icon, label: "Component" },
     instance: { icon: isComponent ? CursorArrowIcon : BoxIcon, label: isComponent ? "Instance" : "Element" },
   };
@@ -214,6 +241,7 @@ export function EditorPanel({
               scanData={scanData}
               theme={theme}
               onPreviewToken={onPreviewToken}
+              onPreviewShadow={onPreviewShadow}
             />
           </>
         )}
@@ -252,6 +280,16 @@ export function EditorPanel({
                   dim={dim}
                   componentEntry={componentEntry}
                   scanData={scanData}
+                  onClassChange={(oldClass, newClass, variantContext) => {
+                    withSave(async () => {
+                      await handleComponentClassChange(
+                        componentEntry.filePath,
+                        oldClass,
+                        newClass,
+                        variantContext,
+                      );
+                    });
+                  }}
                 />
               ))}
 
@@ -259,6 +297,15 @@ export function EditorPanel({
                 <ComponentBaseSection
                   componentEntry={componentEntry}
                   scanData={scanData}
+                  onClassChange={(oldClass, newClass) => {
+                    withSave(async () => {
+                      await handleComponentClassChange(
+                        componentEntry.filePath,
+                        oldClass,
+                        newClass,
+                      );
+                    });
+                  }}
                 />
               )}
             </div>
@@ -293,6 +340,30 @@ export function EditorPanel({
                   : "Edit this element's styles."}
               </span>
             </div>
+            {isComponent && componentEntry && componentEntry.variants.length > 0 && (
+              <div className="">
+                {componentEntry.variants.map((dim: any) => (
+                  <InstanceVariantSection
+                    key={dim.name}
+                    dim={dim}
+                    currentValue={instanceProps?.[dim.name] ?? dim.default ?? null}
+                    onSelect={(value) => {
+                      if (!element.instanceSource || !element.componentName) return;
+                      withSave(async () => {
+                        await handleInstancePropChange(
+                          element.instanceSource!,
+                          element.componentName!,
+                          dim.name,
+                          value,
+                          element.textContent?.slice(0, 30),
+                        );
+                        setInstancePropsVersion((v) => v + 1);
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            )}
             <div className="">
               <ComputedPropertyPanel
                 tag={element.tag}
@@ -345,10 +416,12 @@ function ComponentVariantSection({
   dim,
   componentEntry,
   scanData,
+  onClassChange,
 }: {
   dim: any;
   componentEntry: any;
   scanData: ScanData | null;
+  onClassChange: (oldClass: string, newClass: string, variantContext: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(true);
   const [expandedOptions, setExpandedOptions] = useState<Set<string>>(new Set());
@@ -403,12 +476,7 @@ function ComponentVariantSection({
                   <PropertyPanel
                     classes={dim.classes[opt]}
                     onClassChange={(oldClass, newClass) => {
-                      handleComponentClassChange(
-                        componentEntry.filePath,
-                        oldClass,
-                        newClass,
-                        opt
-                      );
+                      onClassChange(oldClass, newClass, opt);
                     }}
                     tokenGroups={scanData?.tokens.groups || {}}
                     flat
@@ -426,9 +494,11 @@ function ComponentVariantSection({
 function ComponentBaseSection({
   componentEntry,
   scanData,
+  onClassChange,
 }: {
   componentEntry: any;
   scanData: ScanData | null;
+  onClassChange: (oldClass: string, newClass: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(true);
 
@@ -445,16 +515,76 @@ function ComponentBaseSection({
         <div className="px-4 pb-3">
           <PropertyPanel
             classes={componentEntry.baseClasses}
-            onClassChange={(oldClass, newClass) => {
-              handleComponentClassChange(
-                componentEntry.filePath,
-                oldClass,
-                newClass
-              );
-            }}
+            onClassChange={onClassChange}
             tokenGroups={scanData?.tokens.groups || {}}
             flat
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Instance variant section (pill buttons for switching props) ---
+
+function InstanceVariantSection({
+  dim,
+  currentValue,
+  onSelect,
+}: {
+  dim: any;
+  currentValue: string | null;
+  onSelect: (value: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div style={{ borderTop: "1px solid var(--studio-border-subtle)" }}>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="studio-section-hdr"
+      >
+        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+        <span style={{ color: "var(--studio-text-dimmed)" }}>{dim.name}</span>
+        {currentValue && (
+          <span
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+            style={{
+              color: "var(--studio-accent)",
+              background: "var(--studio-accent-muted)",
+            }}
+          >
+            {currentValue}
+          </span>
+        )}
+        <span className="count">{dim.options.length}</span>
+      </button>
+
+      {!collapsed && (
+        <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+          {dim.options.map((opt: string) => {
+            const isActive = currentValue === opt || (!currentValue && opt === dim.default);
+            return (
+              <button
+                key={opt}
+                onClick={() => onSelect(opt)}
+                className="studio-bp-btn"
+                style={{
+                  fontSize: 10,
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  border: "1px solid",
+                  borderColor: isActive ? "var(--studio-accent)" : "var(--studio-border)",
+                  background: isActive ? "var(--studio-accent-muted)" : "transparent",
+                  color: isActive ? "var(--studio-accent)" : "var(--studio-text-dimmed)",
+                  fontWeight: isActive ? 600 : 400,
+                  cursor: "pointer",
+                }}
+              >
+                {opt}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -511,6 +641,26 @@ async function handleInstanceOverride(
     if (!data.ok) console.error("Instance override failed:", data.error);
   } catch (err) {
     console.error("Instance override error:", err);
+  }
+}
+
+async function handleInstancePropChange(
+  source: SourceLocation,
+  componentName: string,
+  propName: string,
+  propValue: string,
+  textHint?: string,
+) {
+  try {
+    const res = await fetch("/api/write-element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "prop", source, componentName, propName, propValue, textHint }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.error("Prop write failed:", data.error);
+  } catch (err) {
+    console.error("Prop write error:", err);
   }
 }
 

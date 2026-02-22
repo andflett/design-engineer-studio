@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // src/cli.ts
-import fs10 from "fs";
-import path8 from "path";
-import process from "process";
+import fs14 from "fs";
+import path12 from "path";
+import process2 from "process";
 import open from "open";
 
 // src/server/lib/detect-framework.ts
@@ -215,9 +215,10 @@ async function findBootstrapScssFiles(projectRoot) {
 
 // src/server/index.ts
 import express from "express";
-import path7 from "path";
-import fs9 from "fs";
+import path11 from "path";
+import fs13 from "fs";
 import { fileURLToPath } from "url";
+import { exec } from "child_process";
 
 // src/server/api/write-element.ts
 import { Router } from "express";
@@ -243,6 +244,9 @@ function safePath(projectRoot, filePath) {
   }
   return resolvedPath;
 }
+
+// src/server/api/write-element.ts
+import { builders as b2 } from "ast-types";
 
 // src/server/lib/ast-helpers.ts
 import recast from "recast";
@@ -391,19 +395,68 @@ function addClassNameAttr(openingElement, className) {
 
 // src/server/lib/find-element.ts
 import { visit } from "recast";
+import { namedTypes as n2 } from "ast-types";
 function findElementAtSource(ast, line, col) {
   let found = null;
   visit(ast, {
-    visitJSXOpeningElement(path9) {
-      const loc = path9.node.loc;
+    visitJSXOpeningElement(path13) {
+      const loc = path13.node.loc;
       if (loc && loc.start.line === line && loc.start.column === col) {
-        found = path9;
+        found = path13;
         return false;
       }
-      this.traverse(path9);
+      this.traverse(path13);
     }
   });
   return found;
+}
+function findComponentNearSource(ast, componentName, lineHint, textHint) {
+  const candidates = [];
+  visit(ast, {
+    visitJSXOpeningElement(path13) {
+      const name = path13.node.name;
+      if (n2.JSXIdentifier.check(name) && name.name === componentName) {
+        const loc = path13.node.loc;
+        const line = loc?.start.line ?? 0;
+        let hasTextMatch = false;
+        if (textHint && path13.parent?.node) {
+          const parentNode = path13.parent.node;
+          if (n2.JSXElement.check(parentNode)) {
+            const text = extractJSXText(parentNode);
+            hasTextMatch = text.includes(textHint.slice(0, 20));
+          }
+        }
+        candidates.push({ path: path13, line, hasTextMatch });
+      }
+      this.traverse(path13);
+    }
+  });
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0].path;
+  if (textHint) {
+    const textMatches = candidates.filter((c) => c.hasTextMatch);
+    if (textMatches.length >= 1) {
+      textMatches.sort((a, b3) => Math.abs(a.line - lineHint) - Math.abs(b3.line - lineHint));
+      return textMatches[0].path;
+    }
+  }
+  candidates.sort((a, b3) => Math.abs(a.line - lineHint) - Math.abs(b3.line - lineHint));
+  return candidates[0].path;
+}
+function extractJSXText(element) {
+  const parts = [];
+  for (const child of element.children || []) {
+    if (n2.JSXText.check(child)) {
+      parts.push(child.value);
+    } else if (n2.JSXExpressionContainer.check(child)) {
+      if (n2.StringLiteral.check(child.expression) || n2.Literal.check(child.expression)) {
+        parts.push(String(child.expression.value));
+      }
+    } else if (n2.JSXElement.check(child)) {
+      parts.push(extractJSXText(child));
+    }
+  }
+  return parts.join("").trim();
 }
 
 // src/shared/tailwind-map.ts
@@ -936,11 +989,123 @@ var CSS_TO_PARSER_PROP = {
 };
 function createWriteElementRouter(config) {
   const router = Router();
+  router.get("/instance-props", async (req, res) => {
+    try {
+      const file = req.query.file;
+      const line = parseInt(req.query.line, 10);
+      const componentName = req.query.componentName;
+      const textHint = req.query.textHint || void 0;
+      if (!file || !line || !componentName) {
+        res.status(400).json({ error: "Missing file, line, or componentName" });
+        return;
+      }
+      const fullPath = safePath(config.projectRoot, file);
+      const parser = await getParser();
+      const source = await fs3.readFile(fullPath, "utf-8");
+      const ast = parseSource(source, parser);
+      const elementPath = findComponentNearSource(ast, componentName, line, textHint);
+      if (!elementPath) {
+        res.status(404).json({
+          error: `Component <${componentName}> not found near line ${line} in ${file}`
+        });
+        return;
+      }
+      const props = {};
+      for (const attr of elementPath.node.attributes) {
+        if (attr.type === "JSXAttribute" && attr.name?.type === "JSXIdentifier") {
+          const name = attr.name.name;
+          if (attr.value?.type === "StringLiteral" || attr.value?.type === "Literal") {
+            props[name] = String(attr.value.value);
+          }
+        }
+      }
+      res.json({ props });
+    } catch (err) {
+      console.error("[instance-props]", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
   router.post("/", async (req, res) => {
     try {
       const body = req.body;
       if (!body.source) {
         res.status(400).json({ error: "Missing source" });
+        return;
+      }
+      if (body.type === "instanceOverride") {
+        if (!body.componentName || !body.newClass) {
+          res.status(400).json({ error: "Missing componentName or newClass" });
+          return;
+        }
+        const fullPath2 = safePath(config.projectRoot, body.source.file);
+        const parser2 = await getParser();
+        const source2 = await fs3.readFile(fullPath2, "utf-8");
+        const ast2 = parseSource(source2, parser2);
+        const elementPath2 = findComponentNearSource(
+          ast2,
+          body.componentName,
+          body.source.line,
+          body.textHint
+        );
+        if (!elementPath2) {
+          res.status(404).json({
+            error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`
+          });
+          return;
+        }
+        const openingElement2 = elementPath2.node;
+        const classAttr2 = findAttr(openingElement2, "className");
+        if (body.oldClass && classAttr2) {
+          const replaced = replaceClassInAttr(openingElement2, body.oldClass, body.newClass);
+          if (!replaced) {
+            appendClassToAttr(openingElement2, body.newClass);
+          }
+        } else if (classAttr2) {
+          appendClassToAttr(openingElement2, body.newClass);
+        } else {
+          addClassNameAttr(openingElement2, body.newClass);
+        }
+        const output2 = printSource(ast2);
+        await fs3.writeFile(fullPath2, output2, "utf-8");
+        res.json({ ok: true });
+        return;
+      }
+      if (body.type === "prop") {
+        if (!body.componentName || !body.propName || body.propValue === void 0) {
+          res.status(400).json({ error: "Missing componentName, propName, or propValue" });
+          return;
+        }
+        const fullPath2 = safePath(config.projectRoot, body.source.file);
+        const parser2 = await getParser();
+        const source2 = await fs3.readFile(fullPath2, "utf-8");
+        const ast2 = parseSource(source2, parser2);
+        const elementPath2 = findComponentNearSource(
+          ast2,
+          body.componentName,
+          body.source.line,
+          body.textHint
+        );
+        if (!elementPath2) {
+          res.status(404).json({
+            error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`
+          });
+          return;
+        }
+        const openingElement2 = elementPath2.node;
+        const existingProp = findAttr(openingElement2, body.propName);
+        if (existingProp) {
+          existingProp.value = b2.stringLiteral(body.propValue);
+        } else {
+          openingElement2.attributes.push(
+            b2.jsxAttribute(
+              b2.jsxIdentifier(body.propName),
+              b2.stringLiteral(body.propValue)
+            )
+          );
+        }
+        const output2 = printSource(ast2);
+        await fs3.writeFile(fullPath2, output2, "utf-8");
+        res.json({ ok: true });
         return;
       }
       if (body.type === "replaceClass" || body.type === "addClass") {
@@ -1163,21 +1328,394 @@ function replaceClassInComponent(source, oldClass, newClass, variantContext) {
   return source;
 }
 
-// src/server/lib/scanner.ts
+// src/server/api/write-shadows.ts
 import { Router as Router4 } from "express";
-import fs8 from "fs/promises";
-import path6 from "path";
+import fs7 from "fs/promises";
+import path5 from "path";
 
-// src/server/lib/scan-tokens.ts
+// src/server/lib/presets/w3c-design-tokens.ts
 import fs6 from "fs/promises";
 import path4 from "path";
+async function findDesignTokenFiles(projectRoot) {
+  const candidates = [
+    "tokens",
+    "design-tokens",
+    "src/tokens",
+    "src/design-tokens",
+    "styles/tokens",
+    "."
+  ];
+  const found = [];
+  for (const dir of candidates) {
+    try {
+      const fullDir = path4.join(projectRoot, dir);
+      const entries = await fs6.readdir(fullDir);
+      for (const entry of entries) {
+        if (entry.endsWith(".tokens.json") || entry.endsWith(".tokens")) {
+          found.push(path4.join(dir, entry));
+        }
+      }
+    } catch {
+    }
+  }
+  return found;
+}
+async function scanDesignTokenShadows(projectRoot, tokenFiles) {
+  const files = tokenFiles || await findDesignTokenFiles(projectRoot);
+  const tokens = [];
+  for (const file of files) {
+    try {
+      const content = await fs6.readFile(path4.join(projectRoot, file), "utf-8");
+      const parsed = JSON.parse(content);
+      extractShadowTokens(parsed, [], file, tokens);
+    } catch {
+    }
+  }
+  return tokens;
+}
+function extractShadowTokens(obj, pathParts, filePath, results) {
+  if (!obj || typeof obj !== "object") return;
+  if (obj.$type === "shadow" && obj.$value !== void 0) {
+    const tokenPath = pathParts.join(".");
+    const name = pathParts[pathParts.length - 1] || tokenPath;
+    results.push({
+      name,
+      value: obj.$value,
+      cssValue: w3cShadowToCss(obj.$value),
+      description: obj.$description,
+      filePath,
+      tokenPath
+    });
+    return;
+  }
+  const groupType = obj.$type;
+  for (const [key, child] of Object.entries(obj)) {
+    if (key.startsWith("$")) continue;
+    if (child && typeof child === "object") {
+      const childObj = child;
+      if (groupType === "shadow" && childObj.$value !== void 0 && !childObj.$type) {
+        const tokenPath = [...pathParts, key].join(".");
+        results.push({
+          name: key,
+          value: childObj.$value,
+          cssValue: w3cShadowToCss(childObj.$value),
+          description: childObj.$description,
+          filePath,
+          tokenPath
+        });
+      } else {
+        extractShadowTokens(childObj, [...pathParts, key], filePath, results);
+      }
+    }
+  }
+}
+function w3cShadowToCss(value) {
+  if (Array.isArray(value)) {
+    return value.map(singleW3cToCss).join(", ");
+  }
+  return singleW3cToCss(value);
+}
+function singleW3cToCss(v) {
+  const parts = [
+    v.offsetX || "0px",
+    v.offsetY || "0px",
+    v.blur || "0px",
+    v.spread || "0px",
+    v.color || "rgb(0, 0, 0, 0.1)"
+  ];
+  return parts.join(" ");
+}
+function cssToW3cShadow(cssValue) {
+  if (!cssValue || cssValue === "none") {
+    return { offsetX: "0px", offsetY: "0px", blur: "0px", spread: "0px", color: "transparent" };
+  }
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (const char of cssValue) {
+    if (char === "(") depth++;
+    if (char === ")") depth--;
+    if (char === "," && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  const shadows = parts.map(parseSingleCssToW3c).filter((s) => s !== null);
+  if (shadows.length === 1) return shadows[0];
+  return shadows;
+}
+function parseSingleCssToW3c(shadow) {
+  const trimmed = shadow.trim();
+  if (!trimmed) return null;
+  const withoutInset = trimmed.replace(/^inset\s+/, "");
+  let color = "rgb(0, 0, 0, 0.1)";
+  let measurements = withoutInset;
+  const colorPatterns = [
+    /\s+((?:rgb|rgba|oklch|hsl|hsla)\([^)]+\))$/,
+    /\s+(#[\da-fA-F]{3,8})$/,
+    /\s+((?:black|white|transparent|currentColor))$/i
+  ];
+  for (const pattern of colorPatterns) {
+    const match = measurements.match(pattern);
+    if (match) {
+      color = match[1];
+      measurements = measurements.slice(0, match.index).trim();
+      break;
+    }
+  }
+  const dims = measurements.split(/\s+/);
+  if (dims.length < 2) return null;
+  return {
+    offsetX: dims[0] || "0px",
+    offsetY: dims[1] || "0px",
+    blur: dims[2] || "0px",
+    spread: dims[3] || "0px",
+    color
+  };
+}
+function buildDesignTokensJson(shadows) {
+  const tokens = {};
+  for (const shadow of shadows) {
+    tokens[shadow.name] = {
+      $type: "shadow",
+      $value: cssToW3cShadow(shadow.value),
+      ...shadow.description ? { $description: shadow.description } : {}
+    };
+  }
+  return tokens;
+}
+async function writeDesignTokensFile(filePath, tokens) {
+  const content = JSON.stringify(tokens, null, 2) + "\n";
+  await fs6.writeFile(filePath, content, "utf-8");
+}
+async function updateDesignTokenShadow(filePath, tokenPath, newCssValue) {
+  const content = await fs6.readFile(filePath, "utf-8");
+  const tokens = JSON.parse(content);
+  const pathParts = tokenPath.split(".");
+  let current = tokens;
+  for (let i = 0; i < pathParts.length - 1; i++) {
+    current = current[pathParts[i]];
+    if (!current) throw new Error(`Token path "${tokenPath}" not found`);
+  }
+  const lastKey = pathParts[pathParts.length - 1];
+  if (!current[lastKey]) {
+    throw new Error(`Token "${tokenPath}" not found`);
+  }
+  current[lastKey].$value = cssToW3cShadow(newCssValue);
+  await fs6.writeFile(filePath, JSON.stringify(tokens, null, 2) + "\n", "utf-8");
+}
+
+// src/server/api/write-shadows.ts
+function safePath2(projectRoot, filePath) {
+  const resolved = path5.resolve(projectRoot, filePath);
+  if (!resolved.startsWith(projectRoot)) {
+    throw new Error(`Path "${filePath}" escapes project root`);
+  }
+  return resolved;
+}
+function createShadowsRouter(projectRoot) {
+  const router = Router4();
+  router.post("/", async (req, res) => {
+    try {
+      const { filePath, variableName, value, selector } = req.body;
+      const fullPath = safePath2(projectRoot, filePath);
+      if (selector === "scss") {
+        let scss = await fs7.readFile(fullPath, "utf-8");
+        scss = writeShadowToScss(scss, variableName, value);
+        await fs7.writeFile(fullPath, scss, "utf-8");
+      } else if (selector === "@theme") {
+        let css = await fs7.readFile(fullPath, "utf-8");
+        css = writeShadowToTheme(css, variableName, value);
+        await fs7.writeFile(fullPath, css, "utf-8");
+      } else {
+        let css = await fs7.readFile(fullPath, "utf-8");
+        css = writeShadowToSelector(css, selector, variableName, value);
+        await fs7.writeFile(fullPath, css, "utf-8");
+      }
+      res.json({ ok: true, filePath, variableName, value });
+    } catch (err) {
+      console.error("Shadow write error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+  router.post("/create", async (req, res) => {
+    try {
+      const { filePath, variableName, value, selector } = req.body;
+      const fullPath = safePath2(projectRoot, filePath);
+      if (selector === "scss") {
+        let scss;
+        try {
+          scss = await fs7.readFile(fullPath, "utf-8");
+        } catch {
+          scss = "";
+        }
+        scss = addShadowToScss(scss, variableName, value);
+        await fs7.writeFile(fullPath, scss, "utf-8");
+      } else if (selector === "@theme") {
+        let css = await fs7.readFile(fullPath, "utf-8");
+        css = addShadowToTheme(css, variableName, value);
+        await fs7.writeFile(fullPath, css, "utf-8");
+      } else {
+        let css = await fs7.readFile(fullPath, "utf-8");
+        css = addShadowToSelector(css, selector, variableName, value);
+        await fs7.writeFile(fullPath, css, "utf-8");
+      }
+      res.json({ ok: true, filePath, variableName, value });
+    } catch (err) {
+      console.error("Shadow create error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+  router.post("/design-token", async (req, res) => {
+    try {
+      const { filePath, tokenPath, value } = req.body;
+      const fullPath = safePath2(projectRoot, filePath);
+      await updateDesignTokenShadow(fullPath, tokenPath, value);
+      res.json({ ok: true, filePath, tokenPath, value });
+    } catch (err) {
+      console.error("Design token write error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+  router.post("/export-tokens", async (req, res) => {
+    try {
+      const { filePath, shadows } = req.body;
+      const fullPath = safePath2(projectRoot, filePath);
+      const tokens = buildDesignTokensJson(shadows);
+      await fs7.mkdir(path5.dirname(fullPath), { recursive: true });
+      await writeDesignTokensFile(fullPath, tokens);
+      res.json({ ok: true, filePath, tokenCount: shadows.length });
+    } catch (err) {
+      console.error("Token export error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+  return router;
+}
+function writeShadowToSelector(css, selector, variableName, newValue) {
+  const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const blockStart = css.search(new RegExp(`${selectorEscaped}\\s*\\{`));
+  if (blockStart === -1) {
+    throw new Error(`Selector "${selector}" not found in CSS file`);
+  }
+  const openBrace = css.indexOf("{", blockStart);
+  let depth = 1;
+  let pos = openBrace + 1;
+  while (depth > 0 && pos < css.length) {
+    if (css[pos] === "{") depth++;
+    if (css[pos] === "}") depth--;
+    pos++;
+  }
+  const blockEnd = pos;
+  let block = css.slice(openBrace + 1, blockEnd - 1);
+  const varEscaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tokenRegex = new RegExp(`(${varEscaped}\\s*:\\s*)([^;]+)(;)`, "g");
+  const original = block;
+  block = block.replace(tokenRegex, `$1${newValue}$3`);
+  if (block === original) {
+    throw new Error(`Variable "${variableName}" not found in "${selector}" block`);
+  }
+  return css.slice(0, openBrace + 1) + block + css.slice(blockEnd - 1);
+}
+function writeShadowToTheme(css, variableName, newValue) {
+  const themeMatch = css.match(/@theme\s*(?:inline\s*)?\{/);
+  if (!themeMatch) {
+    throw new Error("No @theme block found in CSS file");
+  }
+  const blockStart = themeMatch.index;
+  const openBrace = css.indexOf("{", blockStart);
+  let depth = 1;
+  let pos = openBrace + 1;
+  while (depth > 0 && pos < css.length) {
+    if (css[pos] === "{") depth++;
+    if (css[pos] === "}") depth--;
+    pos++;
+  }
+  const blockEnd = pos;
+  let block = css.slice(openBrace + 1, blockEnd - 1);
+  const varEscaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tokenRegex = new RegExp(`(${varEscaped}\\s*:\\s*)([^;]+)(;)`, "g");
+  const original = block;
+  block = block.replace(tokenRegex, `$1${newValue}$3`);
+  if (block === original) {
+    block = block.trimEnd() + `
+  ${variableName}: ${newValue};
+`;
+  }
+  return css.slice(0, openBrace + 1) + block + css.slice(blockEnd - 1);
+}
+function addShadowToSelector(css, selector, variableName, value) {
+  const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const blockStart = css.search(new RegExp(`${selectorEscaped}\\s*\\{`));
+  if (blockStart === -1) {
+    return css + `
+${selector} {
+  ${variableName}: ${value};
+}
+`;
+  }
+  const openBrace = css.indexOf("{", blockStart);
+  let depth = 1;
+  let pos = openBrace + 1;
+  while (depth > 0 && pos < css.length) {
+    if (css[pos] === "{") depth++;
+    if (css[pos] === "}") depth--;
+    pos++;
+  }
+  const blockEnd = pos;
+  const block = css.slice(openBrace + 1, blockEnd - 1);
+  const newBlock = block.trimEnd() + `
+  ${variableName}: ${value};
+`;
+  return css.slice(0, openBrace + 1) + newBlock + css.slice(blockEnd - 1);
+}
+function addShadowToTheme(css, variableName, value) {
+  const themeMatch = css.match(/@theme\s*(?:inline\s*)?\{/);
+  if (!themeMatch) {
+    return css + `
+@theme {
+  ${variableName}: ${value};
+}
+`;
+  }
+  return writeShadowToTheme(css, variableName, value);
+}
+function writeShadowToScss(scss, variableName, newValue) {
+  const varEscaped = variableName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(
+    `(${varEscaped}\\s*:\\s*)(.+?)(\\s*(?:!default)?\\s*;)`,
+    "g"
+  );
+  const result = scss.replace(regex, `$1${newValue}$3`);
+  if (result === scss) {
+    throw new Error(`Sass variable "${variableName}" not found in SCSS file`);
+  }
+  return result;
+}
+function addShadowToScss(scss, variableName, value) {
+  const line = `${variableName}: ${value};
+`;
+  return scss.endsWith("\n") ? scss + line : scss + "\n" + line;
+}
+
+// src/server/lib/scanner.ts
+import { Router as Router5 } from "express";
+import fs12 from "fs/promises";
+import path10 from "path";
+
+// src/server/lib/scan-tokens.ts
+import fs8 from "fs/promises";
+import path6 from "path";
 async function scanTokens(projectRoot, framework) {
   if (framework.cssFiles.length === 0) {
     return { tokens: [], cssFilePath: "", groups: {} };
   }
   const cssFilePath = framework.cssFiles[0];
-  const fullPath = path4.join(projectRoot, cssFilePath);
-  const css = await fs6.readFile(fullPath, "utf-8");
+  const fullPath = path6.join(projectRoot, cssFilePath);
+  const css = await fs8.readFile(fullPath, "utf-8");
   const rootTokens = parseBlock(css, ":root");
   const darkTokens = parseBlock(css, ".dark");
   const tokenMap = /* @__PURE__ */ new Map();
@@ -1250,8 +1788,8 @@ function categorizeToken(name, value) {
   return "other";
 }
 function getTokenGroup(name) {
-  const n2 = name.replace(/^--/, "");
-  const scaleMatch = n2.match(/^([\w]+)-\d+$/);
+  const n3 = name.replace(/^--/, "");
+  const scaleMatch = n3.match(/^([\w]+)-\d+$/);
   if (scaleMatch) return scaleMatch[1];
   const semanticPrefixes = [
     "primary",
@@ -1262,18 +1800,18 @@ function getTokenGroup(name) {
     "warning"
   ];
   for (const prefix of semanticPrefixes) {
-    if (n2 === prefix || n2.startsWith(`${prefix}-`)) return prefix;
+    if (n3 === prefix || n3.startsWith(`${prefix}-`)) return prefix;
   }
-  if (["background", "foreground", "card", "card-foreground", "popover", "popover-foreground"].includes(n2)) {
+  if (["background", "foreground", "card", "card-foreground", "popover", "popover-foreground"].includes(n3)) {
     return "surface";
   }
-  if (["border", "input", "ring", "muted", "muted-foreground", "accent", "accent-foreground"].includes(n2)) {
+  if (["border", "input", "ring", "muted", "muted-foreground", "accent", "accent-foreground"].includes(n3)) {
     return "utility";
   }
-  if (n2.startsWith("chart")) return "chart";
-  if (n2.startsWith("sidebar")) return "sidebar";
-  if (n2.startsWith("radius")) return "radius";
-  if (n2.startsWith("shadow")) return "shadow";
+  if (n3.startsWith("chart")) return "chart";
+  if (n3.startsWith("sidebar")) return "sidebar";
+  if (n3.startsWith("radius")) return "radius";
+  if (n3.startsWith("shadow")) return "shadow";
   return "other";
 }
 function detectColorFormat(value) {
@@ -1285,8 +1823,8 @@ function detectColorFormat(value) {
 }
 
 // src/server/lib/scan-components.ts
-import fs7 from "fs/promises";
-import path5 from "path";
+import fs9 from "fs/promises";
+import path7 from "path";
 async function scanComponents(projectRoot) {
   const componentDirs = [
     "components/ui",
@@ -1295,7 +1833,7 @@ async function scanComponents(projectRoot) {
   let componentDir = "";
   for (const dir of componentDirs) {
     try {
-      await fs7.access(path5.join(projectRoot, dir));
+      await fs9.access(path7.join(projectRoot, dir));
       componentDir = dir;
       break;
     } catch {
@@ -1304,13 +1842,13 @@ async function scanComponents(projectRoot) {
   if (!componentDir) {
     return { components: [] };
   }
-  const fullDir = path5.join(projectRoot, componentDir);
-  const files = await fs7.readdir(fullDir);
+  const fullDir = path7.join(projectRoot, componentDir);
+  const files = await fs9.readdir(fullDir);
   const tsxFiles = files.filter((f) => f.endsWith(".tsx"));
   const components = [];
   for (const file of tsxFiles) {
-    const filePath = path5.join(componentDir, file);
-    const source = await fs7.readFile(path5.join(projectRoot, filePath), "utf-8");
+    const filePath = path7.join(componentDir, file);
+    const source = await fs9.readFile(path7.join(projectRoot, filePath), "utf-8");
     const entry = parseComponent(source, filePath);
     if (entry) {
       components.push(entry);
@@ -1404,19 +1942,361 @@ function extractTokenReferences(source) {
   return Array.from(tokens);
 }
 
+// src/server/lib/scan-shadows.ts
+import fs11 from "fs/promises";
+import path9 from "path";
+
+// src/server/lib/presets/tailwind.ts
+var TAILWIND_SHADOW_PRESETS = [
+  {
+    name: "shadow-2xs",
+    value: "0 1px rgb(0 0 0 / 0.05)"
+  },
+  {
+    name: "shadow-xs",
+    value: "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+  },
+  {
+    name: "shadow-sm",
+    value: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
+  },
+  {
+    name: "shadow",
+    value: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+  },
+  {
+    name: "shadow-md",
+    value: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+  },
+  {
+    name: "shadow-lg",
+    value: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
+  },
+  {
+    name: "shadow-xl",
+    value: "0 25px 50px -12px rgb(0 0 0 / 0.25)"
+  },
+  {
+    name: "shadow-2xl",
+    value: "0 50px 100px -20px rgb(0 0 0 / 0.25)"
+  },
+  {
+    name: "shadow-inner",
+    value: "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)"
+  },
+  {
+    name: "shadow-none",
+    value: "none"
+  }
+];
+
+// src/server/lib/presets/bootstrap.ts
+import fs10 from "fs/promises";
+import path8 from "path";
+var BOOTSTRAP_SHADOW_PRESETS = [
+  {
+    name: "box-shadow-sm",
+    value: "0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)"
+  },
+  {
+    name: "box-shadow",
+    value: "0 0.5rem 1rem rgba(0, 0, 0, 0.15)"
+  },
+  {
+    name: "box-shadow-lg",
+    value: "0 1rem 3rem rgba(0, 0, 0, 0.175)"
+  },
+  {
+    name: "box-shadow-inset",
+    value: "inset 0 1px 2px rgba(0, 0, 0, 0.075)"
+  }
+];
+async function scanBootstrapScssOverrides(projectRoot, scssFiles) {
+  const overrides = [];
+  for (const file of scssFiles) {
+    try {
+      const content = await fs10.readFile(path8.join(projectRoot, file), "utf-8");
+      const lines = content.split("\n");
+      for (const line of lines) {
+        const match = line.match(
+          /\$(box-shadow(?:-sm|-lg|-inset)?)\s*:\s*(.+?)(?:\s*!default)?\s*;/
+        );
+        if (match) {
+          const sassName = match[1];
+          let value = match[2].trim();
+          value = resolveBootstrapSassColors(value);
+          overrides.push({
+            name: sassName,
+            value,
+            sassVariable: `$${sassName}`,
+            cssVariable: `--bs-${sassName}`,
+            filePath: file
+          });
+        }
+      }
+    } catch {
+    }
+  }
+  return overrides;
+}
+async function scanBootstrapCssOverrides(projectRoot, cssFiles) {
+  const overrides = [];
+  for (const file of cssFiles) {
+    try {
+      const content = await fs10.readFile(path8.join(projectRoot, file), "utf-8");
+      const propRegex = /(--bs-box-shadow(?:-sm|-lg|-inset)?)\s*:\s*([^;]+);/g;
+      let match;
+      while ((match = propRegex.exec(content)) !== null) {
+        const cssVar = match[1];
+        const value = match[2].trim();
+        const name = cssVar.replace(/^--bs-/, "");
+        overrides.push({
+          name,
+          value,
+          sassVariable: `$${name}`,
+          cssVariable: cssVar,
+          filePath: file
+        });
+      }
+    } catch {
+    }
+  }
+  return overrides;
+}
+function resolveBootstrapSassColors(value) {
+  return value.replace(/rgba\(\$black,\s*([\d.]+)\)/g, "rgba(0, 0, 0, $1)").replace(/rgba\(\$white,\s*([\d.]+)\)/g, "rgba(255, 255, 255, $1)").replace(/\$black/g, "#000").replace(/\$white/g, "#fff");
+}
+
+// src/server/lib/scan-shadows.ts
+async function scanShadows(projectRoot, framework, styling) {
+  const shadows = [];
+  const allCssFiles = framework.cssFiles.length > 0 ? framework.cssFiles : styling.cssFiles;
+  const cssFilePath = allCssFiles[0] || styling.scssFiles?.[0] || "";
+  const customShadows = await scanCustomShadows(projectRoot, allCssFiles);
+  const overriddenNames = new Set(customShadows.map((s) => s.name));
+  if (styling.type === "tailwind-v4" || styling.type === "tailwind-v3") {
+    addPresets(shadows, TAILWIND_SHADOW_PRESETS, overriddenNames);
+  } else if (styling.type === "bootstrap") {
+    await addBootstrapShadows(shadows, projectRoot, styling, overriddenNames);
+  }
+  const designTokenFiles = await findDesignTokenFiles(projectRoot);
+  if (designTokenFiles.length > 0) {
+    const tokenShadows = await scanDesignTokenShadows(projectRoot, designTokenFiles);
+    for (const token of tokenShadows) {
+      if (!overriddenNames.has(token.name)) {
+        shadows.push({
+          name: token.name,
+          value: token.cssValue,
+          source: "design-token",
+          isOverridden: false,
+          layers: parseShadowValue(token.cssValue),
+          tokenPath: token.tokenPath,
+          tokenFilePath: token.filePath
+        });
+      }
+    }
+  }
+  for (const custom of customShadows) {
+    shadows.push({
+      ...custom,
+      isOverridden: true
+    });
+  }
+  const sizeOrder = {
+    "2xs": 0,
+    "xs": 1,
+    "sm": 2,
+    "": 3,
+    "md": 4,
+    "lg": 5,
+    "xl": 6,
+    "2xl": 7
+  };
+  const naturalCollator = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+  shadows.sort((a, b3) => {
+    const order = { custom: 0, "design-token": 1, "framework-preset": 2 };
+    const aOrder = order[a.source] ?? 3;
+    const bOrder = order[b3.source] ?? 3;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    const extractSize = (name) => {
+      const match = name.match(/^[\w-]+-(\d*x[sl]|sm|md|lg)$/);
+      if (match) return match[1];
+      if (/^[a-z]+(-[a-z]+)*$/.test(name) && !name.includes("-inner") && !name.includes("-none")) {
+        const parts = name.split("-");
+        const last = parts[parts.length - 1];
+        if (last in sizeOrder) return last;
+        if (parts.length === 1 || !Object.keys(sizeOrder).includes(last)) return "";
+      }
+      return null;
+    };
+    const aSize = extractSize(a.name);
+    const bSize = extractSize(b3.name);
+    if (aSize !== null && bSize !== null) {
+      const aIdx = sizeOrder[aSize] ?? 99;
+      const bIdx = sizeOrder[bSize] ?? 99;
+      if (aIdx !== bIdx) return aIdx - bIdx;
+    }
+    return naturalCollator.compare(a.name, b3.name);
+  });
+  return { shadows, cssFilePath, stylingType: styling.type, designTokenFiles };
+}
+function addPresets(shadows, presets, overriddenNames) {
+  for (const preset of presets) {
+    if (!overriddenNames.has(preset.name)) {
+      shadows.push({
+        name: preset.name,
+        value: preset.value,
+        source: "framework-preset",
+        isOverridden: false,
+        layers: parseShadowValue(preset.value),
+        cssVariable: `--${preset.name}`
+      });
+    }
+  }
+}
+async function addBootstrapShadows(shadows, projectRoot, styling, overriddenNames) {
+  const scssOverrides = await scanBootstrapScssOverrides(projectRoot, styling.scssFiles);
+  const scssOverrideMap = new Map(scssOverrides.map((o) => [o.name, o]));
+  const cssOverrides = await scanBootstrapCssOverrides(projectRoot, styling.cssFiles);
+  const cssOverrideMap = new Map(cssOverrides.map((o) => [o.name, o]));
+  for (const preset of BOOTSTRAP_SHADOW_PRESETS) {
+    if (overriddenNames.has(preset.name)) continue;
+    const scssOverride = scssOverrideMap.get(preset.name);
+    const cssOverride = cssOverrideMap.get(preset.name);
+    const override = cssOverride || scssOverride;
+    if (override) {
+      shadows.push({
+        name: preset.name,
+        value: override.value,
+        source: "framework-preset",
+        isOverridden: true,
+        layers: parseShadowValue(override.value),
+        cssVariable: override.cssVariable,
+        sassVariable: override.sassVariable
+      });
+    } else {
+      shadows.push({
+        name: preset.name,
+        value: preset.value,
+        source: "framework-preset",
+        isOverridden: false,
+        layers: parseShadowValue(preset.value),
+        cssVariable: `--bs-${preset.name}`,
+        sassVariable: `$${preset.name}`
+      });
+    }
+  }
+}
+async function scanCustomShadows(projectRoot, cssFiles) {
+  const shadows = [];
+  for (const file of cssFiles) {
+    try {
+      const css = await fs11.readFile(path9.join(projectRoot, file), "utf-8");
+      const rootTokens = parseBlock(css, ":root");
+      for (const [name, value] of rootTokens) {
+        if (name.includes("shadow") || isShadowValue(value)) {
+          shadows.push({
+            name: name.replace(/^--/, ""),
+            value,
+            source: "custom",
+            isOverridden: true,
+            layers: parseShadowValue(value),
+            cssVariable: name
+          });
+        }
+      }
+      const themeMatch = css.match(/@theme\s*(?:inline\s*)?\{([\s\S]*?)\}/);
+      if (themeMatch) {
+        const themeBlock = themeMatch[1];
+        const propRegex = /(--shadow[\w-]*)\s*:\s*([^;]+);/g;
+        let match;
+        while ((match = propRegex.exec(themeBlock)) !== null) {
+          const name = match[1].replace(/^--/, "");
+          if (!shadows.find((s) => s.name === name)) {
+            shadows.push({
+              name,
+              value: match[2].trim(),
+              source: "custom",
+              isOverridden: true,
+              layers: parseShadowValue(match[2].trim()),
+              cssVariable: match[1]
+            });
+          }
+        }
+      }
+    } catch {
+    }
+  }
+  return shadows;
+}
+function isShadowValue(value) {
+  return /\d+px\s+\d+px/.test(value) || value.includes("inset");
+}
+function parseShadowValue(value) {
+  if (!value || value === "none") return [];
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (const char of value) {
+    if (char === "(") depth++;
+    if (char === ")") depth--;
+    if (char === "," && depth === 0) {
+      parts.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts.map(parseSingleShadow).filter((s) => s !== null);
+}
+function parseSingleShadow(shadow) {
+  const trimmed = shadow.trim();
+  if (!trimmed) return null;
+  const inset = trimmed.startsWith("inset");
+  const withoutInset = inset ? trimmed.replace(/^inset\s*/, "") : trimmed;
+  let color = "rgb(0 0 0 / 0.1)";
+  let measurements = withoutInset;
+  const colorPatterns = [
+    /\s+((?:rgb|rgba|oklch|hsl|hsla)\([^)]+\))$/,
+    /\s+(#[\da-fA-F]{3,8})$/,
+    /\s+((?:black|white|transparent|currentColor))$/i
+  ];
+  for (const pattern of colorPatterns) {
+    const match = measurements.match(pattern);
+    if (match) {
+      color = match[1];
+      measurements = measurements.slice(0, match.index).trim();
+      break;
+    }
+  }
+  const parts = measurements.split(/\s+/);
+  if (parts.length < 2) return null;
+  return {
+    offsetX: parts[0] || "0",
+    offsetY: parts[1] || "0",
+    blur: parts[2] || "0",
+    spread: parts[3] || "0",
+    color,
+    inset
+  };
+}
+
 // src/server/lib/scanner.ts
 var cachedScan = null;
 async function runScan(projectRoot) {
   const framework = await detectFramework(projectRoot);
-  const [tokens, components] = await Promise.all([
+  const styling = await detectStylingSystem(projectRoot, framework);
+  const [tokens, components, shadows] = await Promise.all([
     scanTokens(projectRoot, framework),
-    scanComponents(projectRoot)
+    scanComponents(projectRoot),
+    scanShadows(projectRoot, framework, styling)
   ]);
-  cachedScan = { framework, tokens, components };
+  cachedScan = { framework, tokens, components, shadows, styling };
   return cachedScan;
 }
 function createScanRouter(projectRoot) {
-  const router = Router4();
+  const router = Router5();
   runScan(projectRoot).then(() => {
     console.log("  Project scanned successfully");
   }).catch((err) => {
@@ -1446,6 +2326,14 @@ function createScanRouter(projectRoot) {
       res.status(500).json({ error: err.message });
     }
   });
+  router.get("/shadows", async (_req, res) => {
+    try {
+      const result = cachedScan || await runScan(projectRoot);
+      res.json(result.shadows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
   router.post("/rescan", async (_req, res) => {
     try {
       const result = await runScan(projectRoot);
@@ -1470,26 +2358,26 @@ function createScanRouter(projectRoot) {
 var PAGE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js"];
 async function resolveRouteToFile(projectRoot, appDir, routePath) {
   const segments = routePath === "/" ? [] : routePath.replace(/^\//, "").replace(/\/$/, "").split("/");
-  const absAppDir = path6.join(projectRoot, appDir);
+  const absAppDir = path10.join(projectRoot, appDir);
   const result = await matchSegments(absAppDir, segments, 0);
   if (result) {
-    return path6.relative(projectRoot, result);
+    return path10.relative(projectRoot, result);
   }
   return null;
 }
 async function findPageFile(dir) {
   for (const ext of PAGE_EXTENSIONS) {
-    const candidate = path6.join(dir, `page${ext}`);
+    const candidate = path10.join(dir, `page${ext}`);
     try {
-      await fs8.access(candidate);
+      await fs12.access(candidate);
       return candidate;
     } catch {
     }
   }
   for (const ext of PAGE_EXTENSIONS) {
-    const candidate = path6.join(dir, `index${ext}`);
+    const candidate = path10.join(dir, `index${ext}`);
     try {
-      await fs8.access(candidate);
+      await fs12.access(candidate);
       return candidate;
     } catch {
     }
@@ -1498,7 +2386,7 @@ async function findPageFile(dir) {
 }
 async function listDirs(dir) {
   try {
-    const entries = await fs8.readdir(dir, { withFileTypes: true });
+    const entries = await fs12.readdir(dir, { withFileTypes: true });
     return entries.filter((e) => e.isDirectory()).map((e) => e.name);
   } catch {
     return [];
@@ -1511,7 +2399,7 @@ async function matchSegments(currentDir, segments, index) {
     const dirs2 = await listDirs(currentDir);
     for (const d of dirs2) {
       if (d.startsWith("(") && d.endsWith(")")) {
-        const page2 = await findPageFile(path6.join(currentDir, d));
+        const page2 = await findPageFile(path10.join(currentDir, d));
         if (page2) return page2;
       }
     }
@@ -1520,30 +2408,30 @@ async function matchSegments(currentDir, segments, index) {
   const segment = segments[index];
   const dirs = await listDirs(currentDir);
   if (dirs.includes(segment)) {
-    const result = await matchSegments(path6.join(currentDir, segment), segments, index + 1);
+    const result = await matchSegments(path10.join(currentDir, segment), segments, index + 1);
     if (result) return result;
   }
   for (const d of dirs) {
     if (d.startsWith("(") && d.endsWith(")")) {
-      const result = await matchSegments(path6.join(currentDir, d), segments, index);
+      const result = await matchSegments(path10.join(currentDir, d), segments, index);
       if (result) return result;
     }
   }
   for (const d of dirs) {
     if (d.startsWith("[") && d.endsWith("]") && !d.startsWith("[...") && !d.startsWith("[[")) {
-      const result = await matchSegments(path6.join(currentDir, d), segments, index + 1);
+      const result = await matchSegments(path10.join(currentDir, d), segments, index + 1);
       if (result) return result;
     }
   }
   for (const d of dirs) {
     if (d.startsWith("[...") && d.endsWith("]")) {
-      const page = await findPageFile(path6.join(currentDir, d));
+      const page = await findPageFile(path10.join(currentDir, d));
       if (page) return page;
     }
   }
   for (const d of dirs) {
     if (d.startsWith("[[...") && d.endsWith("]]")) {
-      const page = await findPageFile(path6.join(currentDir, d));
+      const page = await findPageFile(path10.join(currentDir, d));
       if (page) return page;
     }
   }
@@ -1571,15 +2459,55 @@ async function createServer(config) {
   );
   app.use("/api/tokens", createTokensRouter(config.projectRoot));
   app.use("/api/component", createComponentRouter(config.projectRoot));
+  app.use("/api/shadows", createShadowsRouter(config.projectRoot));
+  app.get("/api/open-file", (req, res) => {
+    const file = req.query.file;
+    const line = req.query.line;
+    const col = req.query.col;
+    if (!file) {
+      res.status(400).json({ error: "Missing file" });
+      return;
+    }
+    const absPath = path11.isAbsolute(file) ? file : path11.join(config.projectRoot, file);
+    const lineCol = line ? `:${line}${col ? `:${col}` : ""}` : "";
+    const platform = process.platform;
+    const tryOpen = () => {
+      const editors = [
+        { cmd: "code", arg: `--goto "${absPath}${lineCol}"` },
+        { cmd: "cursor", arg: `--goto "${absPath}${lineCol}"` }
+      ];
+      let idx = 0;
+      const attempt = () => {
+        if (idx >= editors.length) {
+          const openCmd = platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
+          exec(`${openCmd} "${absPath}"`);
+          res.json({ ok: true, editor: "system" });
+          return;
+        }
+        const { cmd, arg } = editors[idx];
+        exec(`which ${cmd}`, (err) => {
+          if (!err) {
+            exec(`${cmd} ${arg}`);
+            res.json({ ok: true, editor: cmd });
+          } else {
+            idx++;
+            attempt();
+          }
+        });
+      };
+      attempt();
+    };
+    tryOpen();
+  });
   app.use("/scan", createScanRouter(config.projectRoot));
-  const __dirname = path7.dirname(fileURLToPath(import.meta.url));
-  const clientDistPath = path7.join(__dirname, "client");
-  const isDev = !fs9.existsSync(path7.join(clientDistPath, "index.html"));
+  const __dirname = path11.dirname(fileURLToPath(import.meta.url));
+  const clientDistPath = path11.join(__dirname, "client");
+  const isDev = !fs13.existsSync(path11.join(clientDistPath, "index.html"));
   if (isDev) {
     const { createServer: createViteServer } = await import("vite");
-    const viteRoot = path7.resolve(__dirname, "../client");
+    const viteRoot = path11.resolve(__dirname, "../client");
     const vite = await createViteServer({
-      configFile: path7.resolve(__dirname, "../../vite.config.ts"),
+      configFile: path11.resolve(__dirname, "../../vite.config.ts"),
       server: { middlewareMode: true },
       appType: "custom"
     });
@@ -1587,8 +2515,8 @@ async function createServer(config) {
     app.use(async (req, res, next) => {
       try {
         const url = req.originalUrl || "/";
-        const htmlPath = path7.join(viteRoot, "index.html");
-        let html = fs9.readFileSync(htmlPath, "utf-8");
+        const htmlPath = path11.join(viteRoot, "index.html");
+        let html = fs13.readFileSync(htmlPath, "utf-8");
         html = await vite.transformIndexHtml(url, html);
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       } catch (err) {
@@ -1599,7 +2527,7 @@ async function createServer(config) {
   } else {
     app.use(express.static(clientDistPath));
     app.use((_req, res) => {
-      res.sendFile(path7.join(clientDistPath, "index.html"));
+      res.sendFile(path11.join(clientDistPath, "index.html"));
     });
   }
   return app;
@@ -1612,7 +2540,7 @@ var red = (s) => `\x1B[31m${s}\x1B[0m`;
 var dim = (s) => `\x1B[2m${s}\x1B[0m`;
 var bold = (s) => `\x1B[1m${s}\x1B[0m`;
 async function main() {
-  const args = process.argv.slice(2);
+  const args = process2.argv.slice(2);
   let targetPort = 3e3;
   let toolPort = 4400;
   for (let i = 0; i < args.length; i++) {
@@ -1625,18 +2553,18 @@ async function main() {
       i++;
     }
   }
-  const projectRoot = process.cwd();
+  const projectRoot = process2.cwd();
   console.log("");
   console.log(`  ${bold("@designtools/codecanvas")}`);
   console.log(`  ${dim(projectRoot)}`);
   console.log("");
-  const pkgPath = path8.join(projectRoot, "package.json");
-  if (!fs10.existsSync(pkgPath)) {
+  const pkgPath = path12.join(projectRoot, "package.json");
+  if (!fs14.existsSync(pkgPath)) {
     console.log(`  ${red("\u2717")} No package.json found in ${projectRoot}`);
     console.log(`    ${dim("Run this command from the root of the app you want to edit.")}`);
     console.log(`    ${dim("All file reads and writes are scoped to this directory.")}`);
     console.log("");
-    process.exit(1);
+    process2.exit(1);
   }
   const framework = await detectFramework(projectRoot);
   const frameworkLabel = framework.name === "nextjs" ? "Next.js" : framework.name === "remix" ? "Remix" : framework.name === "vite" ? "Vite" : "Unknown";
@@ -1684,13 +2612,13 @@ async function main() {
       break;
     } catch {
       if (attempt === 0) {
-        process.stdout.write(`  ${dim("Waiting for dev server at " + targetUrl + "...")}`);
+        process2.stdout.write(`  ${dim("Waiting for dev server at " + targetUrl + "...")}`);
         waited = true;
       }
       await new Promise((r) => setTimeout(r, 1e3));
     }
   }
-  if (waited) process.stdout.write("\r\x1B[K");
+  if (waited) process2.stdout.write("\r\x1B[K");
   if (targetReachable) {
     console.log(`  ${green("\u2713")} Target         ${targetUrl}`);
   } else {
@@ -1699,7 +2627,7 @@ async function main() {
     console.log(`    ${dim("Start your dev server first, then run this command.")}`);
     console.log(`    ${dim(`Use --port to specify a different port.`)}`);
     console.log("");
-    process.exit(1);
+    process2.exit(1);
   }
   console.log(`  ${green("\u2713")} Tool           http://localhost:${toolPort}`);
   console.log("");
@@ -1717,5 +2645,5 @@ async function main() {
 }
 main().catch((err) => {
   console.error(err);
-  process.exit(1);
+  process2.exit(1);
 });

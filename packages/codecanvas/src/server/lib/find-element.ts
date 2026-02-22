@@ -36,6 +36,35 @@ export function findElementAtSource(
 }
 
 /**
+ * Find a component JSX element at exact source coordinates.
+ * Used when data-instance-source provides precise line:col for the component usage.
+ */
+export function findComponentAtSource(
+  ast: any,
+  componentName: string,
+  line: number,
+  col: number,
+): any | null {
+  let found: any = null;
+
+  visit(ast, {
+    visitJSXOpeningElement(path) {
+      const name = path.node.name;
+      if (n.JSXIdentifier.check(name) && name.name === componentName) {
+        const loc = path.node.loc;
+        if (loc && loc.start.line === line && loc.start.column === col) {
+          found = path;
+          return false;
+        }
+      }
+      this.traverse(path);
+    },
+  });
+
+  return found;
+}
+
+/**
  * Find a component JSX element by name near a source location.
  * Used for instance overrides: the instanceSource points to an ancestor
  * in the page file, and we search for the nearest <ComponentName> element.
@@ -78,10 +107,13 @@ export function findComponentNearSource(
   if (candidates.length === 0) return null;
   if (candidates.length === 1) return candidates[0].path;
 
-  // If textHint matches exactly one candidate, use that
+  // If textHint matches any candidates, prefer those over non-matches
   if (textHint) {
     const textMatches = candidates.filter((c) => c.hasTextMatch);
-    if (textMatches.length === 1) return textMatches[0].path;
+    if (textMatches.length >= 1) {
+      textMatches.sort((a, b) => Math.abs(a.line - lineHint) - Math.abs(b.line - lineHint));
+      return textMatches[0].path;
+    }
   }
 
   // Pick the candidate closest to the lineHint

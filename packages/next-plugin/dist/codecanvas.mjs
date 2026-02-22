@@ -222,7 +222,7 @@ function CodeCanvas() {
             const slc = ancestorSource.lastIndexOf(":", lc - 1);
             if (slc > 0) {
               const ancestorFile = ancestorSource.slice(0, slc);
-              if (ancestorFile !== sourceFile) {
+              if (ancestorFile !== sourceFile && !ancestor.getAttribute("data-slot")) {
                 instanceSourceFile = ancestorFile;
                 instanceSourceLine = parseInt(ancestorSource.slice(slc + 1, lc), 10);
                 instanceSourceCol = parseInt(ancestorSource.slice(lc + 1), 10);

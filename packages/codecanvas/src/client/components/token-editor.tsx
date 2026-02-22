@@ -5,12 +5,14 @@ import {
 } from "@radix-ui/react-icons";
 import type { ScanData } from "../app.js";
 import { TokenPopover } from "./color-popover.js";
+import { ShadowList } from "./shadow-list.js";
 
 interface TokenEditorProps {
   tokenRefs: string[];
   scanData: ScanData | null;
   theme: "light" | "dark";
   onPreviewToken: (token: string, value: string) => void;
+  onPreviewShadow: (variableName: string, value: string, shadowName?: string) => void;
 }
 
 export function TokenEditor({
@@ -18,6 +20,7 @@ export function TokenEditor({
   scanData,
   theme,
   onPreviewToken,
+  onPreviewShadow,
 }: TokenEditorProps) {
   if (!scanData) {
     return (
@@ -40,11 +43,14 @@ export function TokenEditor({
     .filter(([_, tokens]) => (tokens as any[]).some((t) => t.category === "color"))
     .slice(0, 8);
 
-  const radiusTokens = tokens.filter((t: any) => t.category === "radius");
   const spacingTokens = tokens.filter((t: any) => t.category === "spacing");
+  const radiusTokens = tokens.filter((t: any) => t.category === "radius");
+
+  const shadowData = scanData.shadows;
 
   return (
     <div className="">
+      {/* Used by element — only show when relevant */}
       {referencedTokens.length > 0 && (
         <Section title="Used by element" count={referencedTokens.length} defaultCollapsed>
           {referencedTokens.map((token: any) => (
@@ -60,46 +66,68 @@ export function TokenEditor({
         </Section>
       )}
 
-      {radiusTokens.length > 0 && (
-        <Section title="Radius" count={radiusTokens.length} defaultCollapsed>
-          {radiusTokens.map((token: any) => (
-            <RadiusTokenRow
-              key={token.name}
-              token={token}
-              onSave={(value) => handleTokenSave(cssFilePath, token.name, value, theme === "dark" ? ".dark" : ":root")}
-            />
-          ))}
-        </Section>
-      )}
+      {/* Colors — always visible */}
+      <Section title="Colors" count={colorTokenGroups.reduce((sum, [_, g]) => sum + (g as any[]).filter(t => t.category === "color").length, 0)} defaultCollapsed>
+        {colorTokenGroups.length > 0 ? (
+          colorTokenGroups.map(([groupName, groupTokens]) => (
+            <SubSection key={groupName} title={groupName} count={(groupTokens as any[]).filter(t => t.category === "color").length}>
+              {(groupTokens as any[])
+                .filter((t) => t.category === "color")
+                .map((token: any) => (
+                  <TokenRow
+                    key={token.name}
+                    token={token}
+                    theme={theme}
+                    onPreview={onPreviewToken}
+                    cssFilePath={cssFilePath}
+                    allTokens={tokens}
+                  />
+                ))}
+            </SubSection>
+          ))
+        ) : (
+          <EmptyState message="No color tokens found in your CSS." />
+        )}
+      </Section>
 
-      {spacingTokens.length > 0 && (
-        <Section title="Spacing" count={spacingTokens.length} defaultCollapsed>
-          {spacingTokens.map((token: any) => (
+      {/* Spacing — always visible */}
+      <Section title="Spacing" count={spacingTokens.length} defaultCollapsed>
+        {spacingTokens.length > 0 ? (
+          spacingTokens.map((token: any) => (
             <SpacingTokenRow
               key={token.name}
               token={token}
               onSave={(value) => handleTokenSave(cssFilePath, token.name, value, theme === "dark" ? ".dark" : ":root")}
             />
-          ))}
-        </Section>
-      )}
+          ))
+        ) : (
+          <EmptyState message="No spacing tokens found in your CSS." />
+        )}
+      </Section>
 
-      {colorTokenGroups.map(([groupName, groupTokens]) => (
-        <Section key={groupName} title={groupName} count={(groupTokens as any[]).filter(t => t.category === "color").length} defaultCollapsed>
-          {(groupTokens as any[])
-            .filter((t) => t.category === "color")
-            .map((token: any) => (
-              <TokenRow
-                key={token.name}
-                token={token}
-                theme={theme}
-                onPreview={onPreviewToken}
-                cssFilePath={cssFilePath}
-                allTokens={tokens}
-              />
-            ))}
-        </Section>
-      ))}
+      {/* Shadows — always visible */}
+      <Section title="Shadows" count={shadowData?.shadows?.length || 0} defaultCollapsed>
+        {shadowData && shadowData.shadows.length > 0 ? (
+          <ShadowList
+            shadows={shadowData.shadows}
+            cssFilePath={shadowData.cssFilePath}
+            stylingType={shadowData.stylingType}
+            onPreviewShadow={onPreviewShadow}
+          />
+        ) : (
+          <EmptyState message="No shadows found. Add shadow CSS variables to your global CSS file." />
+        )}
+      </Section>
+
+      {/* Gradients — placeholder */}
+      <Section title="Gradients" count={0} defaultCollapsed>
+        <EmptyState message="Coming soon." />
+      </Section>
+
+      {/* Borders — placeholder */}
+      <Section title="Borders" count={0} defaultCollapsed>
+        <EmptyState message="Coming soon." />
+      </Section>
     </div>
   );
 }
@@ -128,6 +156,44 @@ function Section({
         {count !== undefined && <span className="count">{count}</span>}
       </button>
       {!collapsed && <div className="pb-1">{children}</div>}
+    </div>
+  );
+}
+
+function SubSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  return (
+    <div className="ml-2">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="studio-section-hdr"
+        style={{ fontSize: 10 }}
+      >
+        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+        {title}
+        {count !== undefined && <span className="count">{count}</span>}
+      </button>
+      {!collapsed && <div className="pb-1">{children}</div>}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div
+      className="px-4 py-4 text-[11px] text-center"
+      style={{ color: "var(--studio-text-dimmed)" }}
+    >
+      {message}
     </div>
   );
 }
@@ -207,41 +273,6 @@ function TokenRow({
         />
       )}
     </>
-  );
-}
-
-function RadiusTokenRow({
-  token,
-  onSave,
-}: {
-  token: any;
-  onSave: (value: string) => void;
-}) {
-  const [value, setValue] = useState(token.lightValue);
-
-  return (
-    <div className="studio-prop-row">
-      <div
-        className="w-5 h-5 border shrink-0"
-        style={{
-          borderColor: "var(--studio-text-dimmed)",
-          borderRadius: value,
-        }}
-      />
-      <span
-        className="flex-1 text-[11px] font-mono truncate"
-        style={{ color: "var(--studio-text)" }}
-      >
-        {token.name.replace(/^--/, "")}
-      </span>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={() => onSave(value)}
-        className="studio-input w-14 text-right"
-      />
-    </div>
   );
 }
 

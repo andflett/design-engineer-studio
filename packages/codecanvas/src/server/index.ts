@@ -6,6 +6,7 @@ import { exec } from "child_process";
 import { createWriteElementRouter } from "./api/write-element.js";
 import { createTokensRouter } from "./api/write-tokens.js";
 import { createComponentRouter } from "./api/write-component.js";
+import { createShadowsRouter } from "./api/write-shadows.js";
 import { createScanRouter } from "./lib/scanner.js";
 
 export interface ServerConfig {
@@ -45,6 +46,9 @@ export async function createServer(config: ServerConfig) {
 
   // API: write component changes
   app.use("/api/component", createComponentRouter(config.projectRoot));
+
+  // API: write shadow changes
+  app.use("/api/shadows", createShadowsRouter(config.projectRoot));
 
   // API: open file in the user's editor
   app.get("/api/open-file", (req, res) => {

@@ -189,33 +189,23 @@ export function CodeCanvas() {
         }
       }
 
-      // For component instances (elements with data-slot): find the usage site
-      // by walking up the DOM to find an ancestor whose data-source points to
-      // a different file — that's the page file where this component is used.
+      // For component instances: read data-instance-source directly from the DOM element.
+      // The Babel transform adds this attribute to component JSX (<Button>, <Card>)
+      // and it propagates via {...props} to the rendered DOM element, carrying exact
+      // page-level coordinates of each component usage site.
       let instanceSourceFile: string | null = null;
       let instanceSourceLine: number | null = null;
       let instanceSourceCol: number | null = null;
       let componentName: string | null = null;
 
-      if (el.getAttribute("data-slot") && sourceFile) {
-        let ancestor: Element | null = el.parentElement;
-        while (ancestor && ancestor !== document.body) {
-          const ancestorSource = ancestor.getAttribute("data-source");
-          if (ancestorSource) {
-            const lc = ancestorSource.lastIndexOf(":");
-            const slc = ancestorSource.lastIndexOf(":", lc - 1);
-            if (slc > 0) {
-              const ancestorFile = ancestorSource.slice(0, slc);
-              if (ancestorFile !== sourceFile) {
-                // Found the usage site — this ancestor is in the page file
-                instanceSourceFile = ancestorFile;
-                instanceSourceLine = parseInt(ancestorSource.slice(slc + 1, lc), 10);
-                instanceSourceCol = parseInt(ancestorSource.slice(lc + 1), 10);
-                break;
-              }
-            }
-          }
-          ancestor = ancestor.parentElement;
+      const instanceSource = el.getAttribute("data-instance-source");
+      if (instanceSource && el.getAttribute("data-slot")) {
+        const lc = instanceSource.lastIndexOf(":");
+        const slc = instanceSource.lastIndexOf(":", lc - 1);
+        if (slc > 0) {
+          instanceSourceFile = instanceSource.slice(0, slc);
+          instanceSourceLine = parseInt(instanceSource.slice(slc + 1, lc), 10);
+          instanceSourceCol = parseInt(instanceSource.slice(lc + 1), 10);
         }
 
         // Derive component name from data-slot (e.g. "card-title" -> "CardTitle")

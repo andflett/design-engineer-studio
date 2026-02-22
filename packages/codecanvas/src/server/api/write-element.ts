@@ -6,6 +6,7 @@
 import { Router } from "express";
 import fs from "fs/promises";
 import { safePath } from "../lib/safe-path.js";
+import { builders as b } from "ast-types";
 import {
   parseSource,
   printSource,
@@ -15,7 +16,7 @@ import {
   appendClassToAttr,
   addClassNameAttr,
 } from "../lib/ast-helpers.js";
-import { findElementAtSource, findComponentNearSource } from "../lib/find-element.js";
+import { findElementAtSource, findComponentAtSource, findComponentNearSource } from "../lib/find-element.js";
 import { computedToTailwindClass } from "../../shared/tailwind-map.js";
 import { parseClasses } from "../../shared/tailwind-parser.js";
 
@@ -39,11 +40,13 @@ interface WriteElementBody {
     col: number;
   };
   changes?: StyleChange[];
-  type?: "replaceClass" | "addClass" | "instanceOverride";
+  type?: "replaceClass" | "addClass" | "instanceOverride" | "prop";
   oldClass?: string;
   newClass?: string;
   componentName?: string;
   textHint?: string;
+  propName?: string;
+  propValue?: string;
 }
 
 /**
@@ -76,6 +79,54 @@ const CSS_TO_PARSER_PROP: Record<string, string> = {
 export function createWriteElementRouter(config: WriteElementConfig) {
   const router = Router();
 
+  // GET /api/write-element/instance-props — read current string-literal props from JSX source
+  router.get("/instance-props", async (req, res) => {
+    try {
+      const file = req.query.file as string;
+      const line = parseInt(req.query.line as string, 10);
+      const col = req.query.col ? parseInt(req.query.col as string, 10) : undefined;
+      const componentName = req.query.componentName as string;
+      const textHint = (req.query.textHint as string) || undefined;
+
+      if (!file || !line || !componentName) {
+        res.status(400).json({ error: "Missing file, line, or componentName" });
+        return;
+      }
+
+      const fullPath = safePath(config.projectRoot, file);
+      const parser = await getParser();
+      const source = await fs.readFile(fullPath, "utf-8");
+      const ast = parseSource(source, parser);
+
+      // Use exact line:col match when available (from data-instance-source),
+      // fall back to fuzzy near-source match for backwards compatibility
+      const elementPath = (col !== undefined)
+        ? findComponentAtSource(ast, componentName, line, col) || findComponentNearSource(ast, componentName, line, textHint)
+        : findComponentNearSource(ast, componentName, line, textHint);
+      if (!elementPath) {
+        res.status(404).json({
+          error: `Component <${componentName}> not found near line ${line} in ${file}`,
+        });
+        return;
+      }
+
+      const props: Record<string, string> = {};
+      for (const attr of elementPath.node.attributes) {
+        if (attr.type === "JSXAttribute" && attr.name?.type === "JSXIdentifier") {
+          const name = attr.name.name;
+          if (attr.value?.type === "StringLiteral" || attr.value?.type === "Literal") {
+            props[name] = String(attr.value.value);
+          }
+        }
+      }
+
+      res.json({ props });
+    } catch (err: any) {
+      console.error("[instance-props]", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   router.post("/", async (req, res) => {
     try {
       const body = req.body as WriteElementBody;
@@ -97,13 +148,11 @@ export function createWriteElementRouter(config: WriteElementConfig) {
         const source = await fs.readFile(fullPath, "utf-8");
         const ast = parseSource(source, parser);
 
-        // Find the <ComponentName> element near the source location
-        const elementPath = findComponentNearSource(
-          ast,
-          body.componentName,
-          body.source.line,
-          body.textHint,
-        );
+        // Use exact line:col match when col is available (from data-instance-source),
+        // fall back to fuzzy near-source match for backwards compatibility
+        const elementPath = (body.source.col !== undefined && body.source.col !== null)
+          ? findComponentAtSource(ast, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast, body.componentName, body.source.line, body.textHint)
+          : findComponentNearSource(ast, body.componentName, body.source.line, body.textHint);
 
         if (!elementPath) {
           res.status(404).json({
@@ -124,6 +173,51 @@ export function createWriteElementRouter(config: WriteElementConfig) {
           appendClassToAttr(openingElement, body.newClass);
         } else {
           addClassNameAttr(openingElement, body.newClass);
+        }
+
+        const output = printSource(ast);
+        await fs.writeFile(fullPath, output, "utf-8");
+        res.json({ ok: true });
+        return;
+      }
+
+      // Handle prop: set/add a JSX prop (e.g. variant="destructive") on a component instance
+      if (body.type === "prop") {
+        if (!body.componentName || !body.propName || body.propValue === undefined) {
+          res.status(400).json({ error: "Missing componentName, propName, or propValue" });
+          return;
+        }
+
+        const fullPath = safePath(config.projectRoot, body.source.file);
+        const parser = await getParser();
+        const source = await fs.readFile(fullPath, "utf-8");
+        const ast = parseSource(source, parser);
+
+        // Use exact line:col match when col is available (from data-instance-source),
+        // fall back to fuzzy near-source match for backwards compatibility
+        const elementPath = (body.source.col !== undefined && body.source.col !== null)
+          ? findComponentAtSource(ast, body.componentName, body.source.line, body.source.col) || findComponentNearSource(ast, body.componentName, body.source.line, body.textHint)
+          : findComponentNearSource(ast, body.componentName, body.source.line, body.textHint);
+
+        if (!elementPath) {
+          res.status(404).json({
+            error: `Component <${body.componentName}> not found near line ${body.source.line} in ${body.source.file}`,
+          });
+          return;
+        }
+
+        const openingElement = elementPath.node;
+        const existingProp = findAttr(openingElement, body.propName);
+
+        if (existingProp) {
+          existingProp.value = b.stringLiteral(body.propValue);
+        } else {
+          openingElement.attributes.push(
+            b.jsxAttribute(
+              b.jsxIdentifier(body.propName),
+              b.stringLiteral(body.propValue),
+            ),
+          );
         }
 
         const output = printSource(ast);
