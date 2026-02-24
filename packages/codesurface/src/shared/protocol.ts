@@ -43,6 +43,8 @@ export type EditorToIframe =
   | { type: "tool:enterSelectionMode" }
   | { type: "tool:exitSelectionMode" }
   | { type: "tool:previewInlineStyle"; property: string; value: string }
+  | { type: "tool:previewTokenValue"; property: string; value: string }
+  | { type: "tool:revertTokenValues" }
   | { type: "tool:revertInlineStyles" }
   | { type: "tool:reselectElement" }
   | { type: "tool:setTheme"; theme: "light" | "dark" };

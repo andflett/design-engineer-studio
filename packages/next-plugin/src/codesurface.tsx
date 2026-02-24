@@ -23,6 +23,9 @@ export function CodeSurface() {
     selectedDomPath: null as string | null,
     overlayRafId: null as number | null,
     inlineStyleBackups: new Map<string, string>(),
+    tokenValueBackups: new Map<string, string>(),
+    tokenPreviewValues: new Map<string, string>(),
+    tokenPreviewStyle: null as HTMLStyleElement | null,
     highlightOverlay: null as HTMLDivElement | null,
     tooltip: null as HTMLDivElement | null,
     selectedOverlay: null as HTMLDivElement | null,
@@ -361,6 +364,44 @@ export function CodeSurface() {
           }
           break;
         }
+        case "tool:previewTokenValue": {
+          const prop = msg.property as string;
+          const value = msg.value as string;
+          // Track current preview value
+          s.tokenPreviewValues.set(prop, value);
+          // Inject a <style> tag override.
+          // Tailwind v4 resolves @theme variables at build time and inlines
+          // them into utility classes, so setting CSS custom properties on
+          // :root has no effect. Instead we target utility classes directly.
+          if (!s.tokenPreviewStyle) {
+            s.tokenPreviewStyle = document.createElement("style");
+            s.tokenPreviewStyle.id = "codesurface-token-preview";
+            document.head.appendChild(s.tokenPreviewStyle);
+          }
+          const cssRules: string[] = [];
+          for (const [k, v] of s.tokenPreviewValues) {
+            // Derive Tailwind utility class from CSS variable name:
+            // --shadow-sm → .shadow-sm, --shadow → .shadow
+            if (k.startsWith("--shadow")) {
+              const cls = k.slice(2); // "--shadow-sm" → "shadow-sm"
+              cssRules.push(`.${cls}, [class*="${cls}"] { box-shadow: ${v} !important; }`);
+            } else {
+              // For other tokens (colors, spacing, etc.) override the custom property
+              cssRules.push(`*, *::before, *::after { ${k}: ${v} !important; }`);
+            }
+          }
+          s.tokenPreviewStyle.textContent = cssRules.join("\n");
+          break;
+        }
+        case "tool:revertTokenValues": {
+          if (s.tokenPreviewStyle) {
+            s.tokenPreviewStyle.remove();
+            s.tokenPreviewStyle = null;
+          }
+          s.tokenPreviewValues.clear();
+          s.tokenValueBackups.clear();
+          break;
+        }
         case "tool:reselectElement":
           reselectCurrentElement();
           break;
@@ -399,6 +440,7 @@ export function CodeSurface() {
       window.removeEventListener("popstate", notifyPathChanged);
 
       if (s.overlayRafId) cancelAnimationFrame(s.overlayRafId);
+      s.tokenPreviewStyle?.remove();
       s.highlightOverlay?.remove();
       s.tooltip?.remove();
       s.selectedOverlay?.remove();

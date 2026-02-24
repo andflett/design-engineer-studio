@@ -3,7 +3,7 @@
  * All popovers use @radix-ui/react-popover for consistent positioning,
  * focus management, and dismissal behavior.
  */
-import React, { useState, useCallback, type RefObject } from "react";
+import React, { useState, useCallback, useRef, type RefObject } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { RgbaColorPicker } from "react-colorful";
 import { converter } from "culori";
@@ -177,8 +177,13 @@ export function TokenPopover({
   );
   const [inputMode, setInputMode] = useState<InputMode>("oklch");
 
-  // Derive RGBA from OKLCH for the visual picker
+  // Track RGBA separately during picker drags to avoid lossy OKLCH↔RGBA round-trips.
+  // When non-null, this is passed directly to the picker instead of deriving from OKLCH.
+  const pickerRgbaRef = useRef<RgbaColor | null>(null);
+
+  // Derive RGBA from OKLCH for the visual picker (only when not actively dragging)
   const rgba: RgbaColor = (() => {
+    if (pickerRgbaRef.current) return pickerRgbaRef.current;
     const rgb = toRgb({ mode: "oklch" as const, l: color.l, c: color.c, h: color.h });
     if (rgb) {
       return {
@@ -192,8 +197,10 @@ export function TokenPopover({
   })();
 
   // Handle visual picker (RGBA) changes → convert to OKLCH
+  // Store the RGBA value to avoid round-trip precision loss
   const handlePickerChange = useCallback(
     (c: RgbaColor) => {
+      pickerRgbaRef.current = c;
       const oklch = toOklch({ mode: "rgb" as const, r: c.r / 255, g: c.g / 255, b: c.b / 255 });
       if (oklch) {
         const newColor: OklchColor = {
@@ -209,8 +216,10 @@ export function TokenPopover({
   );
 
   // Handle ColorInputFields changes (RGBA) → convert to OKLCH
+  // Clear pickerRgba so the picker re-derives from the new OKLCH
   const handleInputFieldsChange = useCallback(
     (c: RgbaColor) => {
+      pickerRgbaRef.current = null;
       const oklch = toOklch({ mode: "rgb" as const, r: c.r / 255, g: c.g / 255, b: c.b / 255 });
       if (oklch) {
         const newColor: OklchColor = {
@@ -225,18 +234,29 @@ export function TokenPopover({
     [onPreview, token.name]
   );
 
+  const savedRef = useRef(false);
+
   const handleSave = async () => {
+    savedRef.current = true;
     const selector = theme === "dark" ? ".dark" : ":root";
     await saveToken(cssFilePath, token.name, formatOklch(color), selector);
     onClose();
   };
+
+  // Revert preview on close without save
+  const handleClose = useCallback(() => {
+    if (!savedRef.current) {
+      onPreview(token.name, token.resolvedValue);
+    }
+    onClose();
+  }, [onClose, onPreview, token.name, token.resolvedValue]);
 
   const contrastRatio = contrastToken
     ? getContrastRatio(contrastToken.resolvedValue, formatOklch(color))
     : null;
 
   return (
-    <Popover.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Popover.Root open onOpenChange={(open) => { if (!open) handleClose(); }}>
       <Popover.Anchor virtualRef={anchorRef as React.RefObject<{ getBoundingClientRect: () => DOMRect }>} />
       <Popover.Portal>
         <Popover.Content

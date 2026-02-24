@@ -271,4 +271,5 @@ export const FONT_SIZE_SCALE = ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4
 export const FONT_WEIGHT_SCALE = ["thin", "extralight", "light", "normal", "medium", "semibold", "bold", "extrabold", "black"];
 export const LINE_HEIGHT_SCALE = ["none", "tight", "snug", "normal", "relaxed", "loose"];
 export const LETTER_SPACING_SCALE = ["tighter", "tight", "normal", "wide", "wider", "widest"];
+export const BORDER_WIDTH_SCALE = ["0", "1", "2", "4", "8"];
 export const OPACITY_SCALE = ["0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"];

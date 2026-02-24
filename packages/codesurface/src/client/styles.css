@@ -203,7 +203,7 @@ body {
   position: relative;
   margin-left: 16px;
   border-left: 1px solid var(--studio-border-subtle);
-  margin-bottom: 2px;
+  margin-bottom: 6px;
 }
 .studio-tree-node {
   position: relative;
@@ -212,7 +212,7 @@ body {
   content: '';
   position: absolute;
   left: 0;
-  top: 14px;
+  top: 12px;
   width: 10px;
   height: 1px;
   background: var(--studio-border-subtle);
@@ -325,8 +325,9 @@ body {
 .studio-swatch {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
-  border: 1px solid var(--studio-border);
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-style: inset;
   flex-shrink: 0;
   cursor: pointer;
   transition: box-shadow 0.1s;

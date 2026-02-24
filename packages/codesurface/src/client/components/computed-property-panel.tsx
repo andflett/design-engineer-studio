@@ -79,6 +79,7 @@ import {
   LETTER_SPACING_SCALE,
   SPACING_SCALE,
   RADIUS_SCALE,
+  BORDER_WIDTH_SCALE,
   OPACITY_SCALE,
 } from "../../shared/tailwind-parser.js";
 import { ColorPopover } from "./color-popover.js";
@@ -134,7 +135,7 @@ interface ComputedPropertyPanelProps {
 
 export function ComputedPropertyPanel({
   tag,
-  className,
+  className: elementClassName,
   computedStyles,
   parentComputedStyles,
   onPreviewInlineStyle,
@@ -148,7 +149,7 @@ export function ComputedPropertyPanel({
   const shadows: ShadowItem[] | undefined = shadowData?.shadows;
   const gradients: GradientItem[] | undefined = gradientData?.gradients;
   const categorized = buildUnifiedProperties(
-    tag, className, computedStyles, parentComputedStyles, tokenGroups,
+    tag, elementClassName, computedStyles, parentComputedStyles, tokenGroups,
   );
 
   const sections: { key: ComputedCategory; label: string }[] = [
@@ -189,6 +190,7 @@ export function ComputedPropertyPanel({
           shadows={shadows}
           gradients={gradients}
           displayValue={displayValue}
+          elementClassName={elementClassName}
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
@@ -211,6 +213,7 @@ function UnifiedSection({
   shadows,
   gradients,
   displayValue,
+  elementClassName,
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
@@ -223,6 +226,7 @@ function UnifiedSection({
   shadows?: ShadowItem[];
   gradients?: GradientItem[];
   displayValue: string;
+  elementClassName: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
@@ -244,7 +248,7 @@ function UnifiedSection({
       </button>
 
       {!collapsed && (
-        <div className="flex flex-col gap-1.5 pb-2 px-4">
+        <div className="flex flex-col gap-1.5 pb-4 px-4">
           {category === "layout" ? (
             <LayoutSection
               properties={properties}
@@ -294,6 +298,7 @@ function UnifiedSection({
               tokenGroups={tokenGroups}
               shadows={shadows}
               gradients={gradients}
+              elementClassName={elementClassName}
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
@@ -695,12 +700,13 @@ function SpacingSection({
                 const prop = findProp(side);
                 const sideLabel = side.replace("padding-", "")[0].toUpperCase();
                 const sidePrefix = `p${side.replace("padding-", "")[0]}`;
+                const cv = prop?.computedValue || "0";
                 return (
                   <ScaleInput
                     key={side}
                     label={sideLabel}
-                    value={prop?.tailwindValue || prop?.computedValue || "0"}
-                    computedValue={prop?.computedValue || "0"}
+                    value={prop?.tailwindValue || (cv === "0px" || cv === "0" ? "—" : cv)}
+                    computedValue={cv}
                     currentClass={prop?.fullClass || null}
                     scale={SPACING_SCALE as string[]}
                     prefix={sidePrefix}
@@ -831,12 +837,13 @@ function SpacingSection({
                 const prop = findProp(side);
                 const sideLabel = side.replace("margin-", "")[0].toUpperCase();
                 const sidePrefix = `m${side.replace("margin-", "")[0]}`;
+                const cv = prop?.computedValue || "0";
                 return (
                   <ScaleInput
                     key={side}
                     label={sideLabel}
-                    value={prop?.tailwindValue || prop?.computedValue || "0"}
-                    computedValue={prop?.computedValue || "0"}
+                    value={prop?.tailwindValue || (cv === "0px" || cv === "0" ? "—" : cv)}
+                    computedValue={cv}
                     currentClass={prop?.fullClass || null}
                     scale={SPACING_SCALE as string[]}
                     prefix={sidePrefix}
@@ -1124,7 +1131,7 @@ function BorderSection({
           {uniformRadius ? (
             <ScaleInput
               icon={CornersIcon}
-              value={radiusProps[0]?.tailwindValue || uniformRadius}
+              value={radiusProps[0]?.tailwindValue || (uniformRadius === "0px" || uniformRadius === "0" ? "—" : uniformRadius)}
               computedValue={uniformRadius || "0"}
               currentClass={radiusProps[0]?.fullClass || null}
               scale={RADIUS_SCALE as string[]}
@@ -1150,33 +1157,36 @@ function BorderSection({
         </>
       )}
 
-      {widthProps.length > 0 && (
-        <>
-          <SubSectionLabel label="Width" />
-          {uniformBorderWidth ? (
-            <ScrubInput
-              icon={BorderWidthIcon}
-              value={uniformBorderWidth}
-              cssProp="border-width"
-              onPreview={(v) => onPreviewInlineStyle("border-width", v)}
-              onCommit={(v) => {
-                const match = computedToTailwindClass("border-width", v);
-                if (match) onCommitClass(match.tailwindClass);
-              }}
-            />
-          ) : (
-            widthProps.map((prop) => (
-              <UnifiedControl
-                key={prop.cssProperty}
-                prop={prop}
-                tokenGroups={tokenGroups}
-                onPreviewInlineStyle={onPreviewInlineStyle}
-                onRevertInlineStyles={onRevertInlineStyles}
-                onCommitClass={onCommitClass}
-              />
-            ))
+      <SubSectionLabel label="Width" />
+      {uniformBorderWidth || widthProps.length === 0 ? (
+        <ScaleInput
+          icon={BorderWidthIcon}
+          value={widthProps[0]?.tailwindValue || (
+            !uniformBorderWidth || uniformBorderWidth === "0px" || uniformBorderWidth === "0" ? "—" : uniformBorderWidth
           )}
-        </>
+          computedValue={uniformBorderWidth || "0px"}
+          currentClass={widthProps[0]?.fullClass || null}
+          scale={BORDER_WIDTH_SCALE as string[]}
+          prefix="border"
+          cssProp="border-width"
+          onPreview={(v) => onPreviewInlineStyle("border-width", v)}
+          onCommitClass={(cls, oldClass) => {
+            // "border-1" is not a valid Tailwind class — "border" (no suffix) = 1px
+            const fixedClass = cls === "border-1" ? "border" : cls;
+            onCommitClass(fixedClass, oldClass);
+          }}
+        />
+      ) : (
+        widthProps.map((prop) => (
+          <UnifiedControl
+            key={prop.cssProperty}
+            prop={prop}
+            tokenGroups={tokenGroups}
+            onPreviewInlineStyle={onPreviewInlineStyle}
+            onRevertInlineStyles={onRevertInlineStyles}
+            onCommitClass={onCommitClass}
+          />
+        ))
       )}
 
       {otherProps.map((prop) => (
@@ -1205,6 +1215,7 @@ function EffectsSection({
   tokenGroups,
   shadows,
   gradients,
+  elementClassName,
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
@@ -1213,6 +1224,7 @@ function EffectsSection({
   tokenGroups: Record<string, any[]>;
   shadows?: ShadowItem[];
   gradients?: GradientItem[];
+  elementClassName: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
@@ -1246,6 +1258,7 @@ function EffectsSection({
           <ShadowPicker
             prop={shadowProp}
             shadows={shadows}
+            elementClassName={elementClassName}
             onPreviewInlineStyle={onPreviewInlineStyle}
             onCommitClass={onCommitClass}
           />
@@ -1259,6 +1272,7 @@ function EffectsSection({
           <GradientPicker
             prop={gradientProp}
             gradients={gradients}
+            elementClassName={elementClassName}
             onPreviewInlineStyle={onPreviewInlineStyle}
             onCommitClass={onCommitClass}
           />
@@ -1270,6 +1284,7 @@ function EffectsSection({
           <GradientPicker
             prop={null}
             gradients={gradients}
+            elementClassName={elementClassName}
             onPreviewInlineStyle={onPreviewInlineStyle}
             onCommitClass={onCommitClass}
           />
@@ -1309,24 +1324,50 @@ function EffectsSection({
 function ShadowPicker({
   prop,
   shadows,
+  elementClassName,
   onPreviewInlineStyle,
   onCommitClass,
 }: {
   prop: UnifiedProperty;
   shadows?: ShadowItem[];
+  elementClassName: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const currentValue = prop.computedValue;
   const isNone = !currentValue || currentValue === "none";
 
-  // Determine current shadow name from tailwind class
-  const currentShadowName = prop.tailwindValue || (isNone ? "none" : null);
+  // Resolve current shadow name from the element's className
+  const resolvedFromClass = (() => {
+    if (prop.tailwindValue) return { name: prop.tailwindValue, cls: prop.fullClass || undefined };
+    if (isNone) return { name: "none", cls: undefined };
+    // Search className for shadow classes
+    const classes = elementClassName.split(/\s+/).filter(Boolean);
+    for (const cls of classes) {
+      // Match shadow-[var(--name)] → find shadow by CSS variable
+      const varMatch = cls.match(/^shadow-\[var\((--[\w-]+)\)\]$/);
+      if (varMatch) {
+        const varName = varMatch[1];
+        const shadowDef = shadows?.find((s) => s.cssVariable === varName);
+        if (shadowDef) return { name: shadowDef.name, cls };
+      }
+      // Match standard shadow scale: shadow, shadow-sm, shadow-md, etc.
+      const scaleMatch = cls.match(/^shadow(?:-(2xs|xs|sm|md|lg|xl|2xl|none))?$/);
+      if (scaleMatch) {
+        const scaleName = scaleMatch[1] || "";
+        return { name: scaleName, cls };
+      }
+    }
+    return null;
+  })();
+  const currentShadowName = resolvedFromClass?.name ?? null;
+  const currentShadowClass = resolvedFromClass?.cls;
 
   const handleSelect = (shadowName: string) => {
+    const oldClass = currentShadowClass || prop.fullClass || undefined;
     if (shadowName === "none") {
       onPreviewInlineStyle("box-shadow", "none");
-      onCommitClass("shadow-none", prop.fullClass || undefined);
+      onCommitClass("shadow-none", oldClass);
       return;
     }
 
@@ -1338,7 +1379,7 @@ function ShadowPicker({
       if (shadowDef) {
         onPreviewInlineStyle("box-shadow", shadowDef.value);
       }
-      onCommitClass(cls, prop.fullClass || undefined);
+      onCommitClass(cls, oldClass);
       return;
     }
 
@@ -1348,11 +1389,11 @@ function ShadowPicker({
       onPreviewInlineStyle("box-shadow", shadowDef.value);
       // If it has a CSS variable, use shadow-[var(--name)]
       if (shadowDef.cssVariable) {
-        onCommitClass(`shadow-[var(${shadowDef.cssVariable})]`, prop.fullClass || undefined);
+        onCommitClass(`shadow-[var(${shadowDef.cssVariable})]`, oldClass);
       } else {
         // Use the Tailwind shadow class if name matches convention
         const cls = shadowName.startsWith("shadow-") ? shadowName : `shadow-${shadowName}`;
-        onCommitClass(cls, prop.fullClass || undefined);
+        onCommitClass(cls, oldClass);
       }
     }
   };
@@ -1419,17 +1460,36 @@ function ShadowPicker({
 function GradientPicker({
   prop,
   gradients,
+  elementClassName,
   onPreviewInlineStyle,
   onCommitClass,
 }: {
   prop: UnifiedProperty | null;
   gradients?: GradientItem[];
+  elementClassName: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const currentValue = prop?.computedValue || "none";
   const hasGradient = currentValue !== "none" && currentValue.includes("gradient");
-  const currentClass = prop?.fullClass || undefined;
+
+  // Resolve current gradient from the element's className
+  const resolvedFromClass = (() => {
+    if (prop?.fullClass) return { name: null, cls: prop.fullClass };
+    const classes = elementClassName.split(/\s+/).filter(Boolean);
+    for (const cls of classes) {
+      // Match bg-[image:var(--name)] or bg-[var(--name)]
+      const varMatch = cls.match(/^bg-\[(?:image:)?var\((--[\w-]+)\)\]$/);
+      if (varMatch) {
+        const varName = varMatch[1];
+        const gradDef = gradients?.find((g) => g.cssVariable === varName);
+        if (gradDef) return { name: gradDef.name, cls };
+      }
+    }
+    return null;
+  })();
+  const currentClass = resolvedFromClass?.cls || prop?.fullClass || undefined;
+  const currentGradientName = resolvedFromClass?.name;
 
   const handleSelect = (value: string) => {
     if (value === "none") {
@@ -1442,8 +1502,8 @@ function GradientPicker({
     const grad = gradients?.find((g) => g.name === value);
     if (grad) {
       onPreviewInlineStyle("background-image", grad.value);
-      // Apply using the CSS variable
-      onCommitClass(`bg-[var(${grad.cssVariable})]`, currentClass);
+      // Use image: type hint so Tailwind treats this as background-image, not background-color
+      onCommitClass(`bg-[image:var(${grad.cssVariable})]`, currentClass);
     }
   };
 
@@ -1463,7 +1523,7 @@ function GradientPicker({
         </div>
       </Tooltip>
       <select
-        value={hasGradient ? "__current__" : "none"}
+        value={currentGradientName || (hasGradient ? "__current__" : "none")}
         onChange={(e) => handleSelect(e.target.value)}
         style={{
           flex: 1,
@@ -1480,7 +1540,7 @@ function GradientPicker({
         }}
       >
         <option value="none">none</option>
-        {hasGradient && (
+        {hasGradient && !currentGradientName && (
           <option value="__current__">
             {currentValue.length > 30 ? currentValue.slice(0, 30) + "..." : currentValue}
           </option>

@@ -23,6 +23,7 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+  --gradient-1: linear-gradient(to right, #3b82f6 0%, #8b5cf6 100%);
 }
 
 :root {

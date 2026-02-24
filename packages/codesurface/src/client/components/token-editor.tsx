@@ -25,6 +25,7 @@ import {
 } from "./color-picker.js";
 import { useTokens, useShadows, useBorders, useGradients, useStyling } from "../lib/scan-hooks.js";
 import { saveToken, saveGradient, saveBorder } from "../lib/scan-actions.js";
+import { SPACING_SCALE } from "../../shared/tailwind-parser.js";
 
 interface TokenEditorProps {
   tokenRefs: string[];
@@ -121,22 +122,12 @@ export function TokenEditor({
 
       {/* Spacing — always visible */}
       <Section title="Spacing" count={spacingTokens.length} defaultCollapsed>
-        <div
-          className="px-4 pb-2 text-[10px] leading-relaxed"
-          style={{ color: "var(--studio-text-dimmed)" }}
-        >
-          Base spacing unit and scale. Spacing multiplies from the base value
-          (e.g. <code className="font-mono" style={{ color: "var(--studio-text-muted)" }}>--spacing: 0.25rem</code> {"\u2192"} <code className="font-mono" style={{ color: "var(--studio-text-muted)" }}>spacing-4</code> = 1rem).
-        </div>
         {spacingTokens.length > 0 ? (
-          spacingTokens.map((token: any) => (
-            <TokenScrubRow
-              key={token.name}
-              token={token}
-              icon={SpaceBetweenHorizontallyIcon}
-              onSave={(value) => saveToken(cssFilePath, token.name, value, theme === "dark" ? ".dark" : ":root")}
-            />
-          ))
+          <SpacingScale
+            spacingTokens={spacingTokens}
+            cssFilePath={cssFilePath}
+            theme={theme}
+          />
         ) : (
           <EmptyState message="No spacing tokens found in your CSS." />
         )}
@@ -366,10 +357,16 @@ function TokenScrubRow({
   token,
   icon: Icon,
   onSave,
+  step: stepOverride,
+  min,
+  maxDecimals,
 }: {
   token: any;
   icon?: React.ComponentType<{ style?: React.CSSProperties }>;
   onSave: (value: string) => void;
+  step?: number;
+  min?: number;
+  maxDecimals?: number;
 }) {
   const displayVal = token.value ?? token.lightValue ?? "";
   const [value, setValue] = useState(displayVal);
@@ -392,15 +389,17 @@ function TokenScrubRow({
     e.preventDefault();
     scrubRef.current = { startX: e.clientX, startVal: parsed.num, unit: parsed.unit };
     setScrubbing(true);
-    const step = getStep(parsed.unit);
+    const step = stepOverride ?? getStep(parsed.unit);
+    const decimals = maxDecimals ?? 4;
 
     const handleMove = (me: globalThis.PointerEvent) => {
       if (!scrubRef.current) return;
       const multiplier = me.shiftKey ? 10 : 1;
       const delta = Math.round((me.clientX - scrubRef.current.startX) / 2);
-      const newVal = scrubRef.current.startVal + delta * step * multiplier;
+      let newVal = scrubRef.current.startVal + delta * step * multiplier;
+      if (min !== undefined && newVal < min) newVal = min;
       const formatted = scrubRef.current.unit
-        ? `${parseFloat(newVal.toFixed(4))}${scrubRef.current.unit}`
+        ? `${parseFloat(newVal.toFixed(decimals))}${scrubRef.current.unit}`
         : `${Math.round(newVal)}`;
       setValue(formatted);
       draftRef.current = formatted;
@@ -423,36 +422,208 @@ function TokenScrubRow({
   const displayName = (token.name || "").replace(/^--/, "");
 
   return (
-    <div className="studio-prop-row" style={{ gap: 6 }}>
-      {Icon && (
-        <div
-          className={isScrubbable ? "studio-scrub-icon" : "studio-scrub-icon no-scrub"}
-          onPointerDown={isScrubbable ? handlePointerDown : undefined}
-          style={{ width: 24, minWidth: 24, height: 26 }}
-        >
-          <Icon style={{ width: 12, height: 12 }} />
-        </div>
-      )}
-      <span
-        className="flex-1 text-[11px] font-mono truncate"
-        style={{ color: "var(--studio-text)" }}
+    <div>
+      <div
+        className="text-[10px] font-mono truncate mb-0.5"
+        style={{ color: "var(--studio-text-dimmed)" }}
       >
         {displayName}
-      </span>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          setFocused(false);
-          onSave(value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        }}
-        className="studio-input-sm w-20 text-right"
-      />
+      </div>
+      <div className="studio-scrub-input">
+        {Icon && (
+          <div
+            className={isScrubbable ? "studio-scrub-icon" : "studio-scrub-icon no-scrub"}
+            onPointerDown={isScrubbable ? handlePointerDown : undefined}
+          >
+            <Icon style={{ width: 12, height: 12 }} />
+          </div>
+        )}
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            onSave(value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="studio-scrub-value"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Spacing Scale — editable base + derived scale table
+// ---------------------------------------------------------------------------
+
+/** Numeric steps from the Tailwind spacing scale (excludes "px" keyword) */
+const SPACING_NUMERIC_STEPS = SPACING_SCALE.filter((s) => s !== "px" && s !== "0")
+  .map(Number)
+  .filter((n) => !isNaN(n));
+
+function parseSpacingBase(value: string): { num: number; unit: string } | null {
+  const match = value.match(/^([\d.]+)(rem|px|em)$/);
+  if (match) return { num: parseFloat(match[1]), unit: match[2] };
+  return null;
+}
+
+function SpacingScale({
+  spacingTokens,
+  cssFilePath,
+  theme,
+}: {
+  spacingTokens: any[];
+  cssFilePath: string;
+  theme: "light" | "dark";
+}) {
+  // Find the base --spacing token (Tailwind v4 pattern)
+  const baseToken = spacingTokens.find((t: any) => t.name === "--spacing");
+  const otherTokens = spacingTokens.filter((t: any) => t.name !== "--spacing");
+  const baseVal = baseToken
+    ? (theme === "dark" && baseToken.darkValue ? baseToken.darkValue : baseToken.lightValue)
+    : null;
+  const parsed = baseVal ? parseSpacingBase(baseVal) : null;
+
+  // Show a subset of the scale that's useful (skip the very large ones to keep it compact)
+  const visibleSteps = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96];
+  const maxBarValue = parsed ? 16 * parsed.num : 4; // 16× base for full bar width
+
+  return (
+    <div className="pb-2">
+      {/* Editable base token */}
+      {baseToken && (
+        <div className="px-4 mb-2">
+          <TokenScrubRow
+            token={baseToken}
+            icon={SpaceBetweenHorizontallyIcon}
+            onSave={(value) => saveToken(cssFilePath, baseToken.name, value, theme === "dark" ? ".dark" : ":root")}
+          />
+        </div>
+      )}
+
+      {/* Other non-base spacing tokens */}
+      {otherTokens.length > 0 && (
+        <div className="px-4 mb-2 grid grid-cols-2 gap-1.5">
+          {otherTokens.map((token: any) => (
+            <TokenScrubRow
+              key={token.name}
+              token={token}
+              icon={SpaceBetweenHorizontallyIcon}
+              onSave={(value) => saveToken(cssFilePath, token.name, value, theme === "dark" ? ".dark" : ":root")}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Derived scale table */}
+      {parsed && (
+        <div className="px-4">
+          <div
+            className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+            style={{ color: "var(--studio-text-dimmed)" }}
+          >
+            Scale
+          </div>
+          <div
+            className="rounded-md overflow-hidden"
+            style={{
+              border: "1px solid var(--studio-border-subtle)",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="grid text-[9px] font-semibold uppercase tracking-wider"
+              style={{
+                gridTemplateColumns: "42px 56px 1fr",
+                color: "var(--studio-text-dimmed)",
+                borderBottom: "1px solid var(--studio-border-subtle)",
+                background: "var(--studio-input-bg)",
+                padding: "4px 8px",
+              }}
+            >
+              <span>Name</span>
+              <span>Size</span>
+              <span></span>
+            </div>
+            {/* px row */}
+            <div
+              className="grid items-center"
+              style={{
+                gridTemplateColumns: "42px 56px 1fr",
+                borderBottom: "1px solid var(--studio-border-subtle)",
+                padding: "3px 8px",
+              }}
+            >
+              <span
+                className="text-[11px] font-mono"
+                style={{ color: "var(--studio-text)" }}
+              >
+                px
+              </span>
+              <span
+                className="text-[10px] font-mono"
+                style={{ color: "var(--studio-text-muted)" }}
+              >
+                1px
+              </span>
+              <div
+                style={{
+                  height: 6,
+                  borderRadius: 2,
+                  background: "var(--studio-accent)",
+                  opacity: 0.25,
+                  width: "1px",
+                  minWidth: 1,
+                }}
+              />
+            </div>
+            {/* Numeric rows */}
+            {visibleSteps.map((step, i) => {
+              const computedNum = step * parsed.num;
+              const computedStr = `${parseFloat(computedNum.toFixed(4))}${parsed.unit}`;
+              const barFraction = Math.min(computedNum / maxBarValue, 1);
+              return (
+                <div
+                  key={step}
+                  className="grid items-center"
+                  style={{
+                    gridTemplateColumns: "42px 56px 1fr",
+                    borderBottom: i < visibleSteps.length - 1 ? "1px solid var(--studio-border-subtle)" : "none",
+                    padding: "3px 8px",
+                  }}
+                >
+                  <span
+                    className="text-[11px] font-mono"
+                    style={{ color: "var(--studio-text)" }}
+                  >
+                    {step}
+                  </span>
+                  <span
+                    className="text-[10px] font-mono"
+                    style={{ color: "var(--studio-text-muted)" }}
+                  >
+                    {computedStr}
+                  </span>
+                  <div
+                    style={{
+                      height: 6,
+                      borderRadius: 2,
+                      background: "var(--studio-accent)",
+                      opacity: 0.4,
+                      width: `${Math.max(barFraction * 100, 1)}%`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -501,35 +672,22 @@ function BordersSection({
   };
 
   return (
-    <div className="px-4 pb-2 flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pb-2">
       {/* Radius subsection */}
       {radiusBorders.length > 0 && (
-        <div>
+        <div className="px-4">
           <SectionLabel label="Radius" />
-          <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-2 gap-1.5">
             {radiusBorders.map((border: any) => (
-              <div key={border.name} className="flex items-center gap-2">
-                <div
-                  className="studio-radius-preview"
-                  style={{ borderRadius: border.value }}
-                />
-                <TokenScrubRow
-                  token={border}
-                  icon={CornersIcon}
-                  onSave={(v) => handleSave(border, v)}
-                />
-                {border.source === "framework-preset" && !border.isOverridden && (
-                  <span
-                    className="text-[9px] px-1.5 py-0.5 rounded shrink-0"
-                    style={{
-                      background: "var(--studio-input-bg)",
-                      color: "var(--studio-text-dimmed)",
-                    }}
-                  >
-                    default
-                  </span>
-                )}
-              </div>
+              <TokenScrubRow
+                key={border.name}
+                token={border}
+                icon={CornersIcon}
+                onSave={(v) => handleSave(border, v)}
+                step={0.025}
+                min={0}
+                maxDecimals={3}
+              />
             ))}
           </div>
         </div>
@@ -537,28 +695,17 @@ function BordersSection({
 
       {/* Border Width subsection */}
       {widthBorders.length > 0 && (
-        <div>
+        <div className="px-4">
           <SectionLabel label="Width" />
-          <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-2 gap-1.5">
             {widthBorders.map((border: any) => (
-              <div key={border.name} className="flex items-center gap-2">
-                <TokenScrubRow
-                  token={border}
-                  icon={BorderWidthIcon}
-                  onSave={(v) => handleSave(border, v)}
-                />
-                {border.source === "framework-preset" && !border.isOverridden && (
-                  <span
-                    className="text-[9px] px-1.5 py-0.5 rounded shrink-0"
-                    style={{
-                      background: "var(--studio-input-bg)",
-                      color: "var(--studio-text-dimmed)",
-                    }}
-                  >
-                    default
-                  </span>
-                )}
-              </div>
+              <TokenScrubRow
+                key={border.name}
+                token={border}
+                icon={BorderWidthIcon}
+                onSave={(v) => handleSave(border, v)}
+                min={0}
+              />
             ))}
           </div>
         </div>
@@ -567,7 +714,9 @@ function BordersSection({
       {/* Border Color subsection */}
       {borderColorTokens.length > 0 && (
         <div>
-          <SectionLabel label="Color" />
+          <div className="px-4">
+            <SectionLabel label="Color" />
+          </div>
           <div className="flex flex-col gap-0">
             {borderColorTokens.map((token: any) => (
               <TokenRow

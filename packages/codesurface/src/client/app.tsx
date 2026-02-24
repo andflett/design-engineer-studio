@@ -97,15 +97,13 @@ export function App() {
     send({ type: "tool:reselectElement" });
   }, [send]);
 
-  const handlePreviewToken = useCallback((_token: string, _value: string) => {
-    // Token preview could be implemented via postMessage if needed
-    // For now, the token editor saves directly to CSS
-  }, []);
+  const handlePreviewToken = useCallback((token: string, value: string) => {
+    send({ type: "tool:previewTokenValue", property: token, value });
+  }, [send]);
 
-  const handlePreviewShadow = useCallback((_variableName: string, _value: string, _shadowName?: string) => {
-    // Shadow preview could be implemented via postMessage to set CSS custom
-    // properties on the target app. For now, shadows save directly to CSS.
-  }, []);
+  const handlePreviewShadow = useCallback((variableName: string, value: string, _shadowName?: string) => {
+    send({ type: "tool:previewTokenValue", property: variableName, value });
+  }, [send]);
 
   const handleCloseEditor = useCallback(() => {
     setSelectedElement(null);
