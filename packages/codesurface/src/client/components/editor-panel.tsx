@@ -19,10 +19,11 @@ import {
   CheckIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  InfoCircledIcon,
   ResetIcon,
   LayersIcon,
   DesktopIcon,
+  FrameIcon,
+  TransformIcon,
 } from "@radix-ui/react-icons";
 import type { SelectedElementData, SourceLocation } from "../../shared/protocol.js";
 import type { ComponentEntry } from "../../server/lib/scan-components.js";
@@ -46,7 +47,6 @@ interface EditorPanelProps {
   onClose: () => void;
   onReselectElement: () => void;
   onToggleUsagePanel?: () => void;
-  usagePanelOpen?: boolean;
   onIsolate?: (entry: ComponentEntry) => void;
 }
 
@@ -69,7 +69,6 @@ export function EditorPanel({
   onClose,
   onReselectElement,
   onToggleUsagePanel,
-  usagePanelOpen,
   onIsolate,
 }: EditorPanelProps) {
   const tokenData = useTokens();
@@ -169,63 +168,140 @@ export function EditorPanel({
       {/* Header */}
       {element && (
         <div
-          className="flex items-center gap-2 px-4 py-3 border-b shrink-0"
+          className="border-b shrink-0"
           style={{ borderColor: "var(--studio-border)" }}
         >
-          <div
-            className="w-5 h-5 rounded flex items-center justify-center shrink-0"
-            style={{ background: "var(--studio-accent-muted)" }}
-          >
-            {isComponent ? (
-              <Component1Icon style={{ width: 12, height: 12, color: "var(--studio-accent)" }} />
-            ) : (
-              <BoxIcon style={{ width: 12, height: 12, color: "var(--studio-accent)" }} />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-[12px] font-semibold truncate"
-                style={{ color: "var(--studio-text)" }}
-              >
-                {elementName}
-              </span>
-              {saving && (
-                <span
-                  className="flex items-center gap-0.5 text-[10px]"
-                  style={{ color: "var(--studio-success)" }}
-                >
-                  <CheckIcon style={{ width: 10, height: 10 }} />
-                  Saved
-                </span>
+          {/* Name row + actions */}
+          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <div
+              className="w-5 h-5 rounded flex items-center justify-center shrink-0"
+              style={{ background: "var(--studio-accent-muted)" }}
+            >
+              {isComponent ? (
+                <Component1Icon
+                  style={{
+                    width: 12,
+                    height: 12,
+                    color: "var(--studio-accent)",
+                  }}
+                />
+              ) : (
+                <BoxIcon
+                  style={{
+                    width: 12,
+                    height: 12,
+                    color: "var(--studio-accent)",
+                  }}
+                />
               )}
             </div>
-            {element.source && (
+            <span
+              className="text-[12px] font-semibold truncate flex-1 min-w-0"
+              style={{ color: "var(--studio-text)" }}
+            >
+              {elementName}
+            </span>
+            {saving && (
+              <span
+                className="flex items-center gap-0.5 text-[10px] shrink-0"
+                style={{ color: "var(--studio-success)" }}
+              >
+                <CheckIcon style={{ width: 10, height: 10 }} />
+                Saved
+              </span>
+            )}
+            <div className="flex items-center shrink-0" style={{ gap: 2 }}>
+              {isComponent && onToggleUsagePanel && (
+                <Tooltip content="View usage across pages">
+                  <button
+                    onClick={onToggleUsagePanel}
+                    className="studio-icon-btn"
+                    style={{ width: 24, height: 24 }}
+                  >
+                    <LayersIcon />
+                  </button>
+                </Tooltip>
+              )}
+              {isComponent && onIsolate && componentEntry && (
+                <Tooltip content="Isolate component">
+                  <button
+                    onClick={() => onIsolate(componentEntry)}
+                    className="studio-icon-btn"
+                    style={{ width: 24, height: 24 }}
+                  >
+                    <TransformIcon />
+                  </button>
+                </Tooltip>
+              )}
+              {isComponent &&
+                element.instanceSource &&
+                element.componentName && (
+                  <Tooltip content="Reset instance overrides">
+                    <button
+                      onClick={() => {
+                        if (!element.instanceSource || !element.componentName)
+                          return;
+                        withSave(async () => {
+                          await handleResetInstanceClassName(
+                            element.instanceSource!,
+                            element.componentName!,
+                          );
+                        });
+                      }}
+                      className="studio-icon-btn"
+                      style={{ width: 24, height: 24 }}
+                    >
+                      <ResetIcon />
+                    </button>
+                  </Tooltip>
+                )}
               <button
-                onClick={() => openInEditor(element.source!.file, element.source!.line, element.source!.col)}
+                onClick={onClose}
+                className="studio-icon-btn"
+                style={{ width: 24, height: 24 }}
+              >
+                <Cross2Icon />
+              </button>
+            </div>
+          </div>
+
+          {/* File path */}
+          {element.source && (
+            <div className="px-4 pb-2.5 pt-0.5">
+              <button
+                onClick={() =>
+                  openInEditor(
+                    element.source!.file,
+                    element.source!.line,
+                    element.source!.col,
+                  )
+                }
                 className="text-[10px] font-mono truncate block text-left w-full"
-                style={{ color: "var(--studio-text-dimmed)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                style={{
+                  color: "var(--studio-text-dimmed)",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.textDecoration = "underline")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.textDecoration = "none")
+                }
                 title="Open in editor"
               >
                 {element.source.file}:{element.source.line}:{element.source.col}
               </button>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="studio-icon-btn"
-            style={{ width: 24, height: 24 }}
-          >
-            <Cross2Icon />
-          </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Mode switcher */}
       <div
-        className="px-4 py-2.5 border-b shrink-0"
+        className="px-4 py-2.5 shrink-0"
         style={{ borderColor: "var(--studio-border)" }}
       >
         <div className="studio-segmented" style={{ width: "100%" }}>
@@ -250,10 +326,6 @@ export function EditorPanel({
       <div className="flex-1 overflow-y-auto studio-scrollbar">
         {activeMode === "token" && (
           <>
-            <div className="studio-tab-explainer">
-              <InfoCircledIcon />
-              <span>Edit design tokens. Changes propagate across the entire system.</span>
-            </div>
             <TokenEditor
               tokenRefs={tokenRefs}
               theme={theme}
@@ -274,61 +346,11 @@ export function EditorPanel({
 
         {activeMode === "component" && element && isComponent && (
           <>
-            <div className="studio-tab-explainer">
-              <InfoCircledIcon />
-              <div className="flex-1 min-w-0">
-                {componentSubTab === "styles"
-                  ? "Edit the component's root element styles. Changes apply to all instances."
-                  : "Edit variant definitions. Changes apply to all instances."}
-                {componentEntry && (
-                  <button
-                    onClick={() => openInEditor(componentEntry.filePath)}
-                    className="studio-explainer-file truncate block text-left w-full"
-                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-                    title="Open in editor"
-                  >
-                    {componentEntry.filePath}
-                  </button>
-                )}
-              </div>
-              {onToggleUsagePanel && (
-                <Tooltip content={usagePanelOpen ? "Hide page usage explorer" : "Show pages using this component"}>
-                  <button
-                    onClick={onToggleUsagePanel}
-                    className="studio-icon-btn shrink-0"
-                    style={{
-                      width: 22,
-                      height: 22,
-                      marginTop: 1,
-                      color: usagePanelOpen ? "var(--studio-accent)" : undefined,
-                      background: usagePanelOpen ? "var(--studio-accent-muted)" : undefined,
-                    }}
-                  >
-                    <LayersIcon style={{ width: 12, height: 12 }} />
-                  </button>
-                </Tooltip>
-              )}
-              {onIsolate && componentEntry && (
-                <Tooltip content="Isolate component — preview all variants">
-                  <button
-                    onClick={() => onIsolate(componentEntry)}
-                    className="studio-icon-btn shrink-0"
-                    style={{
-                      width: 22,
-                      height: 22,
-                      marginTop: 1,
-                    }}
-                  >
-                    <DesktopIcon style={{ width: 12, height: 12 }} />
-                  </button>
-                </Tooltip>
-              )}
-            </div>
-
             {/* Sub-tabs: Props vs Styles */}
-            <div className="px-4 pb-2">
+            <div
+              className="px-4 py-2 border-t"
+              style={{ borderColor: "var(--studio-border)" }}
+            >
               <div className="studio-segmented" style={{ width: "100%" }}>
                 <button
                   onClick={() => setComponentSubTab("props")}
@@ -358,7 +380,8 @@ export function EditorPanel({
                   onRevertInlineStyles={onRevertInlineStyles}
                   onCommitClass={(tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
-                    const isCva = componentEntry && componentEntry.variants.length > 0;
+                    const isCva =
+                      componentEntry && componentEntry.variants.length > 0;
                     if (isCva) {
                       // CVA components: classes live in the cva() call, not on the
                       // JSX element. Use the component/regex write API.
@@ -374,7 +397,11 @@ export function EditorPanel({
                         // addClass: fall back to element write (appends to JSX className)
                         const source = element.source;
                         withSave(async () => {
-                          await handleWriteElement(source, "addClass", tailwindClass);
+                          await handleWriteElement(
+                            source,
+                            "addClass",
+                            tailwindClass,
+                          );
                         });
                       }
                     } else if (element.source) {
@@ -383,11 +410,20 @@ export function EditorPanel({
                       const source = element.source;
                       if (oldClass) {
                         withSave(async () => {
-                          await handleWriteElement(source, "replaceClass", tailwindClass, oldClass);
+                          await handleWriteElement(
+                            source,
+                            "replaceClass",
+                            tailwindClass,
+                            oldClass,
+                          );
                         });
                       } else {
                         withSave(async () => {
-                          await handleWriteElement(source, "addClass", tailwindClass);
+                          await handleWriteElement(
+                            source,
+                            "addClass",
+                            tailwindClass,
+                          );
                         });
                       }
                     }
@@ -396,51 +432,55 @@ export function EditorPanel({
               </div>
             )}
 
-            {componentSubTab === "props" && componentEntry && (
-              <div className="">
-                {componentEntry.variants.map((dim: any) => (
-                  <ComponentVariantSection
-                    key={dim.name}
-                    dim={dim}
-                    componentEntry={componentEntry}
-                    onClassChange={(oldClass, newClass, variantContext) => {
-                      withSave(async () => {
-                        await handleComponentClassChange(
-                          componentEntry.filePath,
-                          oldClass,
-                          newClass,
-                          variantContext,
-                        );
-                      });
-                    }}
-                  />
-                ))}
+            {componentSubTab === "props" &&
+              componentEntry &&
+              componentEntry.variants.length > 0 && (
+                <div className="">
+                  {componentEntry.variants.map((dim: any) => (
+                    <ComponentVariantSection
+                      key={dim.name}
+                      dim={dim}
+                      componentEntry={componentEntry}
+                      onClassChange={(oldClass, newClass, variantContext) => {
+                        withSave(async () => {
+                          await handleComponentClassChange(
+                            componentEntry.filePath,
+                            oldClass,
+                            newClass,
+                            variantContext,
+                          );
+                        });
+                      }}
+                    />
+                  ))}
 
-                {componentEntry.baseClasses && (
-                  <ComponentBaseSection
-                    componentEntry={componentEntry}
-                    onClassChange={(oldClass, newClass) => {
-                      withSave(async () => {
-                        await handleComponentClassChange(
-                          componentEntry.filePath,
-                          oldClass,
-                          newClass,
-                        );
-                      });
-                    }}
-                  />
-                )}
-              </div>
-            )}
+                  {componentEntry.baseClasses && (
+                    <ComponentBaseSection
+                      componentEntry={componentEntry}
+                      onClassChange={(oldClass, newClass) => {
+                        withSave(async () => {
+                          await handleComponentClassChange(
+                            componentEntry.filePath,
+                            oldClass,
+                            newClass,
+                          );
+                        });
+                      }}
+                    />
+                  )}
+                </div>
+              )}
 
-            {componentSubTab === "props" && !componentEntry && (
-              <div
-                className="px-4 py-3 text-[11px]"
-                style={{ color: "var(--studio-text-dimmed)" }}
-              >
-                This component doesn't use variant definitions (CVA). Edit its styles directly in the Element tab.
-              </div>
-            )}
+            {componentSubTab === "props" &&
+              (!componentEntry || componentEntry.variants.length === 0) && (
+                <div
+                  className="px-4 py-3 text-[11px]"
+                  style={{ color: "var(--studio-text-dimmed)" }}
+                >
+                  This component doesn't use variant definitions (CVA). Edit its
+                  styles in the Styles sub-tab or switch to the Instance tab.
+                </div>
+              )}
           </>
         )}
 
@@ -455,38 +495,15 @@ export function EditorPanel({
 
         {activeMode === "instance" && element && (
           <>
-            <div className="studio-tab-explainer">
-              <InfoCircledIcon />
-              <span className="flex-1">
-                {isComponent
-                  ? "Edit this instance's props and style overrides."
-                  : "Edit this element's styles."}
-              </span>
-              {isComponent && element.instanceSource && element.componentName && (
-                <Tooltip content="Remove all className overrides from this instance, reverting to component defaults">
-                  <button
-                    onClick={() => {
-                      if (!element.instanceSource || !element.componentName) return;
-                      withSave(async () => {
-                        await handleResetInstanceClassName(
-                          element.instanceSource!,
-                          element.componentName!,
-                        );
-                      });
-                    }}
-                    className="studio-icon-btn shrink-0"
-                    style={{ width: 20, height: 20 }}
-                  >
-                    <ResetIcon />
-                  </button>
-                </Tooltip>
-              )}
-            </div>
-
-            {isComponent && componentEntry && componentEntry.variants.length > 0 ? (
+            {isComponent &&
+            componentEntry &&
+            componentEntry.variants.length > 0 ? (
               <>
                 {/* Sub-tabs: Props vs Styles */}
-                <div className="px-4 pb-2">
+                <div
+                  className="px-4 py-2 border-t"
+                  style={{ borderColor: "var(--studio-border)" }}
+                >
                   <div className="studio-segmented" style={{ width: "100%" }}>
                     <button
                       onClick={() => setInstanceSubTab("props")}
@@ -511,9 +528,12 @@ export function EditorPanel({
                       <InstanceVariantSection
                         key={dim.name}
                         dim={dim}
-                        currentValue={instanceProps?.[dim.name] ?? dim.default ?? null}
+                        currentValue={
+                          instanceProps?.[dim.name] ?? dim.default ?? null
+                        }
                         onSelect={(value) => {
-                          if (!element.instanceSource || !element.componentName) return;
+                          if (!element.instanceSource || !element.componentName)
+                            return;
                           withSave(async () => {
                             await handleInstancePropChange(
                               element.instanceSource!,
@@ -570,11 +590,20 @@ export function EditorPanel({
                       const source = element.source;
                       if (oldClass) {
                         withSave(async () => {
-                          await handleWriteElement(source, "replaceClass", tailwindClass, oldClass);
+                          await handleWriteElement(
+                            source,
+                            "replaceClass",
+                            tailwindClass,
+                            oldClass,
+                          );
                         });
                       } else {
                         withSave(async () => {
-                          await handleWriteElement(source, "addClass", tailwindClass);
+                          await handleWriteElement(
+                            source,
+                            "addClass",
+                            tailwindClass,
+                          );
                         });
                       }
                     }

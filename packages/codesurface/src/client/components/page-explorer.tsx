@@ -14,7 +14,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
-  MagnifyingGlassIcon,
   Component1Icon,
   BoxIcon,
   InfoCircledIcon,
@@ -116,34 +115,8 @@ export function PageExplorer({
       className="flex flex-col h-full"
       style={{ background: "var(--studio-surface)" }}
     >
-      {/* Search input */}
-      <div
-        className="flex items-center gap-1.5 px-2.5 py-2 border-b shrink-0"
-        style={{ borderColor: "var(--studio-border)" }}
-      >
-        <MagnifyingGlassIcon
-          style={{
-            width: 12,
-            height: 12,
-            flexShrink: 0,
-            color: "var(--studio-text-dimmed)",
-          }}
-        />
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter components..."
-          className="flex-1 bg-transparent placeholder-[var(--studio-text-dimmed)] text-[11px] outline-none"
-          style={{
-            color: "var(--studio-text)",
-            caretColor: "var(--studio-accent)",
-          }}
-        />
-      </div>
-
       {/* Tree */}
-      <div className="flex-1 overflow-y-auto studio-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden studio-scrollbar">
         {isEmpty ? (
           <div
             className="px-4 py-6 text-[11px] text-center"
@@ -300,7 +273,7 @@ function TreeNodeItem({
     <div>
       <div
         ref={isSelected ? selectedRef : undefined}
-        className="flex items-center gap-1 w-full group"
+        className="flex items-center gap-1 w-full group overflow-hidden"
         style={{
           padding: `3px 8px 3px ${8 + depth * 14}px`,
           fontSize: 11,
@@ -372,8 +345,8 @@ function TreeNodeItem({
           />
         )}
 
-        {/* Name — never truncated */}
-        <span className="shrink-0">{node.name}</span>
+        {/* Name */}
+        <span className="truncate">{node.name}</span>
 
         {/* Text preview — only direct text, truncated */}
         {node.textContent && (

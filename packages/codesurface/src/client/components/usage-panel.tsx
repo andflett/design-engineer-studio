@@ -47,13 +47,8 @@ export function UsagePanel({
   if (routes.length === 0) {
     return (
       <div
-        className="flex flex-col border-r studio-scrollbar"
-        style={{
-          width: 220,
-          minWidth: 220,
-          background: "var(--studio-surface)",
-          borderColor: "var(--studio-border)",
-        }}
+        className="flex flex-col h-full"
+        style={{ background: "var(--studio-surface)" }}
       >
         <PanelHeader
           componentName={componentName}
@@ -74,20 +69,15 @@ export function UsagePanel({
 
   return (
     <div
-      className="flex flex-col border-r studio-scrollbar overflow-y-auto"
-      style={{
-        width: 220,
-        minWidth: 220,
-        background: "var(--studio-surface)",
-        borderColor: "var(--studio-border)",
-      }}
+      className="flex flex-col h-full"
+      style={{ background: "var(--studio-surface)" }}
     >
       <PanelHeader
         componentName={componentName}
         count={routes.length}
         onClose={onClose}
       />
-      <div className="flex-1 overflow-y-auto studio-scrollbar py-1">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden studio-scrollbar py-1">
         <RouteTree
           node={tree}
           currentPath={currentPath}
@@ -115,7 +105,7 @@ function PanelHeader({
     >
       <span
         className="text-[10px] font-semibold uppercase tracking-wide flex-1 truncate"
-        style={{ color: "var(--studio-text-muted)" }}
+        style={{ color: "var(--studio-text-dimmed)" }}
       >
         Pages using {componentName}
       </span>

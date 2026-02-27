@@ -410,7 +410,14 @@ export function CodeSurface() {
       const scope = getScopeForElement(hostEl, parentScope);
       const dataSlot = hasDataSlot || null;
       const children: TreeNode[] = [];
-      if (fiber.child) walkFiber(fiber.child, children, scope);
+
+      // When this component's root host element has data-slot, the child
+      // walker would also pick it up via processHostFiber and create a
+      // duplicate node. To avoid that, find the host fiber and walk its
+      // children directly (skipping the host element itself).
+      const hostFiber = dataSlot ? findHostFiber(fiber) : null;
+      const childFiber = hostFiber ? hostFiber.child : fiber.child;
+      if (childFiber) walkFiber(childFiber, children, scope);
 
       // Collapse: if this component has exactly one child component and no
       // direct text, skip this wrapper and promote the child
@@ -431,6 +438,26 @@ export function CodeSurface() {
         textContent: hostEl ? getDirectText(hostEl) : "",
         children,
       };
+    }
+
+    /**
+     * Find a component fiber's own root host fiber (not the element).
+     * Same walk as findOwnHostElement but returns the fiber itself,
+     * so we can skip it in the tree walk and avoid data-slot duplication.
+     */
+    function findHostFiber(fiber: any): any | null {
+      let child = fiber.child;
+      while (child) {
+        if (child.stateNode instanceof Element) return child;
+        const tag = child.tag;
+        const isComponentBoundary = tag === 0 || tag === 1 || tag === 11 || tag === 14 || tag === 15;
+        if (!isComponentBoundary && child.child) {
+          const found = findHostFiber(child);
+          if (found) return found;
+        }
+        child = child.sibling;
+      }
+      return null;
     }
 
     /**

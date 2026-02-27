@@ -1,109 +1,72 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+"use client";
 
-const features = [
-  {
-    title: "Visual Token Editing",
-    description: "Edit colors, spacing, and radii at the system level.",
-    detail:
-      "Changes propagate everywhere instantly via CSS custom properties and HMR.",
-    badge: "Tokens",
-  },
-  {
-    title: "Component Inspector",
-    description: "Modify component definitions across all instances.",
-    detail:
-      "Edit Tailwind classes within CVA variant definitions using a structured property panel.",
-    badge: "Components",
-  },
-  {
-    title: "Instance Overrides",
-    description: "Tweak individual component usages on a page.",
-    detail:
-      "Change variant props, toggle booleans, or add className overrides to specific instances.",
-    badge: "Instances",
-  },
-];
-
-const stats = [
-  { value: "50+", label: "CSS Properties" },
-  { value: "<1s", label: "Write Latency" },
-  { value: "0", label: "Config Required" },
-];
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Hero } from "@/components/hero";
+import { UserProfile } from "@/components/user-profile";
 
 export default function HomePage() {
+  const [notifications, setNotifications] = useState(true);
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 bg-none opacity-100">
-      {/* Hero */}
-      <section className="flex flex-col items-center gap-5 text-center">
-        <Badge variant="secondary">Now in Beta</Badge>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl p-7">
-          Build better interfaces,
-          <br />
-          visually.
-        </h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">
-          A visual editing tool that runs alongside your dev server. Select any
-          element, tweak styles, and changes write back to your source files
-          instantly.
-        </p>
-        <div className="flex gap-3 mt-2">
-          <Button size="lg">Get Started</Button>
-          <Button variant="outline" size="lg">
-            View Docs
-          </Button>
-        </div>
-      </section>
-      {/* Stats */}
-      <section className="mt-16 grid grid-cols-3 gap-8 text-center">
-        {stats.map((stat) => (
-          <div key={stat.label}>
-            <p className="text-3xl font-bold">{stat.value}</p>
-            <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </section>
-      {/* Feature Cards */}
-      <section className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((feature) => (
-          <Card key={feature.title}>
+    <article className="mx-auto max-w-2xl px-4 py-12 flex flex-col gap-6">
+      <Hero />
+
+      <UserProfile initials="AC" name="Alice Chen" role="Lead Designer" />
+
+      <fieldset className="flex items-center justify-between">
+        <Label>Notifications</Label>
+        <Switch checked={notifications} onCheckedChange={setNotifications} />
+      </fieldset>
+
+      <Progress value={72} />
+
+      <Alert variant="success">
+        <AlertTitle>All systems operational</AlertTitle>
+        <AlertDescription>Tokens and components are synced.</AlertDescription>
+      </Alert>
+
+      <Separator />
+
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <p className="text-sm text-muted-foreground">
+            48 components, 124 tokens, 94% coverage.
+          </p>
+        </TabsContent>
+        <TabsContent value="settings">
+          <Card>
             <CardHeader>
-              <div className="mb-2">
-                <Badge variant="outline">{feature.badge}</Badge>
-              </div>
-              <CardTitle className="text-lg">{feature.title}</CardTitle>
-              <CardDescription>{feature.description}</CardDescription>
+              <CardTitle>Quick Settings</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{feature.detail}</p>
+              <p className="text-sm text-muted-foreground">
+                Configure your workspace preferences.
+              </p>
             </CardContent>
           </Card>
-        ))}
-      </section>
-      {/* CTA */}
-      <section className="mt-16 rounded-lg border bg-card p-8 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Ready to try it?
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          Run{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono">
-            npx @designtools/codesurface
-          </code>{" "}
-          next to your dev server.
-        </p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Button>Install Now</Button>
-          <Button variant="ghost">Learn More</Button>
-        </div>
-      </section>
-    </div>
+        </TabsContent>
+      </Tabs>
+
+      <footer className="text-center text-sm text-muted-foreground">
+        Run{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+          npx @designtools/codesurface
+        </code>{" "}
+        to start editing.
+      </footer>
+    </article>
   );
 }

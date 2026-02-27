@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Component1Icon } from "@radix-ui/react-icons";
+import { Component1Icon, DoubleArrowLeftIcon, DoubleArrowRightIcon } from "@radix-ui/react-icons";
 import type { SelectedElementData, ComponentTreeNode, PreviewCombination } from "../shared/protocol.js";
 import type { ComponentEntry } from "../server/lib/scan-components.js";
 import { usePostMessage } from "./lib/use-postmessage.js";
@@ -52,9 +52,10 @@ export function App() {
   const [iframePath, setIframePath] = useState("/");
   const [injectedReady, setInjectedReady] = useState(false);
   const [bootDone, setBootDone] = useState(!SHOW_BOOT_SCREEN);
-  const [usagePanelOpen, setUsagePanelOpen] = useState(false);
+
   const [componentTree, setComponentTree] = useState<ComponentTreeNode[]>([]);
-  const [leftPanelTab, setLeftPanelTab] = useState<"elements" | "usages">("elements");
+  const [usagePanelOpen, setUsagePanelOpen] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [isolationComponent, setIsolationComponent] = useState<ComponentEntry | null>(null);
   const [preIsolationPath, setPreIsolationPath] = useState("/");
   const scanReady = useScanReady();
@@ -255,7 +256,7 @@ export function App() {
     ? findTreeIdForElement(componentTree, selectedElement)
     : null;
 
-  const showUsages = leftPanelTab === "usages" && selectedComponentName;
+  const showUsages = usagePanelOpen && selectedComponentName;
 
   const leftPanel = isolationComponent ? (
     <div
@@ -273,6 +274,24 @@ export function App() {
         onCombinationsChange={handleIsolationCombinationsChange}
       />
     </div>
+  ) : leftPanelCollapsed ? (
+    <div
+      className="flex flex-col border-r h-full shrink-0"
+      style={{
+        width: 36,
+        background: "var(--studio-surface)",
+        borderColor: "var(--studio-border)",
+      }}
+    >
+      <button
+        onClick={() => setLeftPanelCollapsed(false)}
+        className="studio-icon-btn"
+        style={{ width: 36, height: 36 }}
+        title="Expand panel"
+      >
+        <DoubleArrowRightIcon />
+      </button>
+    </div>
   ) : (
     <div
       className="flex flex-col border-r h-full"
@@ -283,64 +302,48 @@ export function App() {
         borderColor: "var(--studio-border)",
       }}
     >
-      {/* Tab bar */}
-      <div
-        className="flex items-center border-b shrink-0"
-        style={{ borderColor: "var(--studio-border)" }}
-      >
-        <button
-          onClick={() => setLeftPanelTab("elements")}
-          className="flex-1 text-[10px] font-semibold uppercase tracking-wide py-2 text-center"
-          style={{
-            color: leftPanelTab === "elements" ? "var(--studio-accent)" : "var(--studio-text-dimmed)",
-            borderBottom: leftPanelTab === "elements" ? "2px solid var(--studio-accent)" : "2px solid transparent",
-            background: "none",
-            cursor: "pointer",
-          }}
+      {/* Collapse button + Elements explorer */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div
+          className="flex items-center px-2 py-1 shrink-0"
+          style={{ borderBottom: "1px solid var(--studio-border)" }}
         >
-          Elements
-        </button>
-        <button
-          onClick={() => setLeftPanelTab("usages")}
-          className="flex-1 text-[10px] font-semibold uppercase tracking-wide py-2 text-center"
-          style={{
-            color: leftPanelTab === "usages" ? "var(--studio-accent)" : "var(--studio-text-dimmed)",
-            borderBottom: leftPanelTab === "usages" ? "2px solid var(--studio-accent)" : "2px solid transparent",
-            background: "none",
-            cursor: "pointer",
-            opacity: selectedComponentName ? 1 : 0.4,
-          }}
-          disabled={!selectedComponentName}
-        >
-          Usage
-        </button>
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 overflow-hidden">
-        {leftPanelTab === "elements" ? (
-          <PageExplorer
-            tree={componentTree}
-            selectedId={selectedTreeId}
-            onSelect={handleTreeSelect}
-            onHover={handleTreeHover}
-            onHoverEnd={handleTreeHoverEnd}
-          />
-        ) : showUsages ? (
-          <UsagePanel
-            componentName={selectedComponentName}
-            currentPath={iframePath}
-            onNavigate={handleNavigateToRoute}
-            onClose={() => setLeftPanelTab("elements")}
-          />
-        ) : (
-          <div
-            className="px-4 py-6 text-[11px] text-center"
-            style={{ color: "var(--studio-text-dimmed)" }}
+          <span
+            className="flex-1 text-[10px] font-semibold uppercase tracking-wide pl-1"
+            style={{ color: "var(--studio-text-muted)" }}
           >
-            Select a component to see usages.
+            Explorer
+          </span>
+          <button
+            onClick={() => setLeftPanelCollapsed(true)}
+            className="studio-icon-btn shrink-0"
+            style={{ width: 24, height: 24 }}
+            title="Collapse panel"
+          >
+            <DoubleArrowLeftIcon style={{ width: 12, height: 12 }} />
+          </button>
+        </div>
+        {/* Usage panel (above explorer, when open) */}
+        {showUsages && (
+          <div
+            className="flex flex-col shrink-0 border-b"
+            style={{ borderColor: "var(--studio-border)", maxHeight: "40%" }}
+          >
+            <UsagePanel
+              componentName={selectedComponentName}
+              currentPath={iframePath}
+              onNavigate={handleNavigateToRoute}
+              onClose={() => setUsagePanelOpen(false)}
+            />
           </div>
         )}
+        <PageExplorer
+          tree={componentTree}
+          selectedId={selectedTreeId}
+          onSelect={handleTreeSelect}
+          onHover={handleTreeHover}
+          onHoverEnd={handleTreeHoverEnd}
+        />
       </div>
     </div>
   );
@@ -356,8 +359,10 @@ export function App() {
       onRevertInlineStyles={handleRevertInlineStyles}
       onClose={handleCloseEditor}
       onReselectElement={handleReselectElement}
-      onToggleUsagePanel={() => setUsagePanelOpen((v) => !v)}
-      usagePanelOpen={usagePanelOpen}
+      onToggleUsagePanel={() => {
+                setUsagePanelOpen((v) => !v);
+                setLeftPanelCollapsed(false);
+              }}
       onIsolate={handleIsolate}
     />
   );

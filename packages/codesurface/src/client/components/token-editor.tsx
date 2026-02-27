@@ -199,7 +199,7 @@ function Section({
         {title}
         {count !== undefined && <span className="count">{count}</span>}
       </button>
-      {!collapsed && <div className="pb-1">{children}</div>}
+      {!collapsed && <div className="pb-2">{children}</div>}
     </div>
   );
 }
