@@ -3,7 +3,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { ColorPicker } from "./color-picker.js";
+import { ColorInput } from "./controls/color-input.js";
 
 interface ShadowLayer {
   offsetX: string;
@@ -217,7 +217,7 @@ function LayerEditor({
       </div>
 
       {/* Color */}
-      <ColorPicker
+      <ColorInput
         color={layer.color}
         onChange={(color) => onChange({ color })}
       />

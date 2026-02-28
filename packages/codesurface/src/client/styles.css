@@ -278,7 +278,6 @@ body {
   border: 1px solid var(--studio-border-subtle);
   border-radius: 4px;
   color: var(--studio-text);
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 11px;
   padding: 4px 8px;
   outline: none;
@@ -301,6 +300,9 @@ body {
 
 /* Select */
 .studio-select {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: var(--studio-input-bg);
   border: 1px solid var(--studio-border-subtle);
   border-radius: 4px;
@@ -314,8 +316,20 @@ body {
   min-height: 32px;
   transition: border-color 0.15s;
 }
-.studio-select:focus {
+.studio-select:focus,
+.studio-select[data-state="open"] {
   border-color: var(--studio-accent);
+}
+.studio-select:hover {
+  border-color: var(--studio-border);
+}
+.studio-select .studio-prop-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
 /* Prop select (Radix) — used in isolation view */
@@ -353,13 +367,20 @@ body {
   text-align: left;
 }
 .studio-prop-select-content {
-  background: var(--studio-surface);
-  border: 1px solid var(--studio-border);
+  background: #1c1c1c;
+  border: 1px solid #333;
   border-radius: 7px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25);
   padding: 4px;
   min-width: var(--radix-select-trigger-width);
   z-index: 10000;
+}
+.studio-prop-select-group-label {
+  padding: 4px 8px 2px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 9px;
+  color: var(--studio-text-dimmed);
+  user-select: none;
 }
 .studio-prop-select-item {
   display: flex;
@@ -647,6 +668,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin-left: auto;
 }
 
+/* Color picker (react-colorful overrides) */
+.studio-color-picker .react-colorful {
+  width: 100% !important;
+  height: 150px !important;
+  gap: 8px !important;
+}
+.studio-color-picker .react-colorful__saturation {
+  border-radius: 6px !important;
+}
+.studio-color-picker .react-colorful__hue,
+.studio-color-picker .react-colorful__alpha {
+  height: 12px !important;
+  border-radius: 6px !important;
+}
+.studio-color-picker .react-colorful__pointer {
+  width: 16px !important;
+  height: 16px !important;
+  border-width: 2px !important;
+}
+
 /* Tooltip (Radix) */
 .studio-tooltip {
   background: var(--studio-surface-raised, #2a2a2e);
@@ -817,6 +858,62 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--studio-text-dimmed);
 }
 
+/* Slider track + thumb (SliderInput) */
+.studio-slider-track {
+  flex: 1;
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 8px;
+  outline: none;
+  touch-action: none;
+}
+.studio-slider-track::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--studio-border-subtle);
+}
+.studio-slider-fill {
+  position: absolute;
+  left: 8px;
+  width: calc((100% - 16px) * var(--slider-pct) / 100);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--studio-accent);
+  pointer-events: none;
+}
+.studio-slider-thumb {
+  position: absolute;
+  left: calc(8px + (100% - 16px) * var(--slider-pct) / 100);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--studio-accent);
+  border: 2px solid var(--studio-surface);
+  box-shadow: 0 0 0 1px var(--studio-accent);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: box-shadow 0.1s;
+}
+.studio-slider-track:focus-visible .studio-slider-thumb {
+  box-shadow: 0 0 0 1px var(--studio-accent), 0 0 0 3px color-mix(in srgb, var(--studio-accent) 30%, transparent);
+}
+.studio-slider-readout {
+  width: 36px;
+  text-align: right;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  color: var(--studio-text);
+  flex-shrink: 0;
+  padding-right: 8px;
+}
+
 /* Scale icon (non-draggable, used in ScaleInput and readonly controls) */
 .studio-scale-icon {
   display: flex;
@@ -870,6 +967,28 @@ input[type="range"]::-webkit-slider-thumb:hover {
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+}
+/* Radix Select trigger embedded inside scale/scrub rows — no own border/bg */
+.studio-scale-input .studio-select,
+.studio-scrub-input .studio-select {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  min-height: unset;
+  height: 100%;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+.studio-scale-input .studio-select:hover,
+.studio-scrub-input .studio-select:hover {
+  border: none;
+  background: transparent;
+}
+.studio-scale-input .studio-select[data-state="open"],
+.studio-scrub-input .studio-select[data-state="open"] {
+  border: none;
 }
 .studio-scale-input input {
   flex: 1;

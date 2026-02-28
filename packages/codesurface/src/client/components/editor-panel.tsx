@@ -31,6 +31,7 @@ import { TokenEditor } from "./token-editor.js";
 import { PropertyPanel } from "./property-panel.js";
 import { ComputedPropertyPanel } from "./computed-property-panel.js";
 import { Tooltip, ExplainerNote } from "./tooltip.js";
+import { ControlsGallery } from "./controls/controls-gallery.js";
 import { useTokens, useComponents } from "../lib/scan-hooks.js";
 import type { IndexedTokenMap } from "../lib/scan-store.js";
 
@@ -301,7 +302,13 @@ export function EditorPanel({
         </div>
       )}
 
-      {!element && <SelectionPlaceholder />}
+      {!element && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("gallery") ? (
+        <div className="flex-1 overflow-y-auto studio-scrollbar">
+          <ControlsGallery />
+        </div>
+      ) : !element ? (
+        <SelectionPlaceholder />
+      ) : null}
 
       {element && (
         /* Mode switcher */

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, type PointerEvent as ReactPointerEvent } from "react";
+import { useState, useRef, useCallback } from "react";
+import { ScrubInput } from "./controls/index.js";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -11,18 +12,8 @@ import {
   Cross2Icon,
   Pencil1Icon,
 } from "@radix-ui/react-icons";
-import * as Popover from "@radix-ui/react-popover";
-import { RgbaColorPicker } from "react-colorful";
-import type { RgbaColor } from "react-colorful";
-import { TokenPopover } from "./color-popover.js";
 import { ShadowList } from "./shadow-list.js";
-import {
-  cssToRgba,
-  rgbaToCss,
-  ModeTabs,
-  ColorInputFields,
-  type InputMode,
-} from "./color-picker.js";
+import { ColorInput, ColorInputSwatch } from "./controls/color-input.js";
 import { useTokens, useShadows, useBorders, useGradients, useStyling } from "../lib/scan-hooks.js";
 import { saveToken, saveGradient, saveBorder } from "../lib/scan-actions.js";
 import { SPACING_SCALE } from "../../shared/tailwind-parser.js";
@@ -87,17 +78,31 @@ export function TokenEditor({
       {referencedTokens.length > 0 && (
         <Section title="Used by element" count={referencedTokens.length} defaultCollapsed>
           <div className="flex flex-col gap-1.5 px-4 pb-2">
-            {referencedTokens.map((token: any) => (
-              <TokenRow
-                key={token.name}
-                token={token}
-                theme={theme}
-                onPreview={onPreviewToken}
-                onClearPreview={onClearTokenPreview}
-                cssFilePath={cssFilePath}
-                allTokens={tokens}
-              />
-            ))}
+            {referencedTokens.map((token: any) => {
+              const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
+              const fgTokenName = token.name.endsWith("-foreground")
+                ? token.name.replace("-foreground", "")
+                : `${token.name}-foreground`;
+              const fgToken = tokens.find((t: any) => t.name === fgTokenName);
+              const fgValue = fgToken
+                ? theme === "dark" && fgToken.darkValue ? fgToken.darkValue : fgToken.lightValue
+                : null;
+              return (
+                <ColorInput
+                  key={token.name}
+                  color={value}
+                  label={token.name.replace(/^--/, "")}
+                  tabs="custom"
+                  tokenName={token.name}
+                  contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
+                  onChange={(v) => onPreviewToken(token.name, v)}
+                  onSave={(oklchValue) => {
+                    saveToken(cssFilePath, token.name, oklchValue, selector);
+                    onClearTokenPreview();
+                  }}
+                />
+              );
+            })}
           </div>
         </Section>
       )}
@@ -111,17 +116,31 @@ export function TokenEditor({
                 <div className="flex flex-col gap-1.5 pb-1">
                   {(groupTokens as any[])
                     .filter((t) => t.category === "color")
-                    .map((token: any) => (
-                      <TokenRow
-                        key={token.name}
-                        token={token}
-                        theme={theme}
-                        onPreview={onPreviewToken}
-                        onClearPreview={onClearTokenPreview}
-                        cssFilePath={cssFilePath}
-                        allTokens={tokens}
-                      />
-                    ))}
+                    .map((token: any) => {
+                      const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
+                      const fgTokenName = token.name.endsWith("-foreground")
+                        ? token.name.replace("-foreground", "")
+                        : `${token.name}-foreground`;
+                      const fgToken = tokens.find((t: any) => t.name === fgTokenName);
+                      const fgValue = fgToken
+                        ? theme === "dark" && fgToken.darkValue ? fgToken.darkValue : fgToken.lightValue
+                        : null;
+                      return (
+                        <ColorInput
+                          key={token.name}
+                          color={value}
+                          label={token.name.replace(/^--/, "")}
+                          tabs="custom"
+                          tokenName={token.name}
+                          contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
+                          onChange={(v) => onPreviewToken(token.name, v)}
+                          onSave={(oklchValue) => {
+                            saveToken(cssFilePath, token.name, oklchValue, selector);
+                            onClearTokenPreview();
+                          }}
+                        />
+                      );
+                    })}
                 </div>
               </SubSection>
             ))}
@@ -278,122 +297,15 @@ function EmptyState({ message }: { message: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// TokenRow — color tokens with swatch and popover
-// ---------------------------------------------------------------------------
-
-function TokenRow({
-  token,
-  theme,
-  onPreview,
-  onClearPreview,
-  cssFilePath,
-  allTokens,
-}: {
-  token: any;
-  theme: "light" | "dark";
-  onPreview: (token: string, value: string) => void;
-  onClearPreview: () => void;
-  cssFilePath: string;
-  allTokens: any[];
-}) {
-  const [showPopover, setShowPopover] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const rowRef = useRef<HTMLButtonElement>(null);
-  const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
-  const resolvedValue = value;
-
-  const fgTokenName = token.name.endsWith("-foreground")
-    ? token.name.replace("-foreground", "")
-    : `${token.name}-foreground`;
-  const fgToken = allTokens.find((t: any) => t.name === fgTokenName);
-  const fgValue = fgToken
-    ? theme === "dark" && fgToken.darkValue ? fgToken.darkValue : fgToken.lightValue
-    : null;
-
-  return (
-    <>
-      <button
-        ref={rowRef}
-        onClick={() => setShowPopover(!showPopover)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="studio-scrub-input w-full"
-        style={{
-          cursor: "pointer",
-          overflow: "hidden",
-          background: hovered || showPopover ? "var(--studio-surface-hover)" : undefined,
-          borderColor: showPopover ? "var(--studio-accent)" : hovered ? "var(--studio-border-hover, var(--studio-border))" : undefined,
-        }}
-      >
-        {/* Full-height swatch, no rounding — clipped by container overflow:hidden */}
-        <div
-          style={{
-            width: 28,
-            alignSelf: "stretch",
-            flexShrink: 0,
-            background: value || "transparent",
-            backgroundImage: value
-              ? `linear-gradient(${value}, ${value}), linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)`
-              : undefined,
-            backgroundSize: value ? "cover, 6px 6px, 6px 6px, 6px 6px, 6px 6px" : undefined,
-            backgroundPosition: value ? "0 0, 0 0, 0 3px, 3px -3px, -3px 0" : undefined,
-          }}
-        />
-        <span
-          className="studio-scrub-value"
-          style={{ color: "var(--studio-text)", userSelect: "none", textAlign: "left" }}
-        >
-          {token.name.replace(/^--/, "")}
-        </span>
-      </button>
-
-      {showPopover && (
-        <TokenPopover
-          anchorRef={rowRef}
-          token={{
-            name: token.name,
-            value: value,
-            resolvedValue,
-          }}
-          theme={theme}
-          cssFilePath={cssFilePath}
-          contrastToken={
-            fgValue
-              ? { name: fgTokenName, resolvedValue: fgValue }
-              : null
-          }
-          onPreview={onPreview}
-          onClearPreview={onClearPreview}
-          onClose={() => setShowPopover(false)}
-        />
-      )}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // TokenScrubRow — scrub-enabled input for spacing/radius/border tokens
 // ---------------------------------------------------------------------------
-
-function parseTokenNumeric(v: string): { num: number; unit: string } | null {
-  const match = v.match(/^(-?[\d.]+)\s*(px|rem|em|%|vh|vw|pt)$/);
-  if (match) return { num: parseFloat(match[1]), unit: match[2] };
-  const num = parseFloat(v);
-  if (!isNaN(num) && String(num) === v.trim()) return { num, unit: "" };
-  return null;
-}
-
-function getStep(unit: string): number {
-  if (unit === "rem" || unit === "em") return 0.0625;
-  return 1;
-}
 
 function TokenScrubRow({
   token,
   theme,
-  icon: Icon,
+  icon,
   onSave,
-  step: stepOverride,
+  step,
   min,
   maxDecimals,
 }: {
@@ -406,56 +318,6 @@ function TokenScrubRow({
   maxDecimals?: number;
 }) {
   const displayVal = token.value ?? (theme === "dark" && token.darkValue ? token.darkValue : token.lightValue) ?? "";
-  const [value, setValue] = useState(displayVal);
-  const [focused, setFocused] = useState(false);
-  const [scrubbing, setScrubbing] = useState(false);
-  const scrubRef = useRef<{ startX: number; startVal: number; unit: string } | null>(null);
-  const draftRef = useRef(value);
-  draftRef.current = value;
-
-  useEffect(() => {
-    if (!focused && !scrubbing) setValue(displayVal);
-  }, [displayVal, focused, scrubbing]);
-
-  const isScrubbable = parseTokenNumeric(value) !== null;
-
-  const handlePointerDown = (e: ReactPointerEvent) => {
-    const parsed = parseTokenNumeric(value);
-    if (!parsed) return;
-
-    e.preventDefault();
-    scrubRef.current = { startX: e.clientX, startVal: parsed.num, unit: parsed.unit };
-    setScrubbing(true);
-    const step = stepOverride ?? getStep(parsed.unit);
-    const decimals = maxDecimals ?? 4;
-
-    const handleMove = (me: globalThis.PointerEvent) => {
-      if (!scrubRef.current) return;
-      const multiplier = me.shiftKey ? 10 : 1;
-      const delta = Math.round((me.clientX - scrubRef.current.startX) / 2);
-      let newVal = scrubRef.current.startVal + delta * step * multiplier;
-      if (min !== undefined && newVal < min) newVal = min;
-      const formatted = scrubRef.current.unit
-        ? `${parseFloat(newVal.toFixed(decimals))}${scrubRef.current.unit}`
-        : `${Math.round(newVal)}`;
-      setValue(formatted);
-      draftRef.current = formatted;
-    };
-
-    const handleUp = () => {
-      document.removeEventListener("pointermove", handleMove);
-      document.removeEventListener("pointerup", handleUp);
-      if (scrubRef.current) {
-        onSave(draftRef.current);
-        scrubRef.current = null;
-      }
-      setScrubbing(false);
-    };
-
-    document.addEventListener("pointermove", handleMove);
-    document.addEventListener("pointerup", handleUp);
-  };
-
   const displayName = (token.name || "").replace(/^--/, "");
 
   return (
@@ -466,30 +328,14 @@ function TokenScrubRow({
       >
         {displayName}
       </div>
-      <div className="studio-scrub-input">
-        {Icon && (
-          <div
-            className={isScrubbable ? "studio-scrub-icon" : "studio-scrub-icon no-scrub"}
-            onPointerDown={isScrubbable ? handlePointerDown : undefined}
-          >
-            <Icon style={{ width: 12, height: 12 }} />
-          </div>
-        )}
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false);
-            onSave(value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="studio-scrub-value"
-        />
-      </div>
+      <ScrubInput
+        icon={icon}
+        value={displayVal}
+        onCommit={onSave}
+        step={step}
+        min={min}
+        maxDecimals={maxDecimals}
+      />
     </div>
   );
 }
@@ -774,17 +620,31 @@ function BordersSection({
         <div className="px-4">
           <SectionLabel label="Color" />
           <div className="flex flex-col gap-1.5">
-            {borderColorTokens.map((token: any) => (
-              <TokenRow
-                key={token.name}
-                token={token}
-                theme={theme}
-                onPreview={onPreviewToken}
-                onClearPreview={onClearPreview}
-                cssFilePath={cssFilePath}
-                allTokens={allTokens}
-              />
-            ))}
+            {borderColorTokens.map((token: any) => {
+              const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
+              const fgTokenName = token.name.endsWith("-foreground")
+                ? token.name.replace("-foreground", "")
+                : `${token.name}-foreground`;
+              const fgToken = allTokens.find((t: any) => t.name === fgTokenName);
+              const fgValue = fgToken
+                ? theme === "dark" && fgToken.darkValue ? fgToken.darkValue : fgToken.lightValue
+                : null;
+              return (
+                <ColorInput
+                  key={token.name}
+                  color={value}
+                  label={token.name.replace(/^--/, "")}
+                  tabs="custom"
+                  tokenName={token.name}
+                  contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
+                  onChange={(v) => onPreviewToken(token.name, v)}
+                  onSave={(oklchValue) => {
+                    saveToken(cssFilePath, token.name, oklchValue, selector);
+                    onClearPreview();
+                  }}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -1045,91 +905,6 @@ function GradientCreator({
   );
 }
 
-// ---------------------------------------------------------------------------
-// StopColorPicker — inline swatch that opens the shared Radix color picker
-// ---------------------------------------------------------------------------
-
-function StopColorPicker({
-  color,
-  onChange,
-}: {
-  color: string;
-  onChange: (color: string) => void;
-}) {
-  const [inputMode, setInputMode] = useState<InputMode>("hex");
-  const rgba = cssToRgba(color);
-
-  const handleChange = useCallback(
-    (c: RgbaColor) => onChange(rgbaToCss(c)),
-    [onChange]
-  );
-
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 4,
-            border: "1px solid var(--studio-border-subtle)",
-            background: color,
-            cursor: "pointer",
-            padding: 0,
-            flexShrink: 0,
-          }}
-        />
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          side="left"
-          sideOffset={8}
-          collisionPadding={12}
-          style={{
-            width: 232,
-            padding: 12,
-            background: "var(--studio-surface)",
-            border: "1px solid var(--studio-border)",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)",
-            zIndex: 10000,
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
-          <style>{`
-            .gradient-stop-picker .react-colorful {
-              width: 100% !important;
-              height: 150px !important;
-              gap: 8px !important;
-            }
-            .gradient-stop-picker .react-colorful__saturation {
-              border-radius: 6px !important;
-            }
-            .gradient-stop-picker .react-colorful__hue,
-            .gradient-stop-picker .react-colorful__alpha {
-              height: 12px !important;
-              border-radius: 6px !important;
-            }
-            .gradient-stop-picker .react-colorful__pointer {
-              width: 16px !important;
-              height: 16px !important;
-              border-width: 2px !important;
-            }
-          `}</style>
-          <div className="gradient-stop-picker">
-            <RgbaColorPicker color={rgba} onChange={handleChange} />
-          </div>
-          <ModeTabs mode={inputMode} onChange={setInputMode} />
-          <ColorInputFields color={rgba} onChange={handleChange} mode={inputMode} />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
 function GradientEditor({
   initialValue,
   onSave,
@@ -1208,7 +983,7 @@ function GradientEditor({
       <div className="flex flex-col gap-1.5">
         {stops.map((stop, i) => (
           <div key={i} className="flex items-center gap-1.5">
-            <StopColorPicker
+            <ColorInputSwatch
               color={stop.color}
               onChange={(c) => updateStop(i, { color: c })}
             />

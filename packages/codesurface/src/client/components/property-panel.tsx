@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Tooltip } from "./tooltip.js";
+import { useState } from "react";
+import { SegmentedIcons, StudioSelect } from "./controls/index.js";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -15,7 +15,7 @@ import {
   AlignCenterVerticallyIcon,
   AlignBottomIcon,
 } from "@radix-ui/react-icons";
-import { ColorPopover } from "./color-popover.js";
+import { ColorInput } from "./controls/color-input.js";
 import {
   buildClass,
   parseClasses,
@@ -216,14 +216,14 @@ const DISPLAY_OPTIONS = [
   { value: "flex", icon: RowsIcon, label: "Flex" },
   { value: "grid", icon: GridIcon, label: "Grid" },
   { value: "block", icon: ColumnsIcon, label: "Block" },
-  { value: "hidden", icon: null, label: "None" },
+  { value: "hidden", icon: undefined, label: "None" },
 ];
 
 const ALIGN_OPTIONS = [
   { value: "start", icon: AlignTopIcon, label: "Start" },
   { value: "center", icon: AlignCenterVerticallyIcon, label: "Center" },
   { value: "end", icon: AlignBottomIcon, label: "End" },
-  { value: "stretch", icon: null, label: "Stretch" },
+  { value: "stretch", icon: undefined, label: "Stretch" },
 ];
 
 const JUSTIFY_OPTIONS = [
@@ -296,34 +296,6 @@ function LayoutRows({
   );
 }
 
-function SegmentedIcons({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; icon: any; label?: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="studio-segmented" style={{ width: "100%" }}>
-      {options.map((opt) => (
-        <Tooltip key={opt.value} content={opt.label || opt.value} side="bottom">
-          <button
-            onClick={() => onChange(opt.value)}
-            className={value === opt.value ? "active" : ""}
-            style={{ flex: 1 }}
-          >
-          {opt.icon ? <opt.icon style={{ width: 14, height: 14 }} /> : (
-            <span style={{ fontSize: 10 }}>{opt.label || opt.value}</span>
-          )}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
 function ColorRows({
   properties,
   onClassChange,
@@ -333,91 +305,41 @@ function ColorRows({
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
 }) {
-  const colorTokens: string[] = [];
-  const tokenValues: Record<string, string> = {};
+  const colorTokens: Array<{ name: string; value: string }> = [];
   for (const [_, tokens] of Object.entries(tokenGroups)) {
     for (const t of tokens as any[]) {
       if (t.category === "color") {
         const name = t.name.replace(/^--/, "");
-        if (!colorTokens.includes(name)) colorTokens.push(name);
-        if (!tokenValues[name]) tokenValues[name] = t.lightValue || "";
+        if (!colorTokens.some((ct) => ct.name === name)) {
+          colorTokens.push({ name, value: t.lightValue || "" });
+        }
       }
     }
   }
 
-  const [openPopover, setOpenPopover] = useState<string | null>(null);
-
   return (
     <>
-      {properties.map((prop) => (
-        <ColorRow
-          key={prop.fullClass}
-          prop={prop}
-          colorTokens={colorTokens}
-          tokenValues={tokenValues}
-          isOpen={openPopover === prop.fullClass}
-          onOpen={() => setOpenPopover(prop.fullClass)}
-          onClose={() => setOpenPopover(null)}
-          onClassChange={onClassChange}
-        />
-      ))}
+      {properties.map((prop) => {
+        const resolvedColor = colorTokens.find((t) => t.name === prop.value.split("/")[0])?.value || "";
+        return (
+          <div key={prop.fullClass}>
+            <PropLabel label={prop.label} prefix={prop.prefix} />
+            <ColorInput
+              color={resolvedColor}
+              label={prop.value}
+              tabs="both"
+              defaultTab="tokens"
+              tokens={colorTokens}
+              activeToken={prop.value}
+              onSelectToken={(token) => {
+                const newClass = buildClass(prop.property, token, prop.prefix);
+                onClassChange(prop.fullClass, newClass);
+              }}
+            />
+          </div>
+        );
+      })}
     </>
-  );
-}
-
-function ColorRow({
-  prop,
-  colorTokens,
-  tokenValues,
-  isOpen,
-  onOpen,
-  onClose,
-  onClassChange,
-}: {
-  prop: ParsedProperty;
-  colorTokens: string[];
-  tokenValues: Record<string, string>;
-  isOpen: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  onClassChange: (oldClass: string, newClass: string) => void;
-}) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const resolvedColor = tokenValues[prop.value.split("/")[0]] || "";
-
-  return (
-    <div>
-      <PropLabel label={prop.label} prefix={prop.prefix} />
-      <button
-        ref={triggerRef}
-        onClick={onOpen}
-        className="studio-color-trigger"
-      >
-        <div
-          className="studio-swatch"
-          style={{
-            "--swatch-color": resolvedColor,
-          } as React.CSSProperties}
-        />
-        <span className="flex-1 truncate text-left">{prop.value}</span>
-        <ChevronDownIcon />
-      </button>
-
-      {isOpen && (
-        <ColorPopover
-          anchorRef={triggerRef}
-          currentValue={prop.value}
-          availableTokens={colorTokens}
-          tokenValues={tokenValues}
-          onSelect={(token) => {
-            const newClass = buildClass(prop.property, token, prop.prefix);
-            onClassChange(prop.fullClass, newClass);
-            onClose();
-          }}
-          onClose={onClose}
-        />
-      )}
-    </div>
   );
 }
 
@@ -492,21 +414,18 @@ function SpacingCell({
   return (
     <div>
       <PropLabel label={label} prefix={prefix} />
-      <select
+      <StudioSelect
         value={prop.value}
-        onChange={(e) => {
-          const newClass = buildClass(prop.property, e.target.value, prop.prefix);
+        onChange={(v) => {
+          const newClass = buildClass(prop.property, v, prop.prefix);
           onClassChange(prop.fullClass, newClass);
         }}
         className="studio-select w-full"
-      >
-        {!SPACING_SCALE.includes(prop.value) && (
-          <option value={prop.value}>{prop.value}</option>
-        )}
-        {SPACING_SCALE.map((v) => (
-          <option key={v} value={v}>{v}</option>
-        ))}
-      </select>
+        options={[
+          ...(!SPACING_SCALE.includes(prop.value) ? [{ value: prop.value }] : []),
+          ...SPACING_SCALE.map((v) => ({ value: v })),
+        ]}
+      />
     </div>
   );
 }
@@ -672,21 +591,18 @@ function GenericRow({
     <div>
       <PropLabel label={property.label} prefix={property.prefix} />
       {options.length > 0 ? (
-        <select
+        <StudioSelect
           value={property.value}
-          onChange={(e) => {
-            const newClass = buildClass(property.property, e.target.value, property.prefix);
+          onChange={(v) => {
+            const newClass = buildClass(property.property, v, property.prefix);
             onClassChange(property.fullClass, newClass);
           }}
           className="studio-select w-full"
-        >
-          {!options.includes(property.value) && (
-            <option value={property.value}>{property.value}</option>
-          )}
-          {options.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
+          options={[
+            ...(!options.includes(property.value) ? [{ value: property.value }] : []),
+            ...options.map((opt) => ({ value: opt })),
+          ]}
+        />
       ) : (
         <div
           className="text-[11px] font-mono truncate"

@@ -1,0 +1,59 @@
+/**
+ * Tailwind CSS property → prefix and scale mappings.
+ * Shared by ScaleInput, ColorControl, and other controls.
+ */
+import {
+  FONT_SIZE_SCALE,
+  FONT_WEIGHT_SCALE,
+  LINE_HEIGHT_SCALE,
+  LETTER_SPACING_SCALE,
+  SPACING_SCALE,
+} from "../../../shared/tailwind-parser.js";
+
+export const CSS_PROP_TO_TW_PREFIX: Record<string, string> = {
+  "font-size": "text",
+  "font-weight": "font",
+  "font-family": "font",
+  "line-height": "leading",
+  "letter-spacing": "tracking",
+  "padding-top": "pt",
+  "padding-right": "pr",
+  "padding-bottom": "pb",
+  "padding-left": "pl",
+  "margin-top": "mt",
+  "margin-right": "mr",
+  "margin-bottom": "mb",
+  "margin-left": "ml",
+  "gap": "gap",
+  "row-gap": "gap-y",
+  "column-gap": "gap-x",
+  "width": "w",
+  "height": "h",
+  "border-top-left-radius": "rounded-tl",
+  "border-top-right-radius": "rounded-tr",
+  "border-bottom-right-radius": "rounded-br",
+  "border-bottom-left-radius": "rounded-bl",
+  "color": "text",
+  "background-color": "bg",
+  "border-color": "border",
+};
+
+export const CSS_PROP_TO_TW_SCALE: Record<string, { scale: readonly string[]; prefix: string }> = {
+  "font-size": { scale: FONT_SIZE_SCALE, prefix: "text" },
+  "font-weight": { scale: FONT_WEIGHT_SCALE, prefix: "font" },
+  "line-height": { scale: LINE_HEIGHT_SCALE, prefix: "leading" },
+  "letter-spacing": { scale: LETTER_SPACING_SCALE, prefix: "tracking" },
+  "gap": { scale: SPACING_SCALE, prefix: "gap" },
+  "row-gap": { scale: SPACING_SCALE, prefix: "gap-y" },
+  "column-gap": { scale: SPACING_SCALE, prefix: "gap-x" },
+  "padding-top": { scale: SPACING_SCALE, prefix: "pt" },
+  "padding-right": { scale: SPACING_SCALE, prefix: "pr" },
+  "padding-bottom": { scale: SPACING_SCALE, prefix: "pb" },
+  "padding-left": { scale: SPACING_SCALE, prefix: "pl" },
+  "margin-top": { scale: SPACING_SCALE, prefix: "mt" },
+  "margin-right": { scale: SPACING_SCALE, prefix: "mr" },
+  "margin-bottom": { scale: SPACING_SCALE, prefix: "mb" },
+  "margin-left": { scale: SPACING_SCALE, prefix: "ml" },
+  "width": { scale: SPACING_SCALE, prefix: "w" },
+  "height": { scale: SPACING_SCALE, prefix: "h" },
+};

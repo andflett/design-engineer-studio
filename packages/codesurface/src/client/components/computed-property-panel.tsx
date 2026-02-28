@@ -7,7 +7,7 @@
  *   - Always-visible sections with "add" affordance for unset properties
  *   - Descriptive tooltips on layout/alignment controls
  */
-import { useState, useRef, useEffect, type PointerEvent as ReactPointerEvent } from "react";
+import { useState } from "react";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -22,24 +22,16 @@ import {
   AlignTopIcon,
   AlignCenterVerticallyIcon,
   AlignBottomIcon,
-  WidthIcon,
-  HeightIcon,
   PaddingIcon,
   MarginIcon,
+  FontFamilyIcon,
   FontSizeIcon,
   FontBoldIcon,
   LineHeightIcon,
   LetterSpacingIcon,
   CornersIcon,
-  CornerTopLeftIcon,
-  CornerTopRightIcon,
-  CornerBottomLeftIcon,
-  CornerBottomRightIcon,
-  OpacityIcon,
-  LayersIcon,
-  MoveIcon,
+  BorderWidthIcon,
   EyeNoneIcon,
-  FontFamilyIcon,
   TextAlignLeftIcon,
   TextAlignCenterIcon,
   TextAlignRightIcon,
@@ -50,26 +42,16 @@ import {
   LetterCaseLowercaseIcon,
   LetterCaseCapitalizeIcon,
   StretchHorizontallyIcon,
-  ShadowIcon,
-  ColumnSpacingIcon,
-  RowSpacingIcon,
-  BorderWidthIcon,
   TextNoneIcon,
-  BoxModelIcon,
-  TokensIcon,
-  CodeIcon,
 } from "@radix-ui/react-icons";
 import {
   buildUnifiedProperties,
   getUniformBoxValue,
-  getAxisBoxValues,
   type UnifiedProperty,
   type ComputedCategory,
 } from "../lib/computed-styles.js";
 import {
   computedToTailwindClass,
-  uniformBoxToTailwind,
-  axisBoxToTailwind,
   uniformRadiusToTailwind,
 } from "../../shared/tailwind-map.js";
 import {
@@ -77,47 +59,29 @@ import {
   FONT_WEIGHT_SCALE,
   LINE_HEIGHT_SCALE,
   LETTER_SPACING_SCALE,
-  SPACING_SCALE,
   RADIUS_SCALE,
   BORDER_WIDTH_SCALE,
-  OPACITY_SCALE,
 } from "../../shared/tailwind-parser.js";
-import { ColorPopover } from "./color-popover.js";
 import { Tooltip } from "./tooltip.js";
+import {
+  ScrubInput,
+  SegmentedIcons,
+  ScaleInput,
+  PropLabel,
+  SubSectionLabel,
+  getPropertyIcon,
+  KeywordControl,
+  ShadowPicker,
+  GradientPicker,
+  OpacitySlider,
+  BoxSpacingControl,
+  type ShadowItem,
+  type GradientItem,
+  CSS_PROP_TO_TW_PREFIX,
+  CSS_PROP_TO_TW_SCALE,
+} from "./controls/index.js";
+import { ColorInput } from "./controls/color-input.js";
 import { useTokens, useShadows, useGradients } from "../lib/scan-hooks.js";
-
-// ---------------------------------------------------------------------------
-// Shared utilities
-// ---------------------------------------------------------------------------
-
-function parseNumeric(v: string): { num: number; unit: string } | null {
-  const match = v.match(/^(-?[\d.]+)\s*(px|rem|em|%|vh|vw|pt)$/);
-  if (match) return { num: parseFloat(match[1]), unit: match[2] };
-  const num = parseFloat(v);
-  if (!isNaN(num) && String(num) === v.trim()) return { num, unit: "" };
-  return null;
-}
-
-function getStep(unit: string): number {
-  if (unit === "rem" || unit === "em") return 0.0625;
-  return 1;
-}
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-interface ShadowItem {
-  name: string;
-  value: string;
-  cssVariable?: string;
-}
-
-interface GradientItem {
-  name: string;
-  value: string;
-  cssVariable: string;
-}
 
 interface ComputedPropertyPanelProps {
   tag: string;
@@ -541,321 +505,35 @@ function SpacingSection({
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
 }) {
-  const [paddingExpanded, setPaddingExpanded] = useState(false);
-  const [marginExpanded, setMarginExpanded] = useState(false);
-
   const activeProps = properties.filter((p) => p.hasValue);
   const paddingProps = activeProps.filter((p) => p.cssProperty.startsWith("padding-"));
   const marginProps = activeProps.filter((p) => p.cssProperty.startsWith("margin-"));
   const addableProps = properties.filter((p) => !p.hasValue);
 
-  const uniformPadding = getUniformBoxValue(computedStyles, "padding");
-  const uniformMargin = getUniformBoxValue(computedStyles, "margin");
-  const axisPadding = !uniformPadding ? getAxisBoxValues(computedStyles, "padding") : null;
-  const axisMargin = !uniformMargin ? getAxisBoxValues(computedStyles, "margin") : null;
-
-  // Compute summary for collapsed view — show computed values, "—" for zero defaults
-  const formatSpacingValue = (p: UnifiedProperty) => {
-    const v = p.computedValue;
-    if (!p.tailwindValue && (v === "0px" || v === "0")) return "—";
-    return v;
-  };
-
-  const paddingSummary = uniformPadding
-    ? null  // will use ScaleInput with the uniform value
-    : axisPadding
-    ? `${axisPadding.y} ${axisPadding.x}`
-    : paddingProps.length > 0
-    ? paddingProps.map(formatSpacingValue).join(" ")
-    : null;
-
-  const marginSummary = uniformMargin
-    ? null
-    : axisMargin
-    ? `${axisMargin.y} ${axisMargin.x}`
-    : marginProps.length > 0
-    ? marginProps.map(formatSpacingValue).join(" ")
-    : null;
-
-  // Find individual side props from all properties (including addable ones)
-  const findProp = (cssProp: string) => properties.find((p) => p.cssProperty === cssProp);
-
   return (
     <>
-      {/* Padding */}
       {paddingProps.length > 0 && (
-        <>
-          <div className="flex items-center justify-between">
-            <SubSectionLabel label="Padding" />
-            <button
-              onClick={() => setPaddingExpanded(!paddingExpanded)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--studio-text-dimmed)",
-                padding: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Tooltip content={paddingExpanded ? "Collapse to shorthand" : "Expand individual sides"}>
-                <BoxModelIcon style={{ width: 12, height: 12, opacity: paddingExpanded ? 1 : 0.5 }} />
-              </Tooltip>
-            </button>
-          </div>
-          {!paddingExpanded ? (
-            /* Collapsed: single shorthand input */
-            uniformPadding ? (
-              <ScaleInput
-                icon={PaddingIcon}
-                value={paddingProps[0]?.tailwindValue || (uniformPadding === "0px" || uniformPadding === "0" ? "—" : uniformPadding)}
-                computedValue={uniformPadding || "0"}
-                currentClass={paddingProps[0]?.fullClass || null}
-                scale={SPACING_SCALE as string[]}
-                prefix="p"
-                cssProp="padding"
-                onPreview={(v) => onPreviewInlineStyle("padding", v)}
-                onCommitClass={onCommitClass}
-                onCommitValue={(v) => {
-                  const match = uniformBoxToTailwind("padding", v);
-                  if (match) {
-                    onCommitClass(match.tailwindClass);
-                  } else {
-                    const mapped = computedToTailwindClass("padding", v);
-                    if (mapped) onCommitClass(mapped.tailwindClass);
-                    else onCommitClass(`p-[${v.trim()}]`);
-                  }
-                }}
-              />
-            ) : axisPadding ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                <ScaleInput
-                  icon={PaddingIcon}
-                  label="X"
-                  value={axisPadding.x}
-                  computedValue={axisPadding.x}
-                  currentClass={null}
-                  scale={SPACING_SCALE as string[]}
-                  prefix="px"
-                  cssProp="padding-left"
-                  onPreview={(v) => {
-                    onPreviewInlineStyle("padding-left", v);
-                    onPreviewInlineStyle("padding-right", v);
-                  }}
-                  onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
-                    const { xClass } = axisBoxToTailwind("padding", v, axisPadding.y);
-                    if (xClass) {
-                      onCommitClass(xClass.tailwindClass);
-                    } else {
-                      const mapped = computedToTailwindClass("padding-left", v);
-                      if (mapped) onCommitClass(mapped.tailwindClass);
-                      else onCommitClass(`px-[${v.trim()}]`);
-                    }
-                  }}
-                />
-                <ScaleInput
-                  icon={PaddingIcon}
-                  label="Y"
-                  value={axisPadding.y}
-                  computedValue={axisPadding.y}
-                  currentClass={null}
-                  scale={SPACING_SCALE as string[]}
-                  prefix="py"
-                  cssProp="padding-top"
-                  onPreview={(v) => {
-                    onPreviewInlineStyle("padding-top", v);
-                    onPreviewInlineStyle("padding-bottom", v);
-                  }}
-                  onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
-                    const { yClass } = axisBoxToTailwind("padding", axisPadding.x, v);
-                    if (yClass) {
-                      onCommitClass(yClass.tailwindClass);
-                    } else {
-                      const mapped = computedToTailwindClass("padding-top", v);
-                      if (mapped) onCommitClass(mapped.tailwindClass);
-                      else onCommitClass(`py-[${v.trim()}]`);
-                    }
-                  }}
-                />
-              </div>
-            ) : (
-              <ScrubInput
-                icon={PaddingIcon}
-                value={paddingSummary || "mixed"}
-                cssProp="padding"
-                onPreview={(v) => onPreviewInlineStyle("padding", v)}
-                onCommit={(v) => {
-                  const match = uniformBoxToTailwind("padding", v);
-                  if (match) onCommitClass(match.tailwindClass);
-                }}
-              />
-            )
-          ) : (
-            /* Expanded: 4 individual side inputs in 2x2 grid */
-            <div className="grid grid-cols-2 gap-1.5">
-              {(["padding-top", "padding-right", "padding-bottom", "padding-left"] as const).map((side) => {
-                const prop = findProp(side);
-                const sideLabel = side.replace("padding-", "")[0].toUpperCase();
-                const sidePrefix = `p${side.replace("padding-", "")[0]}`;
-                const cv = prop?.computedValue || "0";
-                return (
-                  <ScaleInput
-                    key={side}
-                    label={sideLabel}
-                    value={prop?.tailwindValue || (cv === "0px" || cv === "0" ? "—" : cv)}
-                    computedValue={cv}
-                    currentClass={prop?.fullClass || null}
-                    scale={SPACING_SCALE as string[]}
-                    prefix={sidePrefix}
-                    cssProp={side}
-                    onPreview={(v) => onPreviewInlineStyle(side, v)}
-                    onCommitClass={onCommitClass}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </>
+        <BoxSpacingControl
+          box="padding"
+          icon={PaddingIcon}
+          activeProps={paddingProps}
+          allProperties={properties}
+          computedStyles={computedStyles}
+          onPreviewInlineStyle={onPreviewInlineStyle}
+          onCommitClass={onCommitClass}
+        />
       )}
 
-      {/* Margin */}
       {marginProps.length > 0 && (
-        <>
-          <div className="flex items-center justify-between">
-            <SubSectionLabel label="Margin" />
-            <button
-              onClick={() => setMarginExpanded(!marginExpanded)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--studio-text-dimmed)",
-                padding: "2px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <Tooltip content={marginExpanded ? "Collapse to shorthand" : "Expand individual sides"}>
-                <BoxModelIcon style={{ width: 12, height: 12, opacity: marginExpanded ? 1 : 0.5 }} />
-              </Tooltip>
-            </button>
-          </div>
-          {!marginExpanded ? (
-            uniformMargin ? (
-              <ScaleInput
-                icon={MarginIcon}
-                value={marginProps[0]?.tailwindValue || (uniformMargin === "0px" || uniformMargin === "0" ? "—" : uniformMargin)}
-                computedValue={uniformMargin || "0"}
-                currentClass={marginProps[0]?.fullClass || null}
-                scale={SPACING_SCALE as string[]}
-                prefix="m"
-                cssProp="margin"
-                onPreview={(v) => onPreviewInlineStyle("margin", v)}
-                onCommitClass={onCommitClass}
-                onCommitValue={(v) => {
-                  const match = uniformBoxToTailwind("margin", v);
-                  if (match) {
-                    onCommitClass(match.tailwindClass);
-                  } else {
-                    const mapped = computedToTailwindClass("margin", v);
-                    if (mapped) onCommitClass(mapped.tailwindClass);
-                    else onCommitClass(`m-[${v.trim()}]`);
-                  }
-                }}
-              />
-            ) : axisMargin ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                <ScaleInput
-                  icon={MarginIcon}
-                  label="X"
-                  value={axisMargin.x}
-                  computedValue={axisMargin.x}
-                  currentClass={null}
-                  scale={SPACING_SCALE as string[]}
-                  prefix="mx"
-                  cssProp="margin-left"
-                  onPreview={(v) => {
-                    onPreviewInlineStyle("margin-left", v);
-                    onPreviewInlineStyle("margin-right", v);
-                  }}
-                  onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
-                    const { xClass } = axisBoxToTailwind("margin", v, axisMargin.y);
-                    if (xClass) {
-                      onCommitClass(xClass.tailwindClass);
-                    } else {
-                      const mapped = computedToTailwindClass("margin-left", v);
-                      if (mapped) onCommitClass(mapped.tailwindClass);
-                      else onCommitClass(`mx-[${v.trim()}]`);
-                    }
-                  }}
-                />
-                <ScaleInput
-                  icon={MarginIcon}
-                  label="Y"
-                  value={axisMargin.y}
-                  computedValue={axisMargin.y}
-                  currentClass={null}
-                  scale={SPACING_SCALE as string[]}
-                  prefix="my"
-                  cssProp="margin-top"
-                  onPreview={(v) => {
-                    onPreviewInlineStyle("margin-top", v);
-                    onPreviewInlineStyle("margin-bottom", v);
-                  }}
-                  onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
-                    const { yClass } = axisBoxToTailwind("margin", axisMargin.x, v);
-                    if (yClass) {
-                      onCommitClass(yClass.tailwindClass);
-                    } else {
-                      const mapped = computedToTailwindClass("margin-top", v);
-                      if (mapped) onCommitClass(mapped.tailwindClass);
-                      else onCommitClass(`my-[${v.trim()}]`);
-                    }
-                  }}
-                />
-              </div>
-            ) : (
-              <ScrubInput
-                icon={MarginIcon}
-                value={marginSummary || "mixed"}
-                cssProp="margin"
-                onPreview={(v) => onPreviewInlineStyle("margin", v)}
-                onCommit={(v) => {
-                  const match = uniformBoxToTailwind("margin", v);
-                  if (match) onCommitClass(match.tailwindClass);
-                }}
-              />
-            )
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              {(["margin-top", "margin-right", "margin-bottom", "margin-left"] as const).map((side) => {
-                const prop = findProp(side);
-                const sideLabel = side.replace("margin-", "")[0].toUpperCase();
-                const sidePrefix = `m${side.replace("margin-", "")[0]}`;
-                const cv = prop?.computedValue || "0";
-                return (
-                  <ScaleInput
-                    key={side}
-                    label={sideLabel}
-                    value={prop?.tailwindValue || (cv === "0px" || cv === "0" ? "—" : cv)}
-                    computedValue={cv}
-                    currentClass={prop?.fullClass || null}
-                    scale={SPACING_SCALE as string[]}
-                    prefix={sidePrefix}
-                    cssProp={side}
-                    onPreview={(v) => onPreviewInlineStyle(side, v)}
-                    onCommitClass={onCommitClass}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </>
+        <BoxSpacingControl
+          box="margin"
+          icon={MarginIcon}
+          activeProps={marginProps}
+          allProperties={properties}
+          computedStyles={computedStyles}
+          onPreviewInlineStyle={onPreviewInlineStyle}
+          onCommitClass={onCommitClass}
+        />
       )}
 
       {addableProps.length > 0 && (
@@ -1126,12 +804,17 @@ function BorderSection({
   return (
     <>
       {radiusProps.length > 0 && (
-        <>
-          <SubSectionLabel label="Radius" />
+        <div>
+          <PropLabel label="Radius" />
           {uniformRadius ? (
             <ScaleInput
               icon={CornersIcon}
-              value={radiusProps[0]?.tailwindValue || (uniformRadius === "0px" || uniformRadius === "0" ? "—" : uniformRadius)}
+              value={
+                radiusProps[0]?.tailwindValue ||
+                (uniformRadius === "0px" || uniformRadius === "0"
+                  ? "—"
+                  : uniformRadius)
+              }
               computedValue={uniformRadius || "0"}
               currentClass={radiusProps[0]?.fullClass || null}
               scale={RADIUS_SCALE as string[]}
@@ -1154,40 +837,47 @@ function BorderSection({
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
-      <SubSectionLabel label="Width" />
-      {uniformBorderWidth || widthProps.length === 0 ? (
-        <ScaleInput
-          icon={BorderWidthIcon}
-          value={widthProps[0]?.tailwindValue || (
-            !uniformBorderWidth || uniformBorderWidth === "0px" || uniformBorderWidth === "0" ? "—" : uniformBorderWidth
-          )}
-          computedValue={uniformBorderWidth || "0px"}
-          currentClass={widthProps[0]?.fullClass || null}
-          scale={BORDER_WIDTH_SCALE as string[]}
-          prefix="border"
-          cssProp="border-width"
-          onPreview={(v) => onPreviewInlineStyle("border-width", v)}
-          onCommitClass={(cls, oldClass) => {
-            // "border-1" is not a valid Tailwind class — "border" (no suffix) = 1px
-            const fixedClass = cls === "border-1" ? "border" : cls;
-            onCommitClass(fixedClass, oldClass);
-          }}
-        />
-      ) : (
-        widthProps.map((prop) => (
-          <UnifiedControl
-            key={prop.cssProperty}
-            prop={prop}
-            tokenGroups={tokenGroups}
-            onPreviewInlineStyle={onPreviewInlineStyle}
-            onRevertInlineStyles={onRevertInlineStyles}
-            onCommitClass={onCommitClass}
+      <div>
+        <PropLabel label="Width" />
+        {uniformBorderWidth || widthProps.length === 0 ? (
+          <ScaleInput
+            icon={BorderWidthIcon}
+            value={
+              widthProps[0]?.tailwindValue ||
+              (!uniformBorderWidth ||
+              uniformBorderWidth === "0px" ||
+              uniformBorderWidth === "0"
+                ? "—"
+                : uniformBorderWidth)
+            }
+            computedValue={uniformBorderWidth || "0px"}
+            currentClass={widthProps[0]?.fullClass || null}
+            scale={BORDER_WIDTH_SCALE as string[]}
+            prefix="border"
+            cssProp="border-width"
+            onPreview={(v) => onPreviewInlineStyle("border-width", v)}
+            onCommitClass={(cls, oldClass) => {
+              // "border-1" is not a valid Tailwind class — "border" (no suffix) = 1px
+              const fixedClass = cls === "border-1" ? "border" : cls;
+              onCommitClass(fixedClass, oldClass);
+            }}
           />
-        ))
-      )}
+        ) : (
+          widthProps.map((prop) => (
+            <UnifiedControl
+              key={prop.cssProperty}
+              prop={prop}
+              tokenGroups={tokenGroups}
+              onPreviewInlineStyle={onPreviewInlineStyle}
+              onRevertInlineStyles={onRevertInlineStyles}
+              onCommitClass={onCommitClass}
+            />
+          ))
+        )}
+      </div>
 
       {otherProps.map((prop) => (
         <UnifiedControl
@@ -1206,9 +896,6 @@ function BorderSection({
 // ---------------------------------------------------------------------------
 // Effects section — opacity slider + shadow/gradient pickers
 // ---------------------------------------------------------------------------
-
-/** Tailwind shadow scale classes */
-const SHADOW_SCALE = ["none", "2xs", "xs", "sm", "", "md", "lg", "xl", "2xl"];
 
 function EffectsSection({
   properties,
@@ -1243,7 +930,7 @@ function EffectsSection({
       {opacityProp && (
         <div>
           <PropLabel label={opacityProp.label} inherited={opacityProp.inherited} />
-          <SliderInput
+          <OpacitySlider
             value={opacityProp.computedValue}
             onPreview={(v) => onPreviewInlineStyle("opacity", v)}
             onCommitClass={onCommitClass}
@@ -1318,248 +1005,6 @@ function EffectsSection({
 }
 
 // ---------------------------------------------------------------------------
-// Shadow picker — dropdown of scanned shadows
-// ---------------------------------------------------------------------------
-
-function ShadowPicker({
-  prop,
-  shadows,
-  elementClassName,
-  onPreviewInlineStyle,
-  onCommitClass,
-}: {
-  prop: UnifiedProperty;
-  shadows?: ShadowItem[];
-  elementClassName: string;
-  onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  const currentValue = prop.computedValue;
-  const isNone = !currentValue || currentValue === "none";
-
-  // Resolve current shadow name from the element's className
-  const resolvedFromClass = (() => {
-    if (prop.tailwindValue) return { name: prop.tailwindValue, cls: prop.fullClass || undefined };
-    if (isNone) return { name: "none", cls: undefined };
-    // Search className for shadow classes
-    const classes = elementClassName.split(/\s+/).filter(Boolean);
-    for (const cls of classes) {
-      // Match shadow-[var(--name)] → find shadow by CSS variable
-      const varMatch = cls.match(/^shadow-\[var\((--[\w-]+)\)\]$/);
-      if (varMatch) {
-        const varName = varMatch[1];
-        const shadowDef = shadows?.find((s) => s.cssVariable === varName);
-        if (shadowDef) return { name: shadowDef.name, cls };
-      }
-      // Match standard shadow scale: shadow, shadow-sm, shadow-md, etc.
-      const scaleMatch = cls.match(/^shadow(?:-(2xs|xs|sm|md|lg|xl|2xl|none))?$/);
-      if (scaleMatch) {
-        const scaleName = scaleMatch[1] || "";
-        return { name: scaleName, cls };
-      }
-    }
-    return null;
-  })();
-  const currentShadowName = resolvedFromClass?.name ?? null;
-  const currentShadowClass = resolvedFromClass?.cls;
-
-  const handleSelect = (shadowName: string) => {
-    const oldClass = currentShadowClass || prop.fullClass || undefined;
-    if (shadowName === "none") {
-      onPreviewInlineStyle("box-shadow", "none");
-      onCommitClass("shadow-none", oldClass);
-      return;
-    }
-
-    // Check if it's a standard Tailwind shadow scale value
-    if (SHADOW_SCALE.includes(shadowName)) {
-      const cls = shadowName === "" ? "shadow" : `shadow-${shadowName}`;
-      // Find the shadow value for preview
-      const shadowDef = shadows?.find((s) => s.name === `shadow-${shadowName}` || s.name === shadowName);
-      if (shadowDef) {
-        onPreviewInlineStyle("box-shadow", shadowDef.value);
-      }
-      onCommitClass(cls, oldClass);
-      return;
-    }
-
-    // Custom shadow — find definition and apply as arbitrary value or class
-    const shadowDef = shadows?.find((s) => s.name === shadowName);
-    if (shadowDef) {
-      onPreviewInlineStyle("box-shadow", shadowDef.value);
-      // If it has a CSS variable, use shadow-[var(--name)]
-      if (shadowDef.cssVariable) {
-        onCommitClass(`shadow-[var(${shadowDef.cssVariable})]`, oldClass);
-      } else {
-        // Use the Tailwind shadow class if name matches convention
-        const cls = shadowName.startsWith("shadow-") ? shadowName : `shadow-${shadowName}`;
-        onCommitClass(cls, oldClass);
-      }
-    }
-  };
-
-  return (
-    <div className="studio-scrub-input">
-      <Tooltip content="box-shadow" side="left">
-        <div className="studio-scale-icon">
-          <ShadowIcon style={{ width: 12, height: 12 }} />
-        </div>
-      </Tooltip>
-      <select
-        value={currentShadowName || "__current__"}
-        onChange={(e) => handleSelect(e.target.value)}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: "transparent",
-          border: "none",
-          color: "var(--studio-text)",
-          fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-          fontSize: "11px",
-          padding: "6px 8px",
-          outline: "none",
-          cursor: "pointer",
-          WebkitAppearance: "none" as any,
-        }}
-      >
-        {currentShadowName === null && (
-          <option value="__current__">
-            {currentValue.length > 30 ? currentValue.slice(0, 30) + "..." : currentValue}
-          </option>
-        )}
-        <option value="none">none</option>
-        {/* Standard Tailwind shadow scale */}
-        <optgroup label="Scale">
-          {SHADOW_SCALE.filter(s => s !== "none").map((s) => (
-            <option key={s || "__default__"} value={s}>
-              {s === "" ? "shadow (default)" : s}
-            </option>
-          ))}
-        </optgroup>
-        {/* Scanned shadows from the project */}
-        {shadows && shadows.length > 0 && (
-          <optgroup label="Project Shadows">
-            {shadows
-              .filter((s) => !SHADOW_SCALE.includes(s.name.replace(/^shadow-?/, "")))
-              .map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-          </optgroup>
-        )}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Gradient picker — dropdown of scanned gradients
-// ---------------------------------------------------------------------------
-
-function GradientPicker({
-  prop,
-  gradients,
-  elementClassName,
-  onPreviewInlineStyle,
-  onCommitClass,
-}: {
-  prop: UnifiedProperty | null;
-  gradients?: GradientItem[];
-  elementClassName: string;
-  onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  const currentValue = prop?.computedValue || "none";
-  const hasGradient = currentValue !== "none" && currentValue.includes("gradient");
-
-  // Resolve current gradient from the element's className
-  const resolvedFromClass = (() => {
-    if (prop?.fullClass) return { name: null, cls: prop.fullClass };
-    const classes = elementClassName.split(/\s+/).filter(Boolean);
-    for (const cls of classes) {
-      // Match bg-[image:var(--name)] or bg-[var(--name)]
-      const varMatch = cls.match(/^bg-\[(?:image:)?var\((--[\w-]+)\)\]$/);
-      if (varMatch) {
-        const varName = varMatch[1];
-        const gradDef = gradients?.find((g) => g.cssVariable === varName);
-        if (gradDef) return { name: gradDef.name, cls };
-      }
-    }
-    return null;
-  })();
-  const currentClass = resolvedFromClass?.cls || prop?.fullClass || undefined;
-  const currentGradientName = resolvedFromClass?.name;
-
-  const handleSelect = (value: string) => {
-    if (value === "none") {
-      onPreviewInlineStyle("background-image", "none");
-      onCommitClass("bg-none", currentClass);
-      return;
-    }
-
-    // Find the gradient definition
-    const grad = gradients?.find((g) => g.name === value);
-    if (grad) {
-      onPreviewInlineStyle("background-image", grad.value);
-      // Use image: type hint so Tailwind treats this as background-image, not background-color
-      onCommitClass(`bg-[image:var(${grad.cssVariable})]`, currentClass);
-    }
-  };
-
-  return (
-    <div className="studio-scrub-input">
-      <Tooltip content="background-image (gradient)" side="left">
-        <div className="studio-scale-icon">
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 2,
-              background: hasGradient ? currentValue : "linear-gradient(135deg, var(--studio-accent), transparent)",
-              opacity: hasGradient ? 1 : 0.5,
-            }}
-          />
-        </div>
-      </Tooltip>
-      <select
-        value={currentGradientName || (hasGradient ? "__current__" : "none")}
-        onChange={(e) => handleSelect(e.target.value)}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: "transparent",
-          border: "none",
-          color: "var(--studio-text)",
-          fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-          fontSize: "11px",
-          padding: "6px 8px",
-          outline: "none",
-          cursor: "pointer",
-          WebkitAppearance: "none" as any,
-        }}
-      >
-        <option value="none">none</option>
-        {hasGradient && !currentGradientName && (
-          <option value="__current__">
-            {currentValue.length > 30 ? currentValue.slice(0, 30) + "..." : currentValue}
-          </option>
-        )}
-        {gradients && gradients.length > 0 && (
-          <optgroup label="Project Gradients">
-            {gradients.map((g) => (
-              <option key={g.name} value={g.name}>
-                {g.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Addable rows — visible rows with background, clickable to add
 // ---------------------------------------------------------------------------
 
@@ -1610,29 +1055,6 @@ function AddableRows({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tailwind scale mapping — maps CSS properties to their Tailwind scale values
-// ---------------------------------------------------------------------------
-
-const CSS_PROP_TO_TW_SCALE: Record<string, { scale: readonly string[]; prefix: string }> = {
-  "font-size": { scale: FONT_SIZE_SCALE, prefix: "text" },
-  "font-weight": { scale: FONT_WEIGHT_SCALE, prefix: "font" },
-  "line-height": { scale: LINE_HEIGHT_SCALE, prefix: "leading" },
-  "letter-spacing": { scale: LETTER_SPACING_SCALE, prefix: "tracking" },
-  "gap": { scale: SPACING_SCALE, prefix: "gap" },
-  "row-gap": { scale: SPACING_SCALE, prefix: "gap-y" },
-  "column-gap": { scale: SPACING_SCALE, prefix: "gap-x" },
-  "padding-top": { scale: SPACING_SCALE, prefix: "pt" },
-  "padding-right": { scale: SPACING_SCALE, prefix: "pr" },
-  "padding-bottom": { scale: SPACING_SCALE, prefix: "pb" },
-  "padding-left": { scale: SPACING_SCALE, prefix: "pl" },
-  "margin-top": { scale: SPACING_SCALE, prefix: "mt" },
-  "margin-right": { scale: SPACING_SCALE, prefix: "mr" },
-  "margin-bottom": { scale: SPACING_SCALE, prefix: "mb" },
-  "margin-left": { scale: SPACING_SCALE, prefix: "ml" },
-  "width": { scale: SPACING_SCALE, prefix: "w" },
-  "height": { scale: SPACING_SCALE, prefix: "h" },
-};
 
 // ---------------------------------------------------------------------------
 // Unified control — handles tiered rendering
@@ -1654,13 +1076,41 @@ function UnifiedControl({
 }) {
   // 1. Color controls
   if (prop.controlType === "color") {
+    const colorTokens: Array<{ name: string; value: string }> = [];
+    for (const [, tokens] of Object.entries(tokenGroups)) {
+      for (const t of tokens as any[]) {
+        if (t.category === "color") {
+          const name = t.name.replace(/^--/, "");
+          if (!colorTokens.some((ct) => ct.name === name)) {
+            colorTokens.push({ name, value: t.lightValue || "" });
+          }
+        }
+      }
+    }
+
+    const twPrefix = prop.cssProperty === "color" ? "text"
+      : prop.cssProperty === "background-color" ? "bg"
+      : "border";
+
+    const hasToken = !!prop.tokenMatch;
+    const displayLabel = hasToken ? prop.tokenMatch!.tokenName : (prop.tailwindValue || prop.computedValue);
+
     return (
-      <ColorControl
-        prop={prop}
-        tokenGroups={tokenGroups}
-        onPreviewInlineStyle={onPreviewInlineStyle}
-        onCommitClass={onCommitClass}
-      />
+      <div>
+        <PropLabel label={prop.label} inherited={prop.inherited} />
+        <ColorInput
+          color={prop.computedValue}
+          label={displayLabel}
+          tabs="both"
+          defaultTab="tokens"
+          tokens={colorTokens}
+          activeToken={hasToken ? prop.tokenMatch!.tokenName : undefined}
+          onSelectToken={(token) => {
+            onCommitClass(`${twPrefix}-${token}`);
+          }}
+          onChange={(c) => onPreviewInlineStyle(prop.cssProperty, c)}
+        />
+      </div>
     );
   }
 
@@ -1691,14 +1141,22 @@ function UnifiedControl({
     );
   }
 
-  // 3. Design token match
+  // 3. Design token match → use ScaleInput with token group as scale
   if (prop.tokenMatch) {
+    const tm = prop.tokenMatch;
+    const twPrefix = CSS_PROP_TO_TW_PREFIX[prop.cssProperty] || "";
     return (
       <div>
         <PropLabel label={prop.label} inherited={prop.inherited} />
-        <TokenPickerControl
-          prop={prop}
-          onPreviewInlineStyle={onPreviewInlineStyle}
+        <ScaleInput
+          icon={getPropertyIcon(prop.cssProperty)}
+          value={tm.tokenName}
+          computedValue={prop.computedValue}
+          currentClass={prop.fullClass}
+          scale={tm.groupTokens.map((t) => t.name)}
+          prefix={twPrefix}
+          cssProp={prop.cssProperty}
+          onPreview={(v) => onPreviewInlineStyle(prop.cssProperty, v)}
           onCommitClass={onCommitClass}
         />
       </div>
@@ -1710,7 +1168,7 @@ function UnifiedControl({
     return (
       <div>
         <PropLabel label={prop.label} inherited={prop.inherited} />
-        <SliderInput
+        <OpacitySlider
           value={prop.computedValue}
           onPreview={(v) => onPreviewInlineStyle("opacity", v)}
           onCommitClass={onCommitClass}
@@ -1764,7 +1222,7 @@ function UnifiedControl({
       <ScrubInput
         icon={getPropertyIcon(prop.cssProperty)}
         value={prop.computedValue}
-        cssProp={prop.cssProperty}
+        tooltip={prop.cssProperty}
         onPreview={(v) => onPreviewInlineStyle(prop.cssProperty, v)}
         onCommit={(v) => {
           const match = computedToTailwindClass(prop.cssProperty, v);
@@ -1775,857 +1233,3 @@ function UnifiedControl({
   );
 }
 
-// ---------------------------------------------------------------------------
-// ScaleInput — composite icon + scale dropdown OR arbitrary text + toggle
-// ┌──────┬──────────────────────┬────┐
-// │ icon │ text-base         ▾  │ <> │  ← scale mode
-// ├──────┼──────────────────────┼────┤
-// │ icon │ 16px                 │ <> │  ← arbitrary mode
-// └──────┴──────────────────────┴────┘
-// ---------------------------------------------------------------------------
-
-function ScaleInput({
-  icon: Icon,
-  label,
-  value,
-  computedValue,
-  currentClass,
-  scale,
-  prefix,
-  cssProp,
-  onPreview,
-  onCommitClass,
-  onCommitValue,
-}: {
-  icon?: React.ComponentType<{ style?: React.CSSProperties }>;
-  label?: string;
-  /** Display value — the scale suffix (e.g. "2xl") or "—" for zero defaults */
-  value: string;
-  /** Raw CSS computed value (e.g. "30px", "700") — shown in arbitrary/CSS mode */
-  computedValue: string;
-  /** The actual Tailwind class on this element (e.g. "text-2xl"), if any */
-  currentClass: string | null;
-  scale: string[];
-  prefix: string;
-  cssProp: string;
-  onPreview?: (v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-  onCommitValue?: (v: string) => void;
-}) {
-  // Strip prefix from value if present (e.g. "text-base" → "base", "font-bold" → "bold")
-  const normalizedValue = value.startsWith(prefix + "-")
-    ? value.slice(prefix.length + 1)
-    : value;
-  const isInScale = scale.includes(normalizedValue);
-  const isDash = normalizedValue === "—" || normalizedValue === "";
-  const [arbitraryMode, setArbitraryMode] = useState(!isInScale && !isDash && normalizedValue !== "0" && normalizedValue !== "0px");
-  const [draft, setDraft] = useState(arbitraryMode ? computedValue : normalizedValue);
-  const [focused, setFocused] = useState(false);
-  // Track what class we last wrote so subsequent changes replace the correct one
-  const lastWrittenClassRef = useRef<string | null>(currentClass);
-  // Hold the committed CSS value until HMR updates computedValue, preventing
-  // a flicker back to the old value during the write→HMR roundtrip.
-  const pendingValueRef = useRef<string | null>(null);
-
-  // Keep ref in sync with prop when element re-selects
-  useEffect(() => {
-    lastWrittenClassRef.current = currentClass;
-  }, [currentClass]);
-
-  // Clear pending value once computedValue actually changes (HMR arrived)
-  useEffect(() => {
-    if (pendingValueRef.current !== null) {
-      pendingValueRef.current = null;
-    }
-  }, [computedValue]);
-
-  // Sync draft when the external value changes (e.g. element re-selected)
-  useEffect(() => {
-    if (!focused) {
-      setDraft(arbitraryMode ? computedValue : normalizedValue);
-    }
-    // Never auto-switch modes — the user controls the toggle explicitly.
-  }, [normalizedValue, computedValue, focused, arbitraryMode]);
-
-  // Get the old class to replace — use our tracked ref, fall back to currentClass prop
-  const getOldClass = (): string | undefined => {
-    return lastWrittenClassRef.current || currentClass || undefined;
-  };
-
-  const handleScaleChange = (selected: string) => {
-    if (selected === "__custom__") {
-      setArbitraryMode(true);
-      setDraft(computedValue);
-      return;
-    }
-    const newClass = `${prefix}-${selected}`;
-    const oldClass = getOldClass();
-    onCommitClass(newClass, oldClass);
-    lastWrittenClassRef.current = newClass;
-  };
-
-  const handleArbitraryCommit = (v: string) => {
-    const trimmed = v.trim();
-    if (!trimmed) return;
-    const oldClass = getOldClass();
-    // Hold the committed value so the input doesn't flicker back to the old
-    // computedValue during the write→HMR roundtrip.
-    pendingValueRef.current = trimmed;
-    // 1. Direct scale match (works for spacing: "4" → "p-4")
-    if (scale.includes(trimmed)) {
-      const newClass = `${prefix}-${trimmed}`;
-      onCommitClass(newClass, oldClass);
-      lastWrittenClassRef.current = newClass;
-      return;
-    }
-    // 2. CSS value → Tailwind class mapping (works for "700" → "font-bold", "24px" → "text-2xl")
-    const mapped = computedToTailwindClass(cssProp, trimmed);
-    if (mapped && mapped.exact) {
-      onCommitClass(mapped.tailwindClass, oldClass);
-      lastWrittenClassRef.current = mapped.tailwindClass;
-      return;
-    }
-    // 3. Arbitrary fallback — use mapped arbitrary class if available, else build one
-    const newClass = mapped ? mapped.tailwindClass : `${prefix}-[${trimmed}]`;
-    onCommitClass(newClass, oldClass);
-    lastWrittenClassRef.current = newClass;
-  };
-
-  // Scrub support for arbitrary mode
-  const scrubRef = useRef<{ startX: number; startVal: number; unit: string } | null>(null);
-  const [scrubbing, setScrubbing] = useState(false);
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-
-  const scrubValue = arbitraryMode ? (focused ? draft : (pendingValueRef.current || computedValue)) : null;
-  const isScrubbable = arbitraryMode && scrubValue !== null && parseNumeric(scrubValue) !== null;
-
-  const handleScrubDown = (e: ReactPointerEvent) => {
-    if (!scrubValue) return;
-    const parsed = parseNumeric(scrubValue);
-    if (!parsed) return;
-
-    e.preventDefault();
-    scrubRef.current = { startX: e.clientX, startVal: parsed.num, unit: parsed.unit };
-    setScrubbing(true);
-    const step = getStep(parsed.unit);
-
-    const handleMove = (me: globalThis.PointerEvent) => {
-      if (!scrubRef.current) return;
-      const multiplier = me.shiftKey ? 10 : 1;
-      const delta = Math.round((me.clientX - scrubRef.current.startX) / 2);
-      const newVal = scrubRef.current.startVal + delta * step * multiplier;
-      const formatted = scrubRef.current.unit
-        ? `${parseFloat(newVal.toFixed(4))}${scrubRef.current.unit}`
-        : `${Math.round(newVal)}`;
-      setDraft(formatted);
-      draftRef.current = formatted;
-      if (onPreview) onPreview(formatted);
-    };
-
-    const handleUp = () => {
-      document.removeEventListener("pointermove", handleMove);
-      document.removeEventListener("pointerup", handleUp);
-      if (scrubRef.current) {
-        const val = draftRef.current;
-        if (onCommitValue) onCommitValue(val);
-        else handleArbitraryCommit(val);
-        scrubRef.current = null;
-      }
-      setScrubbing(false);
-    };
-
-    document.addEventListener("pointermove", handleMove);
-    document.addEventListener("pointerup", handleUp);
-  };
-
-  return (
-    <div
-      className="studio-scale-input"
-      style={arbitraryMode ? { borderLeft: "2px solid var(--studio-accent)" } : undefined}
-    >
-      {Icon && (
-        <Tooltip content={label || cssProp} side="left">
-          <div
-            className={isScrubbable ? "studio-scrub-icon" : "studio-scale-icon"}
-            onPointerDown={isScrubbable ? handleScrubDown : undefined}
-          >
-            <Icon style={{ width: 12, height: 12 }} />
-          </div>
-        </Tooltip>
-      )}
-      {!Icon && label && (
-        <Tooltip content={cssProp} side="left">
-          <div
-            className={isScrubbable ? "studio-scrub-label" : "studio-scale-label"}
-            onPointerDown={isScrubbable ? handleScrubDown : undefined}
-          >
-            {label}
-          </div>
-        </Tooltip>
-      )}
-
-      {!arbitraryMode ? (
-        <select
-          value={isInScale ? normalizedValue : "__custom__"}
-          onChange={(e) => handleScaleChange(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            border: "none",
-            color: "var(--studio-text)",
-            fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-            fontSize: "11px",
-            padding: "6px 8px",
-            outline: "none",
-            cursor: "pointer",
-            WebkitAppearance: "none" as any,
-          }}
-        >
-          {!isInScale && (
-            <option value="__custom__">
-              {normalizedValue || "—"}
-            </option>
-          )}
-          {scale.map((val) => (
-            <option key={val} value={val}>
-              {val}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type="text"
-          value={focused || scrubbing ? draft : (pendingValueRef.current || computedValue)}
-          placeholder="e.g. 16px"
-          onChange={(e) => {
-            setDraft(e.target.value);
-          }}
-          onFocus={() => {
-            setDraft(computedValue);
-            setFocused(true);
-          }}
-          onBlur={() => {
-            setFocused(false);
-            const trimmed = draft.trim();
-            if (trimmed && trimmed !== computedValue) {
-              if (onCommitValue) onCommitValue(trimmed);
-              else handleArbitraryCommit(trimmed);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") {
-              setDraft(computedValue);
-              setFocused(false);
-            }
-          }}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            border: "none",
-            color: "var(--studio-text)",
-            fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-            fontSize: "11px",
-            padding: "6px 8px",
-            outline: "none",
-          }}
-        />
-      )}
-
-      <Tooltip content={arbitraryMode ? "Custom CSS value — click to use token scale" : "Token scale — click to enter custom CSS value"} side="bottom">
-        <button
-          onClick={() => {
-            setArbitraryMode(!arbitraryMode);
-            if (!arbitraryMode) setDraft(computedValue);
-          }}
-          className={`studio-scale-toggle${arbitraryMode ? " active" : ""}`}
-        >
-          {arbitraryMode
-            ? <CodeIcon style={{ width: 12, height: 12 }} />
-            : <TokensIcon style={{ width: 12, height: 12 }} />
-          }
-        </button>
-      </Tooltip>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ScrubInput — Figma-style input with icon and drag-to-scrub
-// ---------------------------------------------------------------------------
-
-function ScrubInput({
-  icon: Icon,
-  label,
-  value,
-  cssProp,
-  onPreview,
-  onCommit,
-}: {
-  icon?: React.ComponentType<{ style?: React.CSSProperties }>;
-  label?: string;
-  value: string;
-  cssProp: string;
-  onPreview: (v: string) => void;
-  onCommit: (v: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [focused, setFocused] = useState(false);
-  const [scrubbing, setScrubbing] = useState(false);
-  const scrubRef = useRef<{ startX: number; startVal: number; unit: string } | null>(null);
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-  const inputRef = useRef<HTMLInputElement>(null);
-  // Hold committed value during write→HMR roundtrip to prevent flicker
-  const pendingValueRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!focused && !scrubbing) setDraft(value);
-    // Clear pending once the real value arrives from HMR
-    if (pendingValueRef.current !== null) pendingValueRef.current = null;
-  }, [value, focused, scrubbing]);
-
-  const displayValue = (focused || scrubbing) ? draft : (pendingValueRef.current || value);
-
-  const isScrubbable = parseNumeric(displayValue) !== null;
-
-  const handlePointerDown = (e: ReactPointerEvent) => {
-    const parsed = parseNumeric(displayValue);
-    if (!parsed) return;
-
-    e.preventDefault();
-    scrubRef.current = { startX: e.clientX, startVal: parsed.num, unit: parsed.unit };
-    setScrubbing(true);
-
-    const step = getStep(parsed.unit);
-
-    const handleMove = (me: globalThis.PointerEvent) => {
-      if (!scrubRef.current) return;
-
-      const multiplier = me.shiftKey ? 10 : 1;
-      const delta = Math.round((me.clientX - scrubRef.current.startX) / 2);
-      const newVal = scrubRef.current.startVal + delta * step * multiplier;
-      const formatted = scrubRef.current.unit
-        ? `${parseFloat(newVal.toFixed(4))}${scrubRef.current.unit}`
-        : `${Math.round(newVal)}`;
-      setDraft(formatted);
-      draftRef.current = formatted;
-      onPreview(formatted);
-    };
-
-    const handleUp = () => {
-      document.removeEventListener("pointermove", handleMove);
-      document.removeEventListener("pointerup", handleUp);
-      if (scrubRef.current) {
-        pendingValueRef.current = draftRef.current;
-        onCommit(draftRef.current);
-        scrubRef.current = null;
-      }
-      setScrubbing(false);
-    };
-
-    document.addEventListener("pointermove", handleMove);
-    document.addEventListener("pointerup", handleUp);
-  };
-
-  return (
-    <div className="studio-scrub-input">
-      {Icon && (
-        <Tooltip content={label || cssProp} side="left">
-          <div
-            className={isScrubbable ? "studio-scrub-icon" : "studio-scrub-icon no-scrub"}
-            onPointerDown={isScrubbable ? handlePointerDown : undefined}
-          >
-            <Icon style={{ width: 12, height: 12 }} />
-          </div>
-        </Tooltip>
-      )}
-      {!Icon && label && (
-        <Tooltip content={cssProp} side="left">
-          <div
-            className={isScrubbable ? "studio-scrub-label" : "studio-scrub-label no-scrub"}
-            onPointerDown={isScrubbable ? handlePointerDown : undefined}
-          >
-            {label}
-          </div>
-        </Tooltip>
-      )}
-      <input
-        ref={inputRef}
-        type="text"
-        value={displayValue}
-        placeholder={cssProp}
-        onChange={(e) => {
-          setDraft(e.target.value);
-        }}
-        onFocus={() => {
-          setDraft(value);
-          setFocused(true);
-        }}
-        onBlur={() => {
-          setFocused(false);
-          const trimmed = draft.trim();
-          if (trimmed && trimmed !== value) {
-            pendingValueRef.current = trimmed;
-            onCommit(trimmed);
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          if (e.key === "Escape") {
-            setDraft(value);
-            setFocused(false);
-          }
-        }}
-        className="studio-scrub-value"
-      />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SliderInput — range slider for opacity (0–100)
-// ---------------------------------------------------------------------------
-
-function SliderInput({
-  value,
-  onPreview,
-  onCommitClass,
-}: {
-  value: string;
-  onPreview: (v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  // Parse current opacity: could be "1", "0.5", "50%", etc.
-  const parseOpacity = (v: string): number => {
-    const n = parseFloat(v);
-    if (isNaN(n)) return 100;
-    // If value looks like 0-1 range (e.g. "0.5"), convert to percentage
-    return n <= 1 && v !== "100" ? Math.round(n * 100) : Math.round(n);
-  };
-
-  const [sliderValue, setSliderValue] = useState(() => parseOpacity(value));
-
-  useEffect(() => {
-    setSliderValue(parseOpacity(value));
-  }, [value]);
-
-  const commitValue = (pct: number) => {
-    // Find closest value in OPACITY_SCALE
-    const closest = OPACITY_SCALE.reduce((prev, curr) =>
-      Math.abs(parseInt(curr) - pct) < Math.abs(parseInt(prev) - pct) ? curr : prev
-    );
-    onCommitClass(`opacity-${closest}`);
-  };
-
-  return (
-    <div className="studio-scrub-input" style={{ gap: 6 }}>
-      <Tooltip content="Opacity" side="left">
-        <div className="studio-scrub-icon">
-          <OpacityIcon style={{ width: 12, height: 12 }} />
-        </div>
-      </Tooltip>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={5}
-        value={sliderValue}
-        onChange={(e) => {
-          const v = parseInt(e.target.value);
-          setSliderValue(v);
-          onPreview(`${v / 100}`);
-        }}
-        onMouseUp={() => commitValue(sliderValue)}
-        onKeyUp={(e) => {
-          if (e.key === "ArrowLeft" || e.key === "ArrowRight") commitValue(sliderValue);
-        }}
-        style={{
-          flex: 1,
-          accentColor: "var(--studio-accent)",
-          cursor: "pointer",
-          height: 14,
-        }}
-      />
-      <span
-        className="studio-scrub-value"
-        style={{
-          width: 32,
-          textAlign: "right",
-          fontSize: 11,
-          fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-          color: "var(--studio-text)",
-          flexShrink: 0,
-        }}
-      >
-        {sliderValue}%
-      </span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Property icon mapping — complete for all properties
-// ---------------------------------------------------------------------------
-
-function getPropertyIcon(cssProp: string): React.ComponentType<{ style?: React.CSSProperties }> | undefined {
-  const map: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
-    "width": WidthIcon,
-    "height": HeightIcon,
-    "min-width": WidthIcon,
-    "min-height": HeightIcon,
-    "max-width": WidthIcon,
-    "max-height": HeightIcon,
-    "padding-top": PaddingIcon,
-    "padding-right": PaddingIcon,
-    "padding-bottom": PaddingIcon,
-    "padding-left": PaddingIcon,
-    "margin-top": MarginIcon,
-    "margin-right": MarginIcon,
-    "margin-bottom": MarginIcon,
-    "margin-left": MarginIcon,
-    "gap": ColumnSpacingIcon,
-    "row-gap": RowSpacingIcon,
-    "column-gap": ColumnSpacingIcon,
-    "font-family": FontFamilyIcon,
-    "font-size": FontSizeIcon,
-    "font-weight": FontBoldIcon,
-    "line-height": LineHeightIcon,
-    "letter-spacing": LetterSpacingIcon,
-    "text-align": TextAlignLeftIcon,
-    "text-decoration": UnderlineIcon,
-    "text-transform": LetterCaseUppercaseIcon,
-    "border-top-width": BorderWidthIcon,
-    "border-right-width": BorderWidthIcon,
-    "border-bottom-width": BorderWidthIcon,
-    "border-left-width": BorderWidthIcon,
-    "border-top-left-radius": CornerTopLeftIcon,
-    "border-top-right-radius": CornerTopRightIcon,
-    "border-bottom-left-radius": CornerBottomLeftIcon,
-    "border-bottom-right-radius": CornerBottomRightIcon,
-    "opacity": OpacityIcon,
-    "box-shadow": ShadowIcon,
-    "z-index": LayersIcon,
-    "top": MoveIcon,
-    "right": MoveIcon,
-    "bottom": MoveIcon,
-    "left": MoveIcon,
-  };
-  return map[cssProp];
-}
-
-// ---------------------------------------------------------------------------
-// Small components
-// ---------------------------------------------------------------------------
-
-function PropLabel({ label, inherited }: { label: string; inherited?: boolean }) {
-  return (
-    <div
-      className="text-[10px] font-medium mb-1.5"
-      style={{
-        color: "var(--studio-text-dimmed)",
-        letterSpacing: "0.03em",
-      }}
-    >
-      {label}
-      {inherited && (
-        <span className="ml-1 text-[10px] italic" style={{ color: "var(--studio-text-dimmed)" }}>
-          inherited
-        </span>
-      )}
-    </div>
-  );
-}
-
-function SubSectionLabel({ label }: { label: string }) {
-  return (
-    <div
-      className="text-[11px] font-medium tracking-wider mt-1 mb-1"
-      style={{ color: "var(--studio-text-dimmed)" }}
-    >
-      {label}
-    </div>
-  );
-}
-
-function SegmentedIcons({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: string; icon: any; label?: string; tooltip?: string }[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  return (
-    <div className="studio-segmented" style={{ width: "100%" }}>
-      {options.map((opt) => (
-        <Tooltip key={opt.value} content={opt.tooltip || opt.label || opt.value} side="bottom">
-          <button
-            onClick={() => {
-              setLocalValue(opt.value);
-              onChange(opt.value);
-            }}
-            className={localValue === opt.value ? "active" : ""}
-            style={{ flex: 1, cursor: "pointer" }}
-          >
-            {opt.icon ? (
-              <opt.icon style={{ width: 14, height: 14 }} />
-            ) : (
-              <span style={{ fontSize: 10 }}>{opt.label || opt.value}</span>
-            )}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Token picker
-// ---------------------------------------------------------------------------
-
-function TokenPickerControl({
-  prop,
-  onPreviewInlineStyle,
-  onCommitClass,
-}: {
-  prop: UnifiedProperty;
-  onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  const tokenMatch = prop.tokenMatch!;
-  const twPrefix = CSS_PROP_TO_TW_PREFIX[prop.cssProperty] || "";
-
-  return (
-    <div className="flex items-center gap-1">
-      <Tooltip content="Design token" side="left">
-        <div
-          className="shrink-0 w-1.5 h-4 rounded-sm"
-          style={{ background: "var(--studio-accent)" }}
-        />
-      </Tooltip>
-      <select
-        value={tokenMatch.tokenName}
-        onChange={(e) => {
-          const selected = e.target.value;
-          const selectedToken = tokenMatch.groupTokens.find((t) => t.name === selected);
-          if (selectedToken) {
-            onPreviewInlineStyle(prop.cssProperty, selectedToken.value);
-          }
-          if (twPrefix) {
-            onCommitClass(`${twPrefix}-${selected}`);
-          }
-        }}
-        className="studio-select w-full"
-        style={{ cursor: "pointer" }}
-      >
-        {tokenMatch.groupTokens.map((t) => (
-          <option key={t.name} value={t.name}>
-            {t.name} ({t.value})
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Color controls
-// ---------------------------------------------------------------------------
-
-function ColorControl({
-  prop,
-  tokenGroups,
-  onPreviewInlineStyle: _onPreview,
-  onCommitClass,
-}: {
-  prop: UnifiedProperty;
-  tokenGroups: Record<string, any[]>;
-  onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  const colorTokens: string[] = [];
-  const tokenValues: Record<string, string> = {};
-  for (const [, tokens] of Object.entries(tokenGroups)) {
-    for (const t of tokens as any[]) {
-      if (t.category === "color") {
-        const name = t.name.replace(/^--/, "");
-        if (!colorTokens.includes(name)) colorTokens.push(name);
-        if (!tokenValues[name]) tokenValues[name] = t.lightValue || "";
-      }
-    }
-  }
-
-  const twPrefix = prop.cssProperty === "color" ? "text"
-    : prop.cssProperty === "background-color" ? "bg"
-    : "border";
-
-  const hasToken = !!prop.tokenMatch;
-
-  return (
-    <div>
-      <PropLabel label={prop.label} inherited={prop.inherited} />
-      <button
-        ref={triggerRef}
-        onClick={() => setIsOpen(true)}
-        className="studio-color-trigger"
-        style={{ cursor: "pointer" }}
-      >
-        <Tooltip content={hasToken ? "Design token" : undefined} side="left">
-          <div
-            className="studio-swatch"
-            style={{
-              "--swatch-color": prop.computedValue,
-              ...(hasToken ? { boxShadow: "0 0 0 2px var(--studio-accent)" } : {}),
-            } as React.CSSProperties}
-          />
-        </Tooltip>
-        <span className="flex-1 truncate text-left font-mono text-[11px]">
-          {hasToken ? prop.tokenMatch!.tokenName : (prop.tailwindValue || prop.computedValue)}
-        </span>
-        <ChevronDownIcon />
-      </button>
-
-      {isOpen && (
-        <ColorPopover
-          anchorRef={triggerRef}
-          currentValue={hasToken ? prop.tokenMatch!.tokenName : ""}
-          availableTokens={colorTokens}
-          tokenValues={tokenValues}
-          onSelect={(token) => {
-            onCommitClass(`${twPrefix}-${token}`);
-            setIsOpen(false);
-          }}
-          onClose={() => setIsOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Keyword control
-// ---------------------------------------------------------------------------
-
-function KeywordControl({
-  prop,
-  onPreviewInlineStyle,
-  onCommitClass,
-}: {
-  prop: UnifiedProperty;
-  onPreviewInlineStyle: (p: string, v: string) => void;
-  onCommitClass: (c: string, oldClass?: string) => void;
-}) {
-  const options = getKeywordOptions(prop.cssProperty);
-
-  if (options.length === 0) {
-    return (
-      <div
-        className="text-[11px] font-mono truncate"
-        style={{ color: "var(--studio-text)" }}
-      >
-        {prop.computedValue}
-      </div>
-    );
-  }
-
-  return (
-    <select
-      value={prop.computedValue}
-      onChange={(e) => {
-        onPreviewInlineStyle(prop.cssProperty, e.target.value);
-        const match = computedToTailwindClass(prop.cssProperty, e.target.value);
-        if (match) onCommitClass(match.tailwindClass);
-      }}
-      className="studio-select w-full"
-      style={{ cursor: "pointer" }}
-    >
-      {!options.includes(prop.computedValue) && (
-        <option value={prop.computedValue}>{prop.computedValue}</option>
-      )}
-      {options.map((opt) => (
-        <option key={opt} value={opt}>{opt}</option>
-      ))}
-    </select>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// CSS prop → Tailwind prefix mapping
-// ---------------------------------------------------------------------------
-
-const CSS_PROP_TO_TW_PREFIX: Record<string, string> = {
-  "font-size": "text",
-  "font-weight": "font",
-  "font-family": "font",
-  "line-height": "leading",
-  "letter-spacing": "tracking",
-  "padding-top": "pt",
-  "padding-right": "pr",
-  "padding-bottom": "pb",
-  "padding-left": "pl",
-  "margin-top": "mt",
-  "margin-right": "mr",
-  "margin-bottom": "mb",
-  "margin-left": "ml",
-  "gap": "gap",
-  "row-gap": "gap-y",
-  "column-gap": "gap-x",
-  "width": "w",
-  "height": "h",
-  "border-top-left-radius": "rounded-tl",
-  "border-top-right-radius": "rounded-tr",
-  "border-bottom-right-radius": "rounded-br",
-  "border-bottom-left-radius": "rounded-bl",
-  "color": "text",
-  "background-color": "bg",
-  "border-color": "border",
-};
-
-// ---------------------------------------------------------------------------
-// Keyword options per property
-// ---------------------------------------------------------------------------
-
-function getKeywordOptions(property: string): string[] {
-  switch (property) {
-    case "display":
-      return ["block", "inline-block", "inline", "flex", "inline-flex", "grid", "inline-grid", "none"];
-    case "position":
-      return ["static", "relative", "absolute", "fixed", "sticky"];
-    case "flex-direction":
-      return ["row", "row-reverse", "column", "column-reverse"];
-    case "flex-wrap":
-      return ["nowrap", "wrap", "wrap-reverse"];
-    case "justify-content":
-      return ["flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"];
-    case "align-items":
-      return ["flex-start", "flex-end", "center", "baseline", "stretch"];
-    case "align-self":
-      return ["auto", "flex-start", "flex-end", "center", "stretch"];
-    case "overflow":
-      return ["visible", "hidden", "scroll", "auto"];
-    case "text-align":
-      return ["left", "center", "right", "justify"];
-    case "text-transform":
-      return ["none", "uppercase", "lowercase", "capitalize"];
-    case "text-decoration":
-      return ["none", "underline", "overline", "line-through"];
-    case "white-space":
-      return ["normal", "nowrap", "pre", "pre-wrap", "pre-line"];
-    default:
-      return [];
-  }
-}

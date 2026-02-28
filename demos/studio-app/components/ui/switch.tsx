@@ -18,7 +18,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       data-slot="switch"
       data-state={checked ? "checked" : "unchecked"}
       className={cn(
-        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-xl border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-xl border-[10px] border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 border-4 leading-snug opacity-100",
         checked ? "bg-primary" : "bg-input",
         className
       )}
