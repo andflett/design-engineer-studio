@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import { Tooltip } from "../tooltip.js";
+
 export function PropLabel({
   label,
   inherited,
@@ -24,6 +27,35 @@ export function PropLabel({
           inherited
         </span>
       )}
+    </div>
+  );
+}
+
+export function PropLabelWithToggle({
+  label,
+  expanded,
+  onToggle,
+  tooltip,
+  icon,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+  tooltip: { collapsed: string; expanded: string };
+  icon: { collapsed: ReactNode; expanded: ReactNode };
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <PropLabel label={label} noMargin />
+      <Tooltip content={expanded ? tooltip.expanded : tooltip.collapsed}>
+        <button
+          onClick={onToggle}
+          className="studio-icon-btn"
+          style={{ width: 20, height: 20 }}
+        >
+          {expanded ? icon.expanded : icon.collapsed}
+        </button>
+      </Tooltip>
     </div>
   );
 }

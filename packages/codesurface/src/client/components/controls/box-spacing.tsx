@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { BoxModelIcon } from "@radix-ui/react-icons";
-import { Tooltip } from "../tooltip.js";
+import {
+  PanelTopDashed,
+  PanelRightDashed,
+  PanelBottomDashed,
+  PanelLeftDashed,
+  PanelLeftRightDashed,
+  PanelTopBottomDashed,
+} from "lucide-react";
 import { ScrubInput } from "./scrub-input.js";
 import { ScaleInput } from "./scale-input.js";
-import { PropLabel, SubSectionLabel } from "./prop-label.js";
+import { PropLabelWithToggle } from "./prop-label.js";
 import {
   getUniformBoxValue,
   getAxisBoxValues,
@@ -15,6 +22,22 @@ import {
   axisBoxToTailwind,
 } from "../../../shared/tailwind-map.js";
 import { SPACING_SCALE } from "../../../shared/tailwind-parser.js";
+
+/** Wrap a lucide icon so it matches the `{ style? }` signature ScaleInput expects. */
+const wrapLucide = (Icon: typeof PanelTopDashed) =>
+  function LucideIcon({ style }: { style?: React.CSSProperties }) {
+    return <Icon style={style} strokeWidth={1} size={15} />;
+  };
+
+const SIDE_ICONS = {
+  top: wrapLucide(PanelTopDashed),
+  right: wrapLucide(PanelRightDashed),
+  bottom: wrapLucide(PanelBottomDashed),
+  left: wrapLucide(PanelLeftDashed),
+} as const;
+
+const AxisXIcon = wrapLucide(PanelLeftRightDashed);
+const AxisYIcon = wrapLucide(PanelTopBottomDashed);
 
 const SIDES = ["top", "right", "bottom", "left"] as const;
 
@@ -62,25 +85,16 @@ export function BoxSpacingControl({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <PropLabel label={label} noMargin />
-        <button
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "var(--studio-text-dimmed)",
-            padding: "2px",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <Tooltip content={expanded ? "Collapse to shorthand" : "Expand individual sides"}>
-            <BoxModelIcon style={{ width: 12, height: 12, opacity: expanded ? 1 : 0.5 }} />
-          </Tooltip>
-        </button>
-      </div>
+      <PropLabelWithToggle
+        label={label}
+        expanded={expanded}
+        onToggle={() => setExpanded(!expanded)}
+        tooltip={{ collapsed: "Expand individual sides", expanded: "Collapse to shorthand" }}
+        icon={{
+          collapsed: <Icon style={{ width: 12, height: 12 }} />,
+          expanded: <BoxModelIcon style={{ width: 12, height: 12 }} />,
+        }}
+      />
       {!expanded ? (
         uniform ? (
           <ScaleInput
@@ -107,7 +121,7 @@ export function BoxSpacingControl({
         ) : axis ? (
           <div className="grid grid-cols-2 gap-1.5">
             <ScaleInput
-              icon={Icon}
+              icon={AxisXIcon}
               label="X"
               value={axis.x}
               computedValue={axis.x}
@@ -132,7 +146,7 @@ export function BoxSpacingControl({
               }}
             />
             <ScaleInput
-              icon={Icon}
+              icon={AxisYIcon}
               label="Y"
               value={axis.y}
               computedValue={axis.y}
@@ -180,6 +194,7 @@ export function BoxSpacingControl({
             return (
               <ScaleInput
                 key={cssProp}
+                icon={SIDE_ICONS[side]}
                 label={sideLabel}
                 value={prop?.tailwindValue || (cv === "0px" || cv === "0" ? "—" : cv)}
                 computedValue={cv}

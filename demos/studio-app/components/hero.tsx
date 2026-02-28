@@ -11,7 +11,7 @@ export function Hero() {
       </p>
       <nav className="flex gap-2">
         <Button>Get Started</Button>
-        <Button variant="outline">Docs</Button>
+        <Button variant="outline" className="opacity-45 opacity-55 opacity-0 shadow-lg bg-[image:var(--gradient-1)] opacity-75">Docs</Button>
       </nav>
     </header>
   );

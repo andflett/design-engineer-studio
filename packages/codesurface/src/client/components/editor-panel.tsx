@@ -32,6 +32,16 @@ import { PropertyPanel } from "./property-panel.js";
 import { ComputedPropertyPanel } from "./computed-property-panel.js";
 import { Tooltip, ExplainerNote } from "./tooltip.js";
 import { ControlsGallery } from "./controls/controls-gallery.js";
+import { StudioSelect } from "./controls/index.js";
+import {
+  Maximize,
+  Palette,
+  Columns3,
+  AlignLeft,
+  Circle,
+  ToggleLeft,
+  Type,
+} from "lucide-react";
 import { useTokens, useComponents } from "../lib/scan-hooks.js";
 import type { IndexedTokenMap } from "../lib/scan-store.js";
 
@@ -92,7 +102,11 @@ export function EditorPanel({
   // Auto-select tab when a new element is selected
   useEffect(() => {
     if (!element) return;
-    setActiveMode(isComponent ? "component" : "instance");
+    setActiveMode("instance");
+    if (isComponent) {
+      const hasVariants = componentEntry?.variants && componentEntry.variants.length > 0;
+      setInstanceSubTab(hasVariants ? "props" : "styles");
+    }
   }, [element?.source?.file, element?.source?.line, element?.source?.col]);
 
   const [componentSubTab, setComponentSubTab] = useState<"styles" | "props">("props");
@@ -785,7 +799,21 @@ function SelectionPlaceholder() {
   );
 }
 
-// --- Instance variant section (flat label + segmented buttons) ---
+// --- Instance variant section (label + StudioSelect dropdown) ---
+
+const PROP_ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
+  variant: Palette,
+  size: Maximize,
+  color: Palette,
+  layout: Columns3,
+  align: AlignLeft,
+  alignment: AlignLeft,
+  shape: Circle,
+  radius: Circle,
+  type: Type,
+  disabled: ToggleLeft,
+  state: ToggleLeft,
+};
 
 function InstanceVariantSection({
   dim,
@@ -796,6 +824,10 @@ function InstanceVariantSection({
   currentValue: string | null;
   onSelect: (value: string) => void;
 }) {
+  const effectiveValue = currentValue ?? dim.default ?? dim.options[0] ?? "";
+  const propKey = dim.name.toLowerCase();
+  const icon = PROP_ICON_MAP[propKey];
+
   return (
     <div className="px-4 py-2" style={{ borderTop: "1px solid var(--studio-border-subtle)" }}>
       <div
@@ -804,21 +836,13 @@ function InstanceVariantSection({
       >
         {dim.name}
       </div>
-      <div className="studio-segmented wrap" style={{ width: "100%" }}>
-        {dim.options.map((opt: string) => {
-          const isActive = currentValue === opt || (!currentValue && opt === dim.default);
-          return (
-            <button
-              key={opt}
-              onClick={() => onSelect(opt)}
-              className={isActive ? "active" : ""}
-              style={{ flex: 1 }}
-            >
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <StudioSelect
+        value={effectiveValue}
+        onChange={onSelect}
+        options={dim.options.map((opt: string) => ({ value: opt, label: opt }))}
+        icon={icon}
+        tooltip={dim.name}
+      />
     </div>
   );
 }

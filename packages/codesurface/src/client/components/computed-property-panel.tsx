@@ -43,6 +43,8 @@ import {
   LetterCaseCapitalizeIcon,
   StretchHorizontallyIcon,
   TextNoneIcon,
+  BoxIcon,
+  LayoutIcon,
 } from "@radix-ui/react-icons";
 import {
   buildUnifiedProperties,
@@ -75,6 +77,7 @@ import {
   GradientPicker,
   OpacitySlider,
   BoxSpacingControl,
+  BoxRadiusControl,
   type ShadowItem,
   type GradientItem,
   CSS_PROP_TO_TW_PREFIX,
@@ -301,9 +304,9 @@ function UnifiedSection({
 // ---------------------------------------------------------------------------
 
 const DISPLAY_OPTIONS = [
-  { value: "flex", icon: RowsIcon, label: "Flex", tooltip: "Flex — arrange children in a row or column" },
+  { value: "flex", icon: LayoutIcon, label: "Flex", tooltip: "Flex — arrange children in a row or column" },
   { value: "grid", icon: GridIcon, label: "Grid", tooltip: "Grid — arrange children in a 2D grid" },
-  { value: "block", icon: ColumnsIcon, label: "Block", tooltip: "Block — stack vertically, full width" },
+  { value: "block", icon: BoxIcon, label: "Block", tooltip: "Block — stack vertically, full width" },
   { value: "none", icon: EyeNoneIcon, label: "None", tooltip: "Hidden — remove from layout" },
 ];
 
@@ -792,52 +795,25 @@ function BorderSection({
   onCommitClass: (c: string, oldClass?: string) => void;
 }) {
   const active = properties.filter((p) => p.hasValue);
+  const allRadiusProps = properties.filter((p) => p.cssProperty.includes("radius"));
   const radiusProps = active.filter((p) => p.cssProperty.includes("radius"));
   const widthProps = active.filter((p) => p.cssProperty.includes("width"));
   const otherProps = active.filter(
     (p) => !p.cssProperty.includes("radius") && !p.cssProperty.includes("width")
   );
 
-  const uniformRadius = getUniformBoxValue(computedStyles, "border-radius");
   const uniformBorderWidth = getUniformBoxValue(computedStyles, "border-width");
 
   return (
     <>
       {radiusProps.length > 0 && (
-        <div>
-          <PropLabel label="Radius" />
-          {uniformRadius ? (
-            <ScaleInput
-              icon={CornersIcon}
-              value={
-                radiusProps[0]?.tailwindValue ||
-                (uniformRadius === "0px" || uniformRadius === "0"
-                  ? "—"
-                  : uniformRadius)
-              }
-              computedValue={uniformRadius || "0"}
-              currentClass={radiusProps[0]?.fullClass || null}
-              scale={RADIUS_SCALE as string[]}
-              prefix="rounded"
-              cssProp="border-radius"
-              onPreview={(v) => onPreviewInlineStyle("border-radius", v)}
-              onCommitClass={onCommitClass}
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              {radiusProps.map((prop) => (
-                <UnifiedControl
-                  key={prop.cssProperty}
-                  prop={prop}
-                  tokenGroups={tokenGroups}
-                  onPreviewInlineStyle={onPreviewInlineStyle}
-                  onRevertInlineStyles={onRevertInlineStyles}
-                  onCommitClass={onCommitClass}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <BoxRadiusControl
+          activeProps={radiusProps}
+          allProperties={allRadiusProps}
+          computedStyles={computedStyles}
+          onPreviewInlineStyle={onPreviewInlineStyle}
+          onCommitClass={onCommitClass}
+        />
       )}
 
       <div>
