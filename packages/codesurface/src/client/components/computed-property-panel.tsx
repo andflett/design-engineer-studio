@@ -1085,6 +1085,10 @@ function UnifiedControl({
             onCommitClass(`${twPrefix}-${token}`);
           }}
           onChange={(c) => onPreviewInlineStyle(prop.cssProperty, c)}
+          onCommit={(c) => {
+            const oldClass = prop.fullClass || undefined;
+            onCommitClass(`${twPrefix}-[${c.replace(/\s+/g, "_")}]`, oldClass);
+          }}
         />
       </div>
     );

@@ -16,7 +16,7 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
       aria-valuenow={value}
       data-slot="progress"
       className={cn(
-        "relative h-2 w-full overflow-hidden rounded-full bg-secondary",
+        "relative h-2 w-full overflow-hidden rounded-full bg-secondary opacity-60 opacity-100",
         className
       )}
       {...props}
@@ -37,7 +37,7 @@ const ProgressIndicator = React.forwardRef<
     ref={ref}
     data-slot="progress-indicator"
     className={cn(
-      "h-full rounded-full bg-primary transition-all",
+      "h-full rounded-full bg-primary transition-all bg-[image:var(--gradient-1)] opacity-60 opacity-100",
       className
     )}
     {...props}

@@ -95,7 +95,7 @@ const TabsContent = React.forwardRef<
       data-slot="tabs-content"
       data-state="active"
       className={cn(
-        "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 block justify-between items-start",
         className
       )}
       {...props}

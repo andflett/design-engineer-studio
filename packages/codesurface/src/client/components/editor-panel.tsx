@@ -24,6 +24,11 @@ import {
   DesktopIcon,
   FrameIcon,
   TransformIcon,
+  RulerSquareIcon,
+  DimensionsIcon,
+  CornersIcon,
+  ComponentInstanceIcon,
+  TokensIcon,
 } from "@radix-ui/react-icons";
 import type { SelectedElementData, SourceLocation } from "../../shared/protocol.js";
 import type { ComponentEntry } from "../../server/lib/scan-components.js";
@@ -167,9 +172,9 @@ export function EditorPanel({
   };
 
   const modeConfig: Record<EditMode, { icon: any; label: string }> = {
-    token: { icon: MixerHorizontalIcon, label: "Tokens" },
+    token: { icon: TokensIcon, label: "Tokens" },
     component: { icon: Component1Icon, label: "Component" },
-    instance: { icon: isComponent ? CursorArrowIcon : BoxIcon, label: isComponent ? "Instance" : "Element" },
+    instance: { icon: isComponent ? ComponentInstanceIcon : BoxIcon, label: isComponent ? "Instance" : "Element" },
   };
 
   return (
@@ -802,14 +807,14 @@ function SelectionPlaceholder() {
 // --- Instance variant section (label + StudioSelect dropdown) ---
 
 const PROP_ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
-  variant: Palette,
-  size: Maximize,
+  variant: ComponentInstanceIcon,
+  size: DimensionsIcon,
   color: Palette,
   layout: Columns3,
   align: AlignLeft,
   alignment: AlignLeft,
   shape: Circle,
-  radius: Circle,
+  radius: CornersIcon,
   type: Type,
   disabled: ToggleLeft,
   state: ToggleLeft,

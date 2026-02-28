@@ -409,10 +409,14 @@ export function ColorInput({
           setOklchState(parseOklch(color));
         }
         setActiveTab(firstTab);
+      } else if (!savedRef.current && pickerRgbaRef.current && !onSave) {
+        // Closing popover after custom color change — commit the final value
+        const finalCss = rgbaToCss(pickerRgbaRef.current);
+        onCommit?.(finalCss);
       }
       setOpen(isOpen);
     },
-    [color, firstTab, onSave]
+    [color, firstTab, onSave, onCommit]
   );
 
   const handleSave = useCallback(

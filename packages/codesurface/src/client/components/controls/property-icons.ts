@@ -23,6 +23,12 @@ import {
   ColumnSpacingIcon,
   RowSpacingIcon,
 } from "@radix-ui/react-icons";
+import { createElement } from "react";
+import { SquareArrowRightExit } from "lucide-react";
+
+function OverflowIcon({ style }: { style?: React.CSSProperties }) {
+  return createElement(SquareArrowRightExit, { style, strokeWidth: 1.5, size: 12 });
+}
 
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
   "width": WidthIcon,
@@ -60,6 +66,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   "border-bottom-right-radius": CornerBottomRightIcon,
   "opacity": OpacityIcon,
   "box-shadow": ShadowIcon,
+  "overflow": OverflowIcon,
   "z-index": LayersIcon,
   "top": MoveIcon,
   "right": MoveIcon,

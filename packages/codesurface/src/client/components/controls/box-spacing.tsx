@@ -119,58 +119,69 @@ export function BoxSpacingControl({
             }}
           />
         ) : axis ? (
-          <div className="grid grid-cols-2 gap-1.5">
-            <ScaleInput
-              icon={AxisXIcon}
-              label="X"
-              value={axis.x}
-              computedValue={axis.x}
-              currentClass={null}
-              scale={SPACING_SCALE as string[]}
-              prefix={`${twShort}x`}
-              cssProp={`${box}-left`}
-              onPreview={(v) => {
-                onPreviewInlineStyle(`${box}-left`, v);
-                onPreviewInlineStyle(`${box}-right`, v);
-              }}
-              onCommitClass={onCommitClass}
-              onCommitValue={(v) => {
-                const { xClass } = axisBoxToTailwind(box, v, axis.y);
-                if (xClass) {
-                  onCommitClass(xClass.tailwindClass);
-                } else {
-                  const mapped = computedToTailwindClass(`${box}-left`, v);
-                  if (mapped) onCommitClass(mapped.tailwindClass);
-                  else onCommitClass(`${twShort}x-[${v.trim()}]`);
-                }
-              }}
-            />
-            <ScaleInput
-              icon={AxisYIcon}
-              label="Y"
-              value={axis.y}
-              computedValue={axis.y}
-              currentClass={null}
-              scale={SPACING_SCALE as string[]}
-              prefix={`${twShort}y`}
-              cssProp={`${box}-top`}
-              onPreview={(v) => {
-                onPreviewInlineStyle(`${box}-top`, v);
-                onPreviewInlineStyle(`${box}-bottom`, v);
-              }}
-              onCommitClass={onCommitClass}
-              onCommitValue={(v) => {
-                const { yClass } = axisBoxToTailwind(box, axis.x, v);
-                if (yClass) {
-                  onCommitClass(yClass.tailwindClass);
-                } else {
-                  const mapped = computedToTailwindClass(`${box}-top`, v);
-                  if (mapped) onCommitClass(mapped.tailwindClass);
-                  else onCommitClass(`${twShort}y-[${v.trim()}]`);
-                }
-              }}
-            />
-          </div>
+          (() => {
+            // Look up Tailwind scale values from activeProps for axis display
+            const xProp = findProp(`${box}-left`);
+            const yProp = findProp(`${box}-top`);
+            const xTwVal = xProp?.tailwindValue;
+            const yTwVal = yProp?.tailwindValue;
+            const xIsZero = axis.x === "0px" || axis.x === "0";
+            const yIsZero = axis.y === "0px" || axis.y === "0";
+            return (
+              <div className="grid grid-cols-2 gap-1.5">
+                <ScaleInput
+                  icon={AxisXIcon}
+                  label="X"
+                  value={xTwVal || (xIsZero ? "—" : axis.x)}
+                  computedValue={axis.x}
+                  currentClass={xProp?.fullClass || null}
+                  scale={SPACING_SCALE as string[]}
+                  prefix={`${twShort}x`}
+                  cssProp={`${box}-left`}
+                  onPreview={(v) => {
+                    onPreviewInlineStyle(`${box}-left`, v);
+                    onPreviewInlineStyle(`${box}-right`, v);
+                  }}
+                  onCommitClass={onCommitClass}
+                  onCommitValue={(v) => {
+                    const { xClass } = axisBoxToTailwind(box, v, axis.y);
+                    if (xClass) {
+                      onCommitClass(xClass.tailwindClass);
+                    } else {
+                      const mapped = computedToTailwindClass(`${box}-left`, v);
+                      if (mapped) onCommitClass(mapped.tailwindClass);
+                      else onCommitClass(`${twShort}x-[${v.trim()}]`);
+                    }
+                  }}
+                />
+                <ScaleInput
+                  icon={AxisYIcon}
+                  label="Y"
+                  value={yTwVal || (yIsZero ? "—" : axis.y)}
+                  computedValue={axis.y}
+                  currentClass={yProp?.fullClass || null}
+                  scale={SPACING_SCALE as string[]}
+                  prefix={`${twShort}y`}
+                  cssProp={`${box}-top`}
+                  onPreview={(v) => {
+                    onPreviewInlineStyle(`${box}-top`, v);
+                    onPreviewInlineStyle(`${box}-bottom`, v);
+                  }}
+                  onCommitClass={onCommitClass}
+                  onCommitValue={(v) => {
+                    const { yClass } = axisBoxToTailwind(box, axis.x, v);
+                    if (yClass) {
+                      onCommitClass(yClass.tailwindClass);
+                    } else {
+                      const mapped = computedToTailwindClass(`${box}-top`, v);
+                      if (mapped) onCommitClass(mapped.tailwindClass);
+                      else onCommitClass(`${twShort}y-[${v.trim()}]`);
+                    }
+                  }}
+                />
+              </div>
+            );
+          })()
         ) : (
           <ScrubInput
             icon={Icon}

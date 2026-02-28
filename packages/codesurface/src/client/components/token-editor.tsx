@@ -76,7 +76,7 @@ export function TokenEditor({
     <div className="">
       {/* Used by element — only show when relevant */}
       {referencedTokens.length > 0 && (
-        <Section title="Used by element" count={referencedTokens.length} defaultCollapsed>
+        <Section title="Used by selected" count={referencedTokens.length} defaultCollapsed>
           <div className="flex flex-col gap-1.5 px-4 pb-2">
             {referencedTokens.map((token: any) => {
               const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
@@ -510,6 +510,109 @@ function SpacingScale({
 }
 
 // ---------------------------------------------------------------------------
+// TokenScaleStrip — compact vertical strip for scale tokens (radii, widths)
+// ---------------------------------------------------------------------------
+
+/** Inline icon that previews the actual radius on a single corner. */
+function RadiusPreviewIcon({ value }: { style?: React.CSSProperties; value: string }) {
+  return (
+    <div
+      style={{
+        width: 14,
+        height: 14,
+        borderTopLeftRadius: value,
+        borderTopRightRadius: 0,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+        border: "1.5px solid currentColor",
+      }}
+    />
+  );
+}
+
+/** Inline icon that previews border thickness as a horizontal line. */
+function WidthPreviewIcon({ value }: { style?: React.CSSProperties; value: string }) {
+  // Parse to px for the line thickness
+  const m = value.match(/^([\d.]+)(rem|px|em)?$/);
+  let px = 1;
+  if (m) {
+    const n = parseFloat(m[1]);
+    const unit = m[2] || "px";
+    px = unit === "rem" || unit === "em" ? n * 16 : n;
+  }
+  return (
+    <div
+      style={{
+        width: 12,
+        height: Math.max(Math.min(px, 8), 1),
+        borderRadius: 0.5,
+        background: "currentColor",
+      }}
+    />
+  );
+}
+
+function TokenScaleStrip({
+  tokens,
+  kind,
+  onSave,
+  step,
+  min,
+  maxDecimals,
+}: {
+  tokens: { name: string; value: string }[];
+  kind: "radius" | "width";
+  onSave: (token: any, value: string) => void;
+  step?: number;
+  min?: number;
+  maxDecimals?: number;
+}) {
+  // Sort by T-shirt size suffix: xs, sm, md, lg, xl, 2xl, 3xl, …
+  const SIZE_ORDER: Record<string, number> = {
+    xs: 1, sm: 2, DEFAULT: 3, md: 4, lg: 5, xl: 6,
+    "2xl": 7, "3xl": 8, "4xl": 9, "5xl": 10, full: 11,
+  };
+  const sizeRank = (name: string): number => {
+    // Extract suffix after last dash: "radius-2xl" → "2xl", "radius" → "DEFAULT"
+    const parts = name.replace(/^--/, "").split("-");
+    const suffix = parts.length > 1 ? parts[parts.length - 1] : "DEFAULT";
+    return SIZE_ORDER[suffix] ?? 6.5; // unknown suffixes land mid-range
+  };
+  const sorted = [...tokens].sort((a, b) => sizeRank(a.name) - sizeRank(b.name));
+
+  return (
+    <div className="flex flex-col gap-1">
+      {sorted.map((token) => {
+        const displayName = (token.name || "").replace(/^--/, "");
+
+        const RowIcon = kind === "radius"
+          ? (props: { style?: React.CSSProperties }) => <RadiusPreviewIcon {...props} value={token.value} />
+          : (props: { style?: React.CSSProperties }) => <WidthPreviewIcon {...props} value={token.value} />;
+
+        return (
+          <div key={token.name} className="flex items-center gap-1.5">
+            <span
+              className="text-[10px] font-mono truncate shrink-0"
+              style={{ color: "var(--studio-text-dimmed)", width: 96 }}
+            >
+              {displayName}
+            </span>
+            <ScrubInput
+              icon={RowIcon}
+              value={token.value}
+              onCommit={(v) => onSave(token, v)}
+              step={step}
+              min={min}
+              maxDecimals={maxDecimals}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Radii Section
 // ---------------------------------------------------------------------------
 
@@ -539,20 +642,14 @@ function RadiiSection({
 
   return (
     <div className="px-4 pb-2">
-      <div className="grid grid-cols-2 gap-1.5">
-        {borders.map((border: any) => (
-          <TokenScrubRow
-            key={border.name}
-            token={border}
-            theme={theme}
-            icon={CornersIcon}
-            onSave={(v) => handleSave(border, v)}
-            step={0.025}
-            min={0}
-            maxDecimals={3}
-          />
-        ))}
-      </div>
+      <TokenScaleStrip
+        tokens={borders}
+        kind="radius"
+        onSave={handleSave}
+        step={0.025}
+        min={0}
+        maxDecimals={3}
+      />
     </div>
   );
 }
@@ -600,18 +697,12 @@ function BordersSection({
       {/* Border Width subsection */}
       {widthBorders.length > 0 && (
         <div className="px-4">
-          <div className="grid grid-cols-2 gap-1.5">
-            {widthBorders.map((border: any) => (
-              <TokenScrubRow
-                key={border.name}
-                token={border}
-                theme={theme}
-                icon={BorderWidthIcon}
-                onSave={(v) => handleSave(border, v)}
-                min={0}
-              />
-            ))}
-          </div>
+          <TokenScaleStrip
+            tokens={widthBorders}
+            kind="width"
+            onSave={handleSave}
+            min={0}
+          />
         </div>
       )}
 

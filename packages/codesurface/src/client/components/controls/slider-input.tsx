@@ -92,7 +92,7 @@ export function SliderInput({
       <div
         ref={trackRef}
         className="studio-slider-track"
-        style={{ "--slider-pct": `${pct}%` } as React.CSSProperties}
+        style={{ "--slider-pct": `${pct}` } as React.CSSProperties}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

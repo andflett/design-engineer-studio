@@ -10,7 +10,7 @@ export function Hero() {
         Visual editing that writes back to your source files.
       </p>
       <nav className="flex gap-2">
-        <Button>Get Started</Button>
+        <Button className="flex text-[rgb(215_215_215)] text-background">Get Started</Button>
         <Button variant="outline" className="opacity-45 opacity-55 opacity-0 shadow-lg bg-[image:var(--gradient-1)] opacity-75">Docs</Button>
       </nav>
     </header>
