@@ -7,7 +7,7 @@ import {
   CheckIcon,
 } from "@radix-ui/react-icons";
 import * as Popover from "@radix-ui/react-popover";
-import { Monitor, ChevronDown } from "lucide-react";
+import { Monitor, ChevronDown, ZoomIn, ZoomOut } from "lucide-react";
 import { Viewport } from "./viewport.js";
 import { Tooltip } from "./tooltip.js";
 
@@ -31,6 +31,9 @@ export interface ToolChromeProps {
   /** Viewport width state */
   viewportWidth: number | "fill";
   onViewportWidthChange: (w: number | "fill") => void;
+  /** Zoom state (0.2–1) */
+  zoom: number;
+  onZoomChange: (z: number) => void;
   /** Iframe path state */
   iframePath: string;
   onIframePathChange: (path: string) => void;
@@ -60,6 +63,8 @@ export function ToolChrome({
   onToggleTheme,
   viewportWidth,
   onViewportWidthChange,
+  zoom,
+  onZoomChange,
   iframePath,
   onIframePathChange,
   targetUrl,
@@ -125,6 +130,8 @@ export function ToolChrome({
               options={BREAKPOINTS}
               onChange={onViewportWidthChange}
             />
+            <div className="studio-address-sep" />
+            <ZoomControl zoom={zoom} onChange={onZoomChange} />
           </form>
         </div>
 
@@ -158,6 +165,7 @@ export function ToolChrome({
         <Viewport
           viewportWidth={viewportWidth}
           onViewportWidthChange={onViewportWidthChange}
+          zoom={zoom}
           iframePath={iframePath}
           targetUrl={targetUrl}
           iframeRef={iframeRef}
@@ -165,6 +173,40 @@ export function ToolChrome({
 
         {editorPanel}
       </div>
+    </div>
+  );
+}
+
+function ZoomControl({
+  zoom,
+  onChange,
+}: {
+  zoom: number;
+  onChange: (z: number) => void;
+}) {
+  const pct = Math.round(zoom * 100);
+  const canZoomOut = zoom > 0.2 + 0.001;
+  const canZoomIn = zoom < 1.0 - 0.001;
+
+  return (
+    <div className="studio-zoom-control">
+      <button
+        type="button"
+        className="studio-zoom-btn"
+        disabled={!canZoomOut}
+        onClick={() => onChange(Math.max(0.2, Math.round((zoom - 0.2) * 100) / 100))}
+      >
+        <ZoomOut size={12} strokeWidth={1.5} />
+      </button>
+      <span className="studio-zoom-label">{pct}%</span>
+      <button
+        type="button"
+        className="studio-zoom-btn"
+        disabled={!canZoomIn}
+        onClick={() => onChange(Math.min(1, Math.round((zoom + 0.2) * 100) / 100))}
+      >
+        <ZoomIn size={12} strokeWidth={1.5} />
+      </button>
     </div>
   );
 }

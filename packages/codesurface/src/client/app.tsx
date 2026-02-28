@@ -51,6 +51,7 @@ export function App() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [viewportWidth, setViewportWidth] = useState<number | "fill">("fill");
+  const [zoom, setZoom] = useState(0.6);
   const [iframePath, setIframePath] = useState("/");
   const [injectedReady, setInjectedReady] = useState(false);
   const [bootDone, setBootDone] = useState(!SHOW_BOOT_SCREEN);
@@ -388,6 +389,8 @@ export function App() {
         onToggleTheme={toggleTheme}
         viewportWidth={viewportWidth}
         onViewportWidthChange={setViewportWidth}
+        zoom={zoom}
+        onZoomChange={setZoom}
         iframePath={iframePath}
         onIframePathChange={setIframePath}
         targetUrl={targetUrl}
