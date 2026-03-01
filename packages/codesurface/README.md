@@ -5,9 +5,9 @@ A CLI-launched visual design layer for React applications. Select elements in yo
 ## Requirements
 
 - Node.js >= 18
-- **Next.js** >= 14 (only supported framework currently)
+- **Next.js** >= 14 (App Router)
 - **React** >= 18
-- **Tailwind CSS** v3 or v4 (only supported styling system for class writes)
+- A supported styling system: **Tailwind CSS** v3/v4, **CSS Custom Properties**, **Bootstrap**, or plain CSS
 
 ## Installation
 
@@ -30,10 +30,10 @@ const nextConfig = {
 export default withDesigntools(nextConfig);
 ```
 
-This does two things in development (at compile time only — your source files are not modified):
+In development, this:
 
-- Injects `data-source` attributes into every JSX element at build time, mapping each element to its source file, line, and column. These only exist in the compiled output.
-- Auto-mounts the `<CodeSurface />` selection overlay component in your root layout.
+- Adds a Babel pass that injects `data-source="file:line:col"` attributes into every JSX element, mapping each element to its source location. These only exist in the compiled output — your source files are not modified.
+- Auto-mounts the `<CodeSurface />` selection overlay component into your root layout (`app/layout.tsx` or `src/app/layout.tsx`).
 
 Neither is included in production builds.
 
@@ -58,17 +58,19 @@ Components without `data-slot` can still be selected and edited at the element l
 
 ### 3. Run it
 
-Start your Next.js dev server, then start CodeSurface from your project root:
+Start your Next.js dev server, then run CodeSurface from your project root:
 
 ```bash
-# Terminal 1
+# Terminal 1: start your app
 npm run dev
 
-# Terminal 2
+# Terminal 2: start the editor
 npx codesurface
 ```
 
-The editor opens at `http://localhost:4400`. Your app loads inside an iframe — no proxy, no middleware.
+The CLI auto-detects your dev server on port 3000 (also scanning 3001 and 3002 in case Next.js picked a different port). The editor opens at `http://localhost:4400`.
+
+Your app loads inside an iframe — no proxy, no middleware.
 
 ### CLI options
 
@@ -77,28 +79,33 @@ The editor opens at `http://localhost:4400`. Your app loads inside an iframe —
 | `--port` | `3000` | Port your dev server runs on |
 | `--tool-port` | `4400` | Port for the editor UI |
 
+Both ports auto-increment if the default is busy.
+
 ## How it works
 
 1. Click an element in the iframe to select it
-2. The editor panel shows its computed styles and Tailwind classes
-3. Edit values — changes are written directly to your source files as Tailwind utility classes
+2. The editor panel shows its computed styles, Tailwind classes, and source location
+3. Edit values — changes are written directly to your source files
 4. Your dev server picks up the file change and hot-reloads
 
-Changes are written as Tailwind classes (e.g. `text-sm`, `bg-blue-500`). When no matching utility exists, arbitrary value syntax is used (e.g. `text-[14px]`).
+For Tailwind projects, changes are written as utility classes (e.g. `text-sm`, `bg-blue-500`). When no matching utility exists, arbitrary value syntax is used (e.g. `text-[14px]`).
 
 ## What it can edit
 
 - **Element styles** — layout, spacing, typography, colors, borders, shadows, opacity
 - **Design tokens** — CSS custom properties in your stylesheets
 - **Component variants** — base classes and variant mappings (works with CVA)
-- **Box shadows** — shadow token definitions in CSS or `@theme` blocks
+- **Shadows** — shadow token definitions in CSS or Tailwind `@theme` blocks
+- **Gradients** — gradient token definitions
+- **Spacing** — spacing scale tokens
+- **Borders** — border radius and border width tokens
 
 ## Limitations
 
 - **Next.js only** — framework detection exists for Remix and Vite but they are untested
-- **Tailwind only for class writes** — CSS variable and plain CSS token editing works, but className writes produce Tailwind utility classes
+- **Tailwind for class writes** — CSS variable and plain CSS token editing works, but `className` writes produce Tailwind utility classes
 - **Development only** — the plugin and overlays are stripped from production builds
-- **App Router** — the auto-mount targets `app/layout.tsx` (or `src/app/layout.tsx`). Pages Router is not supported for auto-mounting
+- **App Router only** — the auto-mount targets `app/layout.tsx` (or `src/app/layout.tsx`). Pages Router is not supported
 
 ## License
 

@@ -1,15 +1,17 @@
-import { type RefObject, type ReactNode, useState, useEffect } from "react";
+import { type RefObject, type ReactNode, useState, useEffect, useCallback } from "react";
 import {
   CursorArrowIcon,
   SunIcon,
   MoonIcon,
   GlobeIcon,
   CheckIcon,
+  ReloadIcon,
 } from "@radix-ui/react-icons";
 import * as Popover from "@radix-ui/react-popover";
 import { Monitor, ChevronDown, ZoomIn, ZoomOut } from "lucide-react";
 import { Viewport } from "./viewport.js";
 import { Tooltip } from "./tooltip.js";
+import { rescanAll } from "../lib/scan-actions.js";
 
 export interface ToolChromeProps {
   /** Tool name shown in toolbar */
@@ -71,11 +73,25 @@ export function ToolChrome({
   iframeRef,
 }: ToolChromeProps) {
   const [urlInput, setUrlInput] = useState(iframePath);
+  const [rescanning, setRescanning] = useState(false);
 
   // Sync URL bar when iframePath changes (e.g. from iframe navigation)
   useEffect(() => {
     setUrlInput(iframePath);
   }, [iframePath]);
+
+  const handleRescan = useCallback(async () => {
+    setRescanning(true);
+    try {
+      await rescanAll();
+      // Minimum display time so the modal doesn't just flash
+      await new Promise((r) => setTimeout(r, 800));
+    } catch (err) {
+      console.error("Rescan failed:", err);
+    } finally {
+      setRescanning(false);
+    }
+  }, []);
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +164,16 @@ export function ToolChrome({
             </Tooltip>
           )}
 
+          <Tooltip content="Re-scan tokens, components, and styles from source files" side="bottom">
+            <button
+              onClick={handleRescan}
+              className="studio-toolbar-btn"
+              disabled={rescanning}
+            >
+              <ReloadIcon />
+            </button>
+          </Tooltip>
+
           <Tooltip content={`Switch to ${theme === "light" ? "dark" : "light"} mode`} side="bottom">
             <button
               onClick={onToggleTheme}
@@ -173,6 +199,9 @@ export function ToolChrome({
 
         {editorPanel}
       </div>
+
+      {/* Rescan overlay */}
+      {rescanning && <RescanOverlay />}
     </div>
   );
 }
@@ -207,6 +236,78 @@ function ZoomControl({
       >
         <ZoomIn size={12} strokeWidth={1.5} />
       </button>
+    </div>
+  );
+}
+
+const SPINNER_FRAMES = ["\u280B", "\u2819", "\u2839", "\u2838", "\u283C", "\u2834", "\u2826", "\u2827", "\u2807", "\u280F"];
+
+function RescanOverlay() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), 80);
+    return () => clearInterval(iv);
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backdropFilter: "blur(2px)",
+      }}
+    >
+      <div
+        style={{
+          background: "var(--studio-surface)",
+          border: "1px solid var(--studio-border)",
+          borderRadius: 8,
+          padding: "24px 32px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          minWidth: 200,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
+            fontSize: 20,
+            color: "var(--studio-accent)",
+          }}
+        >
+          {SPINNER_FRAMES[frame]}
+        </span>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: "var(--studio-text)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          Rescanning source files
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--studio-text-dimmed)",
+            textAlign: "center",
+            lineHeight: 1.5,
+          }}
+        >
+          Picking up changes to tokens, components,
+          <br />
+          shadows, and styles made outside the editor.
+        </span>
+      </div>
     </div>
   );
 }

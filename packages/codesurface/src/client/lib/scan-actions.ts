@@ -3,12 +3,22 @@
  * Each action: optimistic patch -> POST to server -> replace with server response.
  * On error: re-fetch the affected slice for self-healing.
  */
-import { scanStore } from "./scan-store.js";
+import { scanStore, type RawScanData } from "./scan-store.js";
 import type { TokenMap } from "../../server/lib/scan-tokens.js";
 import type { ShadowMap } from "../../server/lib/scan-shadows.js";
 import type { BorderMap } from "../../server/lib/scan-borders.js";
 import type { GradientMap } from "../../server/lib/scan-gradients.js";
 import type { SpacingMap } from "../../server/lib/scan-spacing.js";
+
+// ---------------------------------------------------------------------------
+// Full rescan
+// ---------------------------------------------------------------------------
+
+export async function rescanAll(): Promise<void> {
+  await postJson("/scan/rescan", {});
+  const data = await fetchSlice<RawScanData>("all");
+  scanStore.setAll(data);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

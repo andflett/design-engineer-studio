@@ -9,20 +9,20 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 | Package | Description | Status |
 |---------|-------------|--------|
 | [`@designtools/codesurface`](packages/codesurface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app | **Active development** |
-| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<Studio />` | **Active development** |
+| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<CodeSurface />` | **Active development** |
 | [`@designtools/studio`](packages/studio) | Visual editor for tokens, components, and instances (proxy-based) | Legacy |
 | [`@designtools/shadows`](packages/shadows) | Visual editor for box-shadow values (proxy-based) | Legacy |
 | `@designtools/core` | Shared scanner, server, and client utilities | Legacy (shared) |
 
 ## Architecture
 
-CodeSurface uses a hybrid architecture where the **selection component** (`<Studio />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
+CodeSurface uses a hybrid architecture where the **selection component** (`<CodeSurface />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
 
 ```
 Editor UI (Vite, 4400)
   |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
   |       |
-  |       +-- Target app with <Studio /> component
+  |       +-- Target app with <CodeSurface /> component
   |               mounted by withDesigntools()
   |               communicates via postMessage
   |

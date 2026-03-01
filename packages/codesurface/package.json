@@ -1,6 +1,6 @@
 {
   "name": "@designtools/codesurface",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Visual editing CLI — hybrid architecture with selection overlays in the target app and editor UI served separately",
   "type": "module",
   "license": "CC-BY-NC-4.0",
