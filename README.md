@@ -8,18 +8,18 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 
 | Package | Description |
 |---------|-------------|
-| [`@designtools/codesurface`](packages/codesurface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app |
-| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<CodeSurface />` |
+| [`@designtools/surface`](packages/surface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app |
+| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<Surface />` |
 
 ## Architecture
 
-CodeSurface uses a hybrid architecture where the **selection component** (`<CodeSurface />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
+Surface uses a hybrid architecture where the **selection component** (`<Surface />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
 
 ```
 Editor UI (Vite, 4400)
   |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
   |       |
-  |       +-- Target app with <CodeSurface /> component
+  |       +-- Target app with <Surface /> component
   |               mounted by withDesigntools()
   |               communicates via postMessage
   |
@@ -68,8 +68,8 @@ cd demos/studio-app && npm install && cd ../..
 # Terminal 1 — start a demo app
 cd demos/studio-app && npm run dev
 
-# Terminal 2 — start codesurface
-npm run dev:codesurface
+# Terminal 2 — start surface
+npm run surface
 ```
 
 The editor opens at [http://localhost:4400](http://localhost:4400) with the target app loaded in an iframe.
@@ -89,8 +89,8 @@ The editor opens at [http://localhost:4400](http://localhost:4400) with the targ
 ```
 designtools/
 ├── packages/
-│   ├── codesurface/    Hybrid visual editor
-│   └── next-plugin/    Next.js config wrapper + data-source transform
+│   ├── surface/       Hybrid visual editor
+│   └── next-plugin/   Next.js config wrapper + data-source transform
 ├── demos/
 │   ├── studio-app/              Tailwind CSS v4 + CVA demo
 │   ├── bootstrap-app/           Bootstrap 5 demo
@@ -101,7 +101,7 @@ designtools/
 
 ## Testing with a local project
 
-To test local changes to `codesurface` and `next-plugin` against any Next.js project on your machine:
+To test local changes to `surface` and `next-plugin` against any Next.js project on your machine:
 
 ### 1. Build the packages
 
@@ -123,16 +123,16 @@ cd /path/to/your-app
 npm link @designtools/next-plugin
 ```
 
-### 3. Run codesurface from source
+### 3. Run surface from source
 
-Since codesurface is a standalone CLI (not a dependency), run it directly from the build output instead of linking:
+Since surface is a standalone CLI (not a dependency), run it directly from the build output instead of linking:
 
 ```bash
 # Terminal 1 — start your app
 cd /path/to/your-app && npm run dev
 
-# Terminal 2 — run codesurface from your local build
-cd /path/to/your-app && node /path/to/designtools/packages/codesurface/dist/cli.js
+# Terminal 2 — run surface from your local build
+cd /path/to/your-app && node /path/to/designtools/packages/surface/dist/cli.js
 ```
 
 ### After making changes
@@ -142,10 +142,10 @@ Rebuild and the link picks up changes automatically:
 ```bash
 cd /path/to/designtools
 npm run build --workspace=packages/next-plugin
-npm run build --workspace=packages/codesurface
+npm run build --workspace=packages/surface
 ```
 
-Then restart the dev server and codesurface CLI.
+Then restart the dev server and surface CLI.
 
 ### Notes
 

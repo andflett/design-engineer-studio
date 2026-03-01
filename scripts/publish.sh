@@ -4,7 +4,7 @@ set -e
 BUMP="${1:-patch}"
 shift 2>/dev/null || true
 
-ALL_PACKAGES=(core codesurface next-plugin shadows)
+ALL_PACKAGES=(surface next-plugin)
 
 # If no packages specified, default to all
 if [ $# -eq 0 ]; then
@@ -16,7 +16,7 @@ fi
 # Validate package names
 for pkg in "${PACKAGES[@]}"; do
   case "$pkg" in
-    core|codesurface|next-plugin|shadows) ;;
+    surface|next-plugin) ;;
     *) echo "Unknown package: $pkg (valid: ${ALL_PACKAGES[*]})" && exit 1 ;;
   esac
 done

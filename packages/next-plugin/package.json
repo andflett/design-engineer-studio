@@ -7,13 +7,13 @@
       "require": "./dist/index.js",
       "import": "./dist/index.mjs"
     },
-    "./codesurface": {
-      "require": "./dist/codesurface.js",
-      "import": "./dist/codesurface.mjs"
+    "./surface": {
+      "require": "./dist/surface.js",
+      "import": "./dist/surface.mjs"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/loader.ts src/codesurface.tsx src/codesurface-mount-loader.ts --format cjs,esm --dts --external @babel/core --external react --external react/jsx-runtime --external react-dom"
+    "build": "tsup src/index.ts src/loader.ts src/surface.tsx src/surface-mount-loader.ts --format cjs,esm --dts --external @babel/core --external react --external react/jsx-runtime --external react-dom"
   },
   "peerDependencies": {
     "next": ">=14.0.0",

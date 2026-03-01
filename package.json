@@ -9,29 +9,17 @@
     "url": "https://github.com/andflett/designtools"
   },
   "workspaces": [
-    "packages/core",
     "packages/next-plugin",
-    "packages/codesurface",
-    "packages/shadows"
+    "packages/surface"
   ],
   "scripts": {
-    "codesurface": "npm -w packages/next-plugin run build && cd demos/studio-app && npm run dev & sleep 3 && cd demos/studio-app && npx tsx ../../packages/codesurface/src/cli.ts",
-    "codesurface:design-system": "npm -w packages/next-plugin run build && cd demos/design-system && npm run dev & sleep 3 && cd demos/design-system && npx tsx ../../packages/codesurface/src/cli.ts",
-    "build:codesurface": "npm -w packages/next-plugin run build && npm -w packages/codesurface run build",
-    "publish:codesurface": "bash scripts/publish.sh patch codesurface",
-    "dev:shadows": "cd demos/studio-app && npx tsx ../../packages/shadows/src/cli.ts",
-    "dev:shadows-client": "npm -w packages/shadows run dev:client",
-    "build": "npm -w packages/next-plugin run build && npm -w packages/codesurface run build && npm -w packages/shadows run build",
-    "build:shadows": "npm -w packages/shadows run build",
+    "surface": "npm -w packages/next-plugin run build && cd demos/studio-app && npm run dev & sleep 3 && cd demos/studio-app && npx tsx ../../packages/surface/src/cli.ts",
+    "surface:design-system": "npm -w packages/next-plugin run build && cd demos/design-system && npm run dev & sleep 3 && cd demos/design-system && npx tsx ../../packages/surface/src/cli.ts",
+    "build:surface": "npm -w packages/next-plugin run build && npm -w packages/surface run build",
+    "publish:surface": "bash scripts/publish.sh patch surface",
+    "build": "npm -w packages/next-plugin run build && npm -w packages/surface run build",
     "publish": "bash scripts/publish.sh",
-    "publish:core": "bash scripts/publish.sh patch core",
-    "publish:shadows": "bash scripts/publish.sh patch shadows",
-    "publish:next-plugin": "bash scripts/publish.sh patch next-plugin",
-    "shadows": "cd demos/tailwind-shadows-app && npm run dev & cd demos/tailwind-shadows-app && npx tsx ../../packages/shadows/src/cli.ts",
-    "shadows:bootstrap": "rm -rf packages/shadows/dist/client && cd demos/bootstrap-app && npm run dev & cd demos/bootstrap-app && npx tsx ../../packages/shadows/src/cli.ts",
-    "shadows:css-vars": "rm -rf packages/shadows/dist/client && cd demos/css-variables-app && npm run dev & cd demos/css-variables-app && npx tsx ../../packages/shadows/src/cli.ts",
-    "shadows:w3c-tokens": "rm -rf packages/shadows/dist/client && cd demos/w3c-tokens-app && npm run dev & cd demos/w3c-tokens-app && npx tsx ../../packages/shadows/src/cli.ts",
-    "shadows:studio-app": "rm -rf packages/shadows/dist/client && cd demos/studio-app && npm run dev & cd demos/studio-app && npx tsx ../../packages/shadows/src/cli.ts"
+    "publish:next-plugin": "bash scripts/publish.sh patch next-plugin"
   },
   "engines": {
     "node": ">=18"

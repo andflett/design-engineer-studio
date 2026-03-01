@@ -2,7 +2,7 @@
  * Component registry generator for component isolation.
  *
  * Writes a static import map file into the target app's app directory.
- * The <CodeSurface /> component uses this registry to dynamically load
+ * The <Surface /> component uses this registry to dynamically load
  * components for the isolation overlay — no route change needed.
  */
 
@@ -29,7 +29,7 @@ const COMPONENT_REGISTRY: Record<string, () => Promise<any>> = {
 ${registryEntries}
 };
 
-// Self-register on window so CodeSurface can access it without
+// Self-register on window so Surface can access it without
 // passing functions through the RSC serialization boundary.
 if (typeof window !== "undefined") {
   (window as any).__DESIGNTOOLS_REGISTRY__ = COMPONENT_REGISTRY;

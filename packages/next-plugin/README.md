@@ -1,6 +1,6 @@
 # @designtools/next-plugin
 
-Next.js config wrapper for [@designtools/codesurface](../codesurface). Adds source location annotations and mounts the selection overlay — development only.
+Next.js config wrapper for [@designtools/surface](../surface). Adds source location annotations and mounts the selection overlay — development only.
 
 ## Installation
 
@@ -40,9 +40,9 @@ Runs a Babel pass over every `.tsx` / `.jsx` file (excluding `node_modules`) tha
 
 SWC stays enabled as the primary compiler — Babel is only used for this annotation pass.
 
-### 2. CodeSurface mount loader
+### 2. Surface mount loader
 
-Transforms your root layout file (`app/layout.tsx` or `src/app/layout.tsx`) to auto-mount the `<CodeSurface />` selection overlay component. This component handles element selection, hover highlighting, inline style previews, and postMessage communication with the editor UI.
+Transforms your root layout file (`app/layout.tsx` or `src/app/layout.tsx`) to auto-mount the `<Surface />` selection overlay component. This component handles element selection, hover highlighting, inline style previews, and postMessage communication with the editor UI.
 
 Both loaders are skipped entirely in production builds.
 
@@ -51,7 +51,7 @@ Both loaders are skipped entirely in production builds.
 | Export | Description |
 |--------|-------------|
 | `@designtools/next-plugin` | `withDesigntools()` config wrapper |
-| `@designtools/next-plugin/codesurface` | `<CodeSurface />` React component (mounted automatically — you shouldn't need to import this directly) |
+| `@designtools/next-plugin/surface` | `<Surface />` React component (mounted automatically — you shouldn't need to import this directly) |
 
 ## License
 

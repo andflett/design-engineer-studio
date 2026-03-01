@@ -6,29 +6,19 @@ Reference for AI assistants working on this codebase. Read this before making ch
 
 Visual editing CLI tools for web applications — edit styles, tokens, and components visually with changes written back to source files.
 
-The project is transitioning from a proxy-based architecture (studio/shadows) to a hybrid architecture (codesurface). See `.claude/studio-hybrid-architecture-plan.md` for the full plan and `.claude/exploration-history.md` for how we got there.
+## Packages
 
-## Active vs legacy packages
-
-| Package | Status | Notes |
-|---------|--------|-------|
-| `@designtools/codesurface` | **Active development** | Hybrid architecture — selection in target app, editor UI separate |
-| `@designtools/next-plugin` | **Active development** | Config wrapper for `data-source` attributes + `<Studio />` mount |
-| `@designtools/core` | Legacy | Shared utilities — cherry-pick into codesurface as needed, don't add shared deps |
-| `@designtools/studio` | Legacy | Proxy-based editor — keep buildable but don't extend |
-| `@designtools/shadows` | Legacy | Proxy-based shadow editor — keep buildable but don't extend |
-
-**Important**: codesurface does NOT share code with legacy packages at the import level. When codesurface needs something from core/studio, copy it into codesurface's own source tree. This keeps codesurface lean and avoids coupling to legacy code.
+| Package | Notes |
+|---------|-------|
+| `@designtools/surface` | Hybrid architecture — selection in target app, editor UI separate |
+| `@designtools/next-plugin` | Config wrapper for `data-source` attributes + `<Surface />` mount |
 
 ## Monorepo layout
 
 ```
 packages/
-  codesurface/   Hybrid visual editor (active development)
+  surface/      Hybrid visual editor
   next-plugin/  Next.js config wrapper + data-source Babel transform
-  core/         Shared scanner, server, client, CLI (legacy)
-  studio/       Main editing CLI — tokens, components, instances (legacy)
-  shadows/      Shadow-specific editing CLI (legacy)
 demos/
   studio-app/           Tailwind CSS v4 demo (Next.js)
   bootstrap-app/        Bootstrap 5 demo
@@ -37,7 +27,7 @@ demos/
   tailwind-shadows-app/ Tailwind shadows demo
 ```
 
-- `packages/core`, `packages/next-plugin`, `packages/studio`, `packages/shadows`, `packages/codesurface` are npm workspaces.
+- `packages/next-plugin` and `packages/surface` are npm workspaces.
 - `demos/*` are standalone Next.js apps (not workspaces).
 
 ## Key conventions
@@ -64,8 +54,8 @@ demos/
 
 | Kind | Convention | Example |
 |------|-----------|---------|
-| Package | `@designtools/<name>` | `@designtools/codesurface` |
-| CLI binary | `designtools-<name>` | `codesurface` |
+| Package | `@designtools/<name>` | `@designtools/surface` |
+| CLI binary | `designtools-<name>` | `surface` |
 | Scanner files | `scan-<noun>.ts` | `scan-tokens.ts` |
 | Detector files | `detect-<noun>.ts` | `detect-styling.ts` |
 | API routers | `write-<noun>.ts` | `write-element.ts` |
@@ -81,11 +71,11 @@ type: "tailwind-v4" | "tailwind-v3" | "bootstrap" | "css-variables" | "plain-css
 
 ### Color picker & popover conventions
 
-- **Always use the shared color picker** from `packages/codesurface/src/client/components/color-picker.tsx` (`ColorPicker`, `ColorInputFields`, `ModeTabs`, `cssToRgba`, `rgbaToCss`). Never use native `<input type="color">` for color selection.
+- **Always use the shared color picker** from `packages/surface/src/client/components/color-picker.tsx` (`ColorPicker`, `ColorInputFields`, `ModeTabs`, `cssToRgba`, `rgbaToCss`). Never use native `<input type="color">` for color selection.
 - **All popovers must use `@radix-ui/react-popover`** — never use manual `createPortal` with hand-rolled positioning/dismiss logic. Radix handles focus trapping, Escape dismissal, click-outside, and collision-aware positioning.
 - Color token popovers are in `color-popover.tsx` (`ColorPopover`, `TokenPopover`). Gradient stop color pickers use `StopColorPicker` in `token-editor.tsx`. All use Radix Popover + react-colorful internally.
 
-## CodeSurface architecture (active)
+## Surface architecture
 
 ### How it works
 
@@ -93,7 +83,7 @@ type: "tailwind-v4" | "tailwind-v3" | "bootstrap" | "css-variables" | "plain-css
 Editor UI (Vite, 4400)
   |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
   |       |
-  |       +-- Target app with <Studio /> component
+  |       +-- Target app with <Surface /> component
   |               mounted by withDesigntools()
   |               communicates via postMessage
   |
@@ -101,7 +91,7 @@ Editor UI (Vite, 4400)
 ```
 
 - No proxy — iframe loads the target app directly at its dev server URL
-- `withDesigntools()` (from `@designtools/next-plugin`) injects `data-source` attributes at compile time and mounts the `<Studio />` selection component
+- `withDesigntools()` (from `@designtools/next-plugin`) injects `data-source` attributes at compile time and mounts the `<Surface />` selection component
 - `data-source="file:line:col"` on every JSX element provides exact source mapping
 - Editor UI and write server run on port 4400
 - postMessage is the only communication channel between editor and target app
@@ -122,40 +112,13 @@ Styling system adapters translate CSS property/value changes into the native for
 
 Framework plugins and styling-system adapters are orthogonal. Framework = source mapping + selection. Styling system = how changes are written.
 
-### Key files (codesurface)
+### Key files
 
 | File | Purpose |
 |------|---------|
-| `packages/codesurface/src/cli.ts` | CLI entry point |
-| `packages/codesurface/src/server/index.ts` | Express server + write API + Vite middleware |
-| `packages/codesurface/src/client/` | Editor React SPA |
-
-## Legacy architecture (studio/shadows)
-
-The legacy packages use a proxy-based architecture. Keep them buildable but don't extend them.
-
-### Server architecture (legacy)
-
-```
-CLI (bootstrap) -> Server (createToolServer) -> Express app
-  |-- GET  /proxy/*        Proxies target app, injects script
-  |-- GET  /tool-inject.js  Compiled injection script
-  |-- GET  /scan/*          Cached scanner results
-  |-- POST /api/<noun>      Write changes to source files
-  +-- Vite middleware        Serves client SPA
-```
-
-### Key files (legacy)
-
-| File | What it does |
-|------|-------------|
-| `packages/core/src/server/create-server.ts` | Proxy middleware, HTML injection, HMR pass-through |
-| `packages/core/src/inject/selection.ts` | Selection overlays, click handling, postMessage |
-| `packages/core/src/client/lib/iframe-bridge.ts` | postMessage helpers |
-| `packages/core/src/scanner/detect-styling.ts` | Detect Tailwind/Bootstrap/CSS variables |
-| `packages/core/src/scanner/scan-tokens.ts` | Parse CSS custom properties into tokens |
-| `packages/studio/src/server/api/write-element.ts` | AST-based JSX writes, EID markers |
-| `packages/studio/src/server/api/write-tokens.ts` | Regex-based CSS token writes |
+| `packages/surface/src/cli.ts` | CLI entry point |
+| `packages/surface/src/server/index.ts` | Express server + write API + Vite middleware |
+| `packages/surface/src/client/` | Editor React SPA |
 | `packages/next-plugin/src/index.ts` | withDesigntools() config wrapper |
 | `packages/next-plugin/src/loader.ts` | Babel transform for data-source attributes |
 
@@ -164,21 +127,19 @@ CLI (bootstrap) -> Server (createToolServer) -> Express app
 | Service | Default port |
 |---------|-------------|
 | Demo apps | 3000 |
-| CodeSurface editor | 4400 |
-| CodeSurface Vite dev | 4401 |
-| Legacy Studio | 4400 |
-| Legacy Shadows | 4410 |
+| Surface editor | 4400 |
+| Surface Vite dev | 4401 |
 
 ## Process cleanup
 
-When running dev servers (codesurface, demo apps), always kill them when done. Stale processes hold ports (especially Vite's HMR WebSocket on port 24679) and cause "Port is already in use" errors.
+When running dev servers (surface, demo apps), always kill them when done. Stale processes hold ports (especially Vite's HMR WebSocket on port 24679) and cause "Port is already in use" errors.
 
 ```bash
-# Kill stale codesurface/node processes on known ports
+# Kill stale surface/node processes on known ports
 lsof -ti :4400 -ti :4401 -ti :24679 | xargs kill 2>/dev/null
 
 # Or kill all node processes started from this project
-pkill -f "codesurface"
+pkill -f "surface"
 ```
 
 **Important**: If you start a dev server in a background task, make sure to stop it (via `TaskStop` or `kill`) before finishing. Do not leave orphan processes.
@@ -188,10 +149,7 @@ pkill -f "codesurface"
 ### Type-check everything
 
 ```bash
-npx tsc --noEmit --project packages/codesurface/tsconfig.json
-npx tsc --noEmit --project packages/core/tsconfig.json
-npx tsc --noEmit --project packages/studio/tsconfig.json
-npx tsc --noEmit --project packages/shadows/tsconfig.json
+npx tsc --noEmit --project packages/surface/tsconfig.json
 ```
 
 ### Build for production
@@ -200,27 +158,20 @@ npx tsc --noEmit --project packages/shadows/tsconfig.json
 npm run build
 ```
 
-### Run codesurface in dev
+### Run surface in dev
 
 ```bash
 # Terminal 1: demo app
 cd demos/studio-app && npm run dev
 
-# Terminal 2: codesurface
-npm run dev:codesurface
-```
-
-### Run legacy tools
-
-```bash
-npm run dev:studio
-npm run dev:shadows
+# Terminal 2: surface
+npm run surface
 ```
 
 ### Publish
 
 ```bash
-npm run publish:codesurface    # publish codesurface only
+npm run publish:surface       # publish surface only
 npm run publish               # publish all packages
 ```
 

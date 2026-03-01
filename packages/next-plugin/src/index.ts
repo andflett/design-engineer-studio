@@ -1,6 +1,6 @@
 /**
  * Next.js config wrapper that adds the designtools source annotation loader
- * and auto-mounts the <CodeSurface /> selection component in development.
+ * and auto-mounts the <Surface /> selection component in development.
  *
  * Usage:
  *   import { withDesigntools } from "@designtools/next-plugin";
@@ -39,7 +39,7 @@ export function withDesigntools<T extends Record<string, any>>(nextConfig: T = {
           ],
         });
 
-        // Add a loader for root layout files that auto-mounts <CodeSurface />
+        // Add a loader for root layout files that auto-mounts <Surface />
         config.module.rules.push({
           test: /layout\.(tsx|jsx)$/,
           include: [
@@ -48,7 +48,7 @@ export function withDesigntools<T extends Record<string, any>>(nextConfig: T = {
           ],
           use: [
             {
-              loader: path.resolve(__dirname, "codesurface-mount-loader.js"),
+              loader: path.resolve(__dirname, "surface-mount-loader.js"),
             },
           ],
         });
@@ -79,7 +79,7 @@ export function withDesigntools<T extends Record<string, any>>(nextConfig: T = {
     };
 
     const mountLoader = {
-      loader: path.resolve(__dirname, "codesurface-mount-loader.js"),
+      loader: path.resolve(__dirname, "surface-mount-loader.js"),
     };
 
     // Source annotation loader for all .tsx/.jsx files (excluding node_modules)

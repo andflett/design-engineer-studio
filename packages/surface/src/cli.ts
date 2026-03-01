@@ -1,0 +1,487 @@
+import fs from "fs";
+import path from "path";
+import process from "process";
+import readline from "readline";
+import open from "open";
+import { detectFramework, type FrameworkInfo } from "./server/lib/detect-framework.js";
+import { detectStylingSystem, type StylingSystem } from "./server/lib/detect-styling.js";
+import { createServer } from "./server/index.js";
+
+// ANSI colors
+const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
+
+/** Prompt the user to pick from a list or enter a custom value. */
+async function promptPort(message: string, options: number[]): Promise<number> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  console.log("");
+  console.log(`  ${yellow("?")} ${message}`);
+  for (let i = 0; i < options.length; i++) {
+    console.log(`    ${cyan(String(i + 1))}. http://localhost:${options[i]}`);
+  }
+  console.log(`    ${cyan(String(options.length + 1))}. Enter a different port`);
+  console.log("");
+
+  return new Promise((resolve) => {
+    rl.question(`  ${dim("Choice [1]:")} `, (answer) => {
+      rl.close();
+      const trimmed = answer.trim();
+      if (!trimmed || trimmed === "1") {
+        resolve(options[0]);
+        return;
+      }
+      const idx = parseInt(trimmed, 10);
+      if (idx >= 1 && idx <= options.length) {
+        resolve(options[idx - 1]);
+        return;
+      }
+      if (idx === options.length + 1) {
+        // They want a custom port — parse it from the answer or ask again
+        const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl2.question(`  ${dim("Port:")} `, (portAnswer) => {
+          rl2.close();
+          const port = parseInt(portAnswer.trim(), 10);
+          resolve(port || options[0]);
+        });
+        return;
+      }
+      // Maybe they typed a port number directly
+      const directPort = parseInt(trimmed, 10);
+      if (directPort > 1000) {
+        resolve(directPort);
+        return;
+      }
+      resolve(options[0]);
+    });
+  });
+}
+
+/** Prompt user to pick a component directory when detection fails. */
+async function promptComponentDir(
+  framework: FrameworkInfo,
+  projectRoot: string
+): Promise<{ dir: string; exists: boolean; fileCount: number }> {
+  // Gather candidate directories (from fallback scan, plus any dirs with .tsx/.jsx files)
+  const candidates = framework.fallbackComponentDirs.length > 0
+    ? framework.fallbackComponentDirs
+    : await findDirsWithComponentFiles(projectRoot);
+
+  if (candidates.length === 0) {
+    // No directories with component files found at all — can't offer choices
+    return { dir: framework.componentDir, exists: false, fileCount: 0 };
+  }
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  console.log("");
+  console.log(`  ${yellow("?")} Where are your UI components?`);
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    console.log(`    ${cyan(String(i + 1))}. ${c.dir}/ ${dim(`(${c.fileCount} files)`)}`);
+  }
+  const enterIdx = candidates.length + 1;
+  const skipIdx = candidates.length + 2;
+  console.log(`    ${cyan(String(enterIdx))}. Enter a path`);
+  console.log(`    ${cyan(String(skipIdx))}. Skip — continue without component editing`);
+  console.log("");
+
+  return new Promise((resolve) => {
+    rl.question(`  ${dim("Choice [1]:")} `, (answer) => {
+      rl.close();
+      const trimmed = answer.trim();
+      if (!trimmed || trimmed === "1") {
+        const best = candidates[0];
+        resolve({ dir: best.dir, exists: true, fileCount: best.fileCount });
+        return;
+      }
+      const idx = parseInt(trimmed, 10);
+      if (idx >= 1 && idx <= candidates.length) {
+        const picked = candidates[idx - 1];
+        resolve({ dir: picked.dir, exists: true, fileCount: picked.fileCount });
+        return;
+      }
+      if (idx === enterIdx) {
+        const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl2.question(`  ${dim("Path:")} `, (pathAnswer) => {
+          rl2.close();
+          const customDir = pathAnswer.trim();
+          if (customDir && fs.existsSync(path.join(projectRoot, customDir))) {
+            resolve({ dir: customDir, exists: true, fileCount: 0 });
+          } else {
+            resolve({ dir: customDir || framework.componentDir, exists: false, fileCount: 0 });
+          }
+        });
+        return;
+      }
+      // Skip or invalid
+      resolve({ dir: framework.componentDir, exists: false, fileCount: 0 });
+    });
+  });
+}
+
+/** Prompt user to pick a CSS file when detection fails. */
+async function promptCssFile(
+  framework: FrameworkInfo,
+  projectRoot: string
+): Promise<string[]> {
+  const candidates = framework.fallbackCssFiles;
+
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  console.log("");
+  console.log(`  ${yellow("?")} Which CSS file has your design tokens / custom properties?`);
+  for (let i = 0; i < candidates.length; i++) {
+    console.log(`    ${cyan(String(i + 1))}. ${candidates[i]}`);
+  }
+  const enterIdx = candidates.length + 1;
+  const skipIdx = candidates.length + 2;
+  console.log(`    ${cyan(String(enterIdx))}. Enter a path`);
+  console.log(`    ${cyan(String(skipIdx))}. Skip — continue without token editing`);
+  console.log("");
+
+  return new Promise((resolve) => {
+    rl.question(`  ${dim("Choice [1]:")} `, (answer) => {
+      rl.close();
+      const trimmed = answer.trim();
+      if (!trimmed || trimmed === "1") {
+        resolve([candidates[0]]);
+        return;
+      }
+      const idx = parseInt(trimmed, 10);
+      if (idx >= 1 && idx <= candidates.length) {
+        resolve([candidates[idx - 1]]);
+        return;
+      }
+      if (idx === enterIdx) {
+        const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl2.question(`  ${dim("Path:")} `, (pathAnswer) => {
+          rl2.close();
+          const customPath = pathAnswer.trim();
+          if (customPath && fs.existsSync(path.join(projectRoot, customPath))) {
+            resolve([customPath]);
+          } else {
+            resolve([]);
+          }
+        });
+        return;
+      }
+      // Skip
+      resolve([]);
+    });
+  });
+}
+
+/**
+ * Find directories containing .tsx/.jsx files (even without data-slot).
+ * Used as a last resort for prompting.
+ */
+async function findDirsWithComponentFiles(
+  projectRoot: string
+): Promise<{ dir: string; fileCount: number }[]> {
+  const scanDirs = [
+    "components", "src/components", "lib", "src/lib", "ui", "src/ui",
+  ];
+  const results: { dir: string; fileCount: number }[] = [];
+
+  for (const dir of scanDirs) {
+    const fullDir = path.join(projectRoot, dir);
+    try {
+      const stat = fs.statSync(fullDir);
+      if (!stat.isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    try {
+      const files = fs.readdirSync(fullDir);
+      const count = files.filter((f) => f.endsWith(".tsx") || f.endsWith(".jsx")).length;
+      if (count > 0) {
+        results.push({ dir, fileCount: count });
+      }
+      // Also check subdirectories
+      for (const file of files) {
+        const subPath = path.join(fullDir, file);
+        try {
+          if (!fs.statSync(subPath).isDirectory()) continue;
+        } catch {
+          continue;
+        }
+        const subFiles = fs.readdirSync(subPath);
+        const subCount = subFiles.filter((f) => f.endsWith(".tsx") || f.endsWith(".jsx")).length;
+        if (subCount > 0) {
+          results.push({ dir: `${dir}/${file}`, fileCount: subCount });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  results.sort((a, b) => b.fileCount - a.fileCount);
+  return results;
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  let targetPort = 3000;
+  let toolPort = 4400;
+  let componentsOverride: string | undefined;
+  let cssOverride: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--port" && args[i + 1]) {
+      targetPort = parseInt(args[i + 1], 10);
+      i++;
+    }
+    if (args[i] === "--tool-port" && args[i + 1]) {
+      toolPort = parseInt(args[i + 1], 10);
+      i++;
+    }
+    if (args[i] === "--components" && args[i + 1]) {
+      componentsOverride = args[i + 1];
+      i++;
+    }
+    if (args[i] === "--css" && args[i + 1]) {
+      cssOverride = args[i + 1];
+      i++;
+    }
+  }
+
+  const projectRoot = process.cwd();
+
+  console.log("");
+  console.log(`  ${bold("@designtools/surface")}`);
+  console.log(`  ${dim(projectRoot)}`);
+  console.log("");
+
+  // 1. Check package.json exists
+  const pkgPath = path.join(projectRoot, "package.json");
+  if (!fs.existsSync(pkgPath)) {
+    console.log(`  ${red("✗")} No package.json found in ${projectRoot}`);
+    console.log(`    ${dim("Run this command from the root of the app you want to edit.")}`);
+    console.log(`    ${dim("All file reads and writes are scoped to this directory.")}`);
+    console.log("");
+    process.exit(1);
+  }
+
+  // 2. Detect framework
+  const framework = await detectFramework(projectRoot);
+
+  // Apply CLI overrides
+  if (componentsOverride) {
+    framework.componentDir = componentsOverride;
+    framework.componentDirExists = fs.existsSync(path.join(projectRoot, componentsOverride));
+    if (framework.componentDirExists) {
+      const files = fs.readdirSync(path.join(projectRoot, componentsOverride));
+      framework.componentFileCount = files.filter((f) => f.endsWith(".tsx") || f.endsWith(".jsx")).length;
+    }
+  }
+  if (cssOverride) {
+    framework.cssFiles = fs.existsSync(path.join(projectRoot, cssOverride))
+      ? [cssOverride]
+      : [];
+  }
+
+  const frameworkLabel =
+    framework.name === "nextjs"
+      ? "Next.js"
+      : framework.name === "remix"
+        ? "Remix"
+        : framework.name === "vite"
+          ? "Vite"
+          : "Unknown";
+
+  console.log(`  ${green("✓")} Framework      ${frameworkLabel}`);
+
+  if (framework.appDirExists) {
+    console.log(`  ${green("✓")} App dir        ${framework.appDir}/`);
+  } else {
+    console.log(`  ${yellow("⚠")} App dir        ${dim("not found — route detection won't be available")}`);
+  }
+
+  if (framework.componentDirExists) {
+    console.log(
+      `  ${green("✓")} Components     ${framework.componentDir}/ ${dim(`(${framework.componentFileCount} files)`)}`
+    );
+  } else {
+    console.log(`  ${yellow("⚠")} Components     ${dim("not found")}`);
+    // Prompt if we're in an interactive terminal and no CLI override was given
+    if (!componentsOverride && process.stdin.isTTY) {
+      const result = await promptComponentDir(framework, projectRoot);
+      if (result.exists) {
+        framework.componentDir = result.dir;
+        framework.componentDirExists = true;
+        framework.componentFileCount = result.fileCount;
+        console.log(`  ${green("✓")} Components     ${framework.componentDir}/ ${dim(`(${framework.componentFileCount} files)`)}`);
+      }
+    }
+  }
+
+  if (framework.cssFiles.length > 0) {
+    console.log(`  ${green("✓")} CSS files      ${framework.cssFiles[0]}`);
+  } else {
+    console.log(`  ${yellow("⚠")} CSS files      ${dim("no CSS files found")}`);
+    // Prompt if we're in an interactive terminal and no CLI override was given
+    if (!cssOverride && process.stdin.isTTY) {
+      const result = await promptCssFile(framework, projectRoot);
+      if (result.length > 0) {
+        framework.cssFiles = result;
+        console.log(`  ${green("✓")} CSS files      ${framework.cssFiles[0]}`);
+      }
+    }
+  }
+
+  // 3. Detect styling system
+  const styling = await detectStylingSystem(projectRoot, framework);
+
+  const stylingLabels: Record<StylingSystem["type"], string> = {
+    "tailwind-v4": "Tailwind CSS v4",
+    "tailwind-v3": "Tailwind CSS v3",
+    "bootstrap": "Bootstrap",
+    "css-variables": "CSS Custom Properties",
+    "plain-css": "Plain CSS",
+    "unknown": "Unknown",
+  };
+  const stylingLabel = stylingLabels[styling.type];
+
+  if (styling.type !== "unknown") {
+    console.log(`  ${green("✓")} Styling        ${stylingLabel}`);
+  } else {
+    console.log(`  ${yellow("⚠")} Styling        ${dim("no styling system detected")}`);
+  }
+
+  console.log("");
+
+  // 4. Wait for target dev server (retry for up to 15 seconds)
+  // Also scan nearby ports in case the dev server auto-picked a different one
+  // (e.g. Next.js prints "Port 3000 is in use, using 3001 instead").
+  const scanPorts = [targetPort, targetPort + 1, targetPort + 2];
+  let targetReachable = false;
+  let waited = false;
+
+  /** Check which ports in the scan range have a reachable server. */
+  async function findReachablePorts(): Promise<number[]> {
+    const reachable: number[] = [];
+    for (const port of scanPorts) {
+      try {
+        await fetch(`http://localhost:${port}`, { signal: AbortSignal.timeout(1000) });
+        reachable.push(port);
+      } catch {
+        // not reachable
+      }
+    }
+    return reachable;
+  }
+
+  let reachablePorts: number[] = [];
+  for (let attempt = 0; attempt < 15; attempt++) {
+    reachablePorts = await findReachablePorts();
+    if (reachablePorts.length > 0) {
+      targetReachable = true;
+      break;
+    }
+    if (attempt === 0) {
+      process.stdout.write(`  ${dim("Waiting for dev server on port " + scanPorts.join("/") + "...")}`);
+      waited = true;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (waited) process.stdout.write("\r\x1b[K");
+
+  if (!targetReachable) {
+    console.log("");
+    console.log(`  ${red("✗")} No dev server on port ${scanPorts.join(", ")}`);
+    console.log(`    ${dim("Start your dev server first, then run this command.")}`);
+    console.log(`    ${dim(`Use --port to specify a different port.`)}`);
+    console.log("");
+    process.exit(1);
+  }
+
+  if (reachablePorts.length === 1 && reachablePorts[0] === targetPort) {
+    // Exact match on the requested port — no ambiguity
+    console.log(`  ${green("✓")} Target         http://localhost:${targetPort}`);
+  } else if (reachablePorts.length === 1) {
+    // Only one port responded, but it's not the one they asked for
+    const found = reachablePorts[0];
+    console.log(`  ${yellow("⚠")} Target         http://localhost:${found} ${dim(`(port ${targetPort} not reachable, found server on ${found})`)}`);
+    targetPort = found;
+  } else {
+    // Multiple ports are responding — ask the user which one is their app
+    targetPort = await promptPort(
+      `Multiple servers found. Which is your dev app?`,
+      reachablePorts,
+    );
+    console.log(`  ${green("✓")} Target         http://localhost:${targetPort}`);
+  }
+
+  // 5. Start server
+  const { app, viteDevServer } = await createServer({
+    targetPort,
+    toolPort,
+    projectRoot,
+    stylingType: styling.type,
+    framework,
+    styling,
+  });
+
+  // Try to listen on the tool port, auto-increment if busy
+  const httpServer = await new Promise<ReturnType<typeof app.listen>>((resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    function tryListen(port: number) {
+      const server = app.listen(port);
+      server.on("listening", () => {
+        if (port !== toolPort) {
+          console.log(`  ${yellow("⚠")} Tool           http://localhost:${port} ${dim(`(port ${toolPort} was busy)`)}`);
+        } else {
+          console.log(`  ${green("✓")} Tool           http://localhost:${port}`);
+        }
+        toolPort = port;
+        resolve(server);
+      });
+      server.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE" && attempts < maxAttempts) {
+          attempts++;
+          tryListen(port + 1);
+        } else {
+          reject(err);
+        }
+      });
+    }
+    tryListen(toolPort);
+  });
+
+  console.log("");
+  console.log(`  ${dim("All file writes are scoped to:")} ${bold(projectRoot)}`);
+  console.log("");
+
+  open(`http://localhost:${toolPort}`);
+
+  // Graceful shutdown — close Vite's HMR WebSocket and the HTTP server
+  // so ports are released even if the process is killed abruptly.
+  const shutdown = () => {
+    console.log(`\n  ${dim("Shutting down...")}`);
+    if (viteDevServer) {
+      viteDevServer.close().catch(() => {});
+    }
+    httpServer.close(() => {
+      process.exit(0);
+    });
+    // Force exit after 3s if close callbacks hang
+    setTimeout(() => process.exit(0), 3000);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
