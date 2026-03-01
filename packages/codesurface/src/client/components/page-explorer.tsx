@@ -166,7 +166,7 @@ export function PageExplorer({
           </>
         ) : (
           /* No scope data — render flat tree */
-          <div className="flex-1 overflow-y-auto overflow-x-hidden studio-scrollbar py-1">
+          <div className="flex-1 overflow-y-auto overflow-x-auto studio-scrollbar py-1">
             {allNodes.map((node) => (
               <TreeNodeItem
                 key={node.id}
@@ -255,7 +255,7 @@ function ScopeSection({
 
       {/* Children — scrollable, header stays pinned */}
       {isExpanded && (
-        <div className="overflow-y-auto overflow-x-hidden studio-scrollbar py-2" style={{ flex: 1, minHeight: 0 }}>
+        <div className="overflow-y-auto overflow-x-auto studio-scrollbar py-2" style={{ flex: 1, minHeight: 0 }}>
           {children}
         </div>
       )}
@@ -293,7 +293,7 @@ function TreeNodeItem({
     <div>
       <div
         ref={isSelected ? selectedRef : undefined}
-        className="flex items-center gap-1 w-full group overflow-hidden"
+        className="flex items-center gap-1 group whitespace-nowrap"
         style={{
           padding: `3px 8px 3px ${8 + depth * 14}px`,
           fontSize: 11,

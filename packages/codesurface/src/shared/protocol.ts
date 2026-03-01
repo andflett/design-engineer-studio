@@ -73,6 +73,7 @@ export type IframeToEditor =
 export type EditorToIframe =
   | { type: "tool:enterSelectionMode" }
   | { type: "tool:exitSelectionMode" }
+  | { type: "tool:clearSelection" }
   | { type: "tool:previewInlineStyle"; property: string; value: string }
   | { type: "tool:previewTokenValue"; property: string; value: string }
   | { type: "tool:revertTokenValues" }

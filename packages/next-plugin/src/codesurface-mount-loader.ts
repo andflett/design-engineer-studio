@@ -29,10 +29,10 @@ export default function codesurfaceMountLoader(this: LoaderContext, source: stri
   }
 
   // Add imports at the top (after "use client" or first import)
-  // The registry import is a side-effect — it self-registers on window.
+  // The registry is rendered as a component to prevent tree-shaking.
   const importStatements = [
     `import { CodeSurface } from "@designtools/next-plugin/codesurface";`,
-    `import "./designtools-registry";`,
+    `import { DesigntoolsRegistry } from "./designtools-registry";`,
   ].join("\n") + "\n";
 
   let modified = source;
@@ -45,10 +45,10 @@ export default function codesurfaceMountLoader(this: LoaderContext, source: stri
     modified = importStatements + source;
   }
 
-  // Add <CodeSurface /> just before {children}
+  // Add <CodeSurface /> and <DesigntoolsRegistry /> just before {children}
   modified = modified.replace(
     /(\{children\})/,
-    `<CodeSurface />\n          $1`
+    `<CodeSurface /><DesigntoolsRegistry />\n          $1`
   );
 
   callback(null, modified);

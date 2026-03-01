@@ -832,6 +832,16 @@ export function CodeSurface() {
       s.hoveredElement = null;
     }
 
+    function clearSelection() {
+      s.selectedElement = null;
+      s.selectedDomPath = null;
+      if (s.selectedOverlay) s.selectedOverlay.style.display = "none";
+      if (s.overlayRafId) {
+        cancelAnimationFrame(s.overlayRafId);
+        s.overlayRafId = null;
+      }
+    }
+
     // --- Event handlers ---
     function onMouseMove(e: MouseEvent) {
       if (!s.selectionMode || !s.highlightOverlay || !s.tooltip) return;
@@ -876,6 +886,9 @@ export function CodeSurface() {
           break;
         case "tool:exitSelectionMode":
           exitSelectionMode();
+          break;
+        case "tool:clearSelection":
+          clearSelection();
           break;
         case "tool:previewInlineStyle": {
           if (s.selectedElement && s.selectedElement instanceof HTMLElement) {

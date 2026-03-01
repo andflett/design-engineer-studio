@@ -6,13 +6,10 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 
 ## Packages
 
-| Package | Description | Status |
-|---------|-------------|--------|
-| [`@designtools/codesurface`](packages/codesurface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app | **Active development** |
-| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<CodeSurface />` | **Active development** |
-| [`@designtools/studio`](packages/studio) | Visual editor for tokens, components, and instances (proxy-based) | Legacy |
-| [`@designtools/shadows`](packages/shadows) | Visual editor for box-shadow values (proxy-based) | Legacy |
-| `@designtools/core` | Shared scanner, server, and client utilities | Legacy (shared) |
+| Package | Description |
+|---------|-------------|
+| [`@designtools/codesurface`](packages/codesurface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app |
+| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<CodeSurface />` |
 
 ## Architecture
 
@@ -89,28 +86,13 @@ The editor opens at [http://localhost:4400](http://localhost:4400) with the targ
 | W3C Design Tokens | `.tokens.json` files with `$type` | DTCG composite values |
 | CSS Variables | `--*` custom properties in `:root` | Direct property writes |
 
-## Legacy tools
-
-The original `@designtools/studio` and `@designtools/shadows` packages are still in the repo and buildable. They use a proxy-based architecture that is being replaced by CodeSurface. See the [exploration history](.claude/exploration-history.md) for why.
-
-```bash
-# Legacy studio
-npm run dev:studio
-
-# Legacy shadows
-npm run dev:shadows
-```
-
 ## Project structure
 
 ```
 designtools/
 ├── packages/
-│   ├── codesurface/    Hybrid visual editor (active)
-│   ├── next-plugin/   Next.js config wrapper + data-source transform
-│   ├── core/          Shared scanner, server, and client utilities (legacy)
-│   ├── studio/        Proxy-based visual editor (legacy)
-│   └── shadows/       Shadow-specific editing tool (legacy)
+│   ├── codesurface/    Hybrid visual editor
+│   └── next-plugin/    Next.js config wrapper + data-source transform
 ├── demos/
 │   ├── studio-app/              Tailwind CSS v4 + CVA demo
 │   ├── bootstrap-app/           Bootstrap 5 demo
@@ -118,6 +100,59 @@ designtools/
 │   ├── css-variables-app/       Plain CSS variables demo
 │   └── tailwind-shadows-app/    Tailwind CSS v4 shadows demo
 ```
+
+## Testing with a local project
+
+To test local changes to `codesurface` and `next-plugin` against any Next.js project on your machine:
+
+### 1. Build the packages
+
+```bash
+cd /path/to/designtools
+npm run build
+```
+
+### 2. Link the Next.js plugin
+
+The `next-plugin` lives in your target project's `node_modules`, so use `npm link` to point it at your local build:
+
+```bash
+# Register the package globally (one-time)
+cd packages/next-plugin && npm link
+
+# In your target project
+cd /path/to/your-app
+npm link @designtools/next-plugin
+```
+
+### 3. Run codesurface from source
+
+Since codesurface is a standalone CLI (not a dependency), run it directly from the build output instead of linking:
+
+```bash
+# Terminal 1 — start your app
+cd /path/to/your-app && npm run dev
+
+# Terminal 2 — run codesurface from your local build
+cd /path/to/your-app && node /path/to/designtools/packages/codesurface/dist/cli.js
+```
+
+### After making changes
+
+Rebuild and the link picks up changes automatically:
+
+```bash
+cd /path/to/designtools
+npm run build --workspace=packages/next-plugin
+npm run build --workspace=packages/codesurface
+```
+
+Then restart the dev server and codesurface CLI.
+
+### Notes
+
+- `npm install` in the target project removes links. Re-run `npm link @designtools/next-plugin` after installing.
+- To unlink: `cd /path/to/your-app && npm unlink @designtools/next-plugin`
 
 ## License
 

@@ -293,17 +293,17 @@ export function EditorPanel({
             </div>
           </div>
 
-          {/* File path */}
-          {element.source && (
+          {/* File path — prefer element.source, fall back to scanned component filePath */}
+          {(element.source || componentEntry?.filePath) && (
             <div className="px-4 pb-2.5 pt-0.5">
               <button
-                onClick={() =>
-                  openInEditor(
-                    element.source!.file,
-                    element.source!.line,
-                    element.source!.col,
-                  )
-                }
+                onClick={() => {
+                  if (element.source) {
+                    openInEditor(element.source.file, element.source.line, element.source.col);
+                  } else if (componentEntry?.filePath) {
+                    openInEditor(componentEntry.filePath, 1, 0);
+                  }
+                }}
                 className="text-[10px] font-mono truncate block text-left w-full"
                 style={{
                   color: "var(--studio-text-dimmed)",
@@ -320,7 +320,9 @@ export function EditorPanel({
                 }
                 title="Open in editor"
               >
-                {element.source.file}:{element.source.line}:{element.source.col}
+                {element.source
+                  ? `${element.source.file}:${element.source.line}:${element.source.col}`
+                  : componentEntry?.filePath}
               </button>
             </div>
           )}

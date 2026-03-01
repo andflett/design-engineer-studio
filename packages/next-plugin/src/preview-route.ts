@@ -34,6 +34,12 @@ ${registryEntries}
 if (typeof window !== "undefined") {
   (window as any).__DESIGNTOOLS_REGISTRY__ = COMPONENT_REGISTRY;
 }
+
+// Exported as a rendered component to prevent tree-shaking of the
+// side-effect registration above. The mount loader renders this in layout.
+export function DesigntoolsRegistry() {
+  return null;
+}
 `;
 
   fs.writeFileSync(path.join(appDir, REGISTRY_FILE), content, "utf-8");

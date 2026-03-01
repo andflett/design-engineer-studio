@@ -65,7 +65,7 @@ Start your Next.js dev server, then run CodeSurface from your project root:
 npm run dev
 
 # Terminal 2: start the editor
-npx codesurface
+npx @designtools/codesurface
 ```
 
 The CLI auto-detects your dev server on port 3000 (also scanning 3001 and 3002 in case Next.js picked a different port). The editor opens at `http://localhost:4400`.

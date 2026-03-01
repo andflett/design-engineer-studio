@@ -59,6 +59,7 @@ export function App() {
   const [componentTree, setComponentTree] = useState<ComponentTreeNode[]>([]);
   const [usagePanelOpen, setUsagePanelOpen] = useState(false);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(250);
   const [isolationComponent, setIsolationComponent] = useState<ComponentEntry | null>(null);
   const scanReady = useScanReady();
   const componentData = useComponents();
@@ -131,7 +132,14 @@ export function App() {
   const toggleSelectionMode = useCallback(() => {
     const next = !selectionMode;
     setSelectionMode(next);
-    send(next ? { type: "tool:enterSelectionMode" } : { type: "tool:exitSelectionMode" });
+    if (next) {
+      send({ type: "tool:enterSelectionMode" });
+    } else {
+      send({ type: "tool:exitSelectionMode" });
+      send({ type: "tool:clearSelection" });
+      setSelectedElement(null);
+      setUsagePanelOpen(false);
+    }
   }, [selectionMode, send]);
 
   const toggleTheme = useCallback(() => {
@@ -167,7 +175,8 @@ export function App() {
   const handleCloseEditor = useCallback(() => {
     setSelectedElement(null);
     setUsagePanelOpen(false);
-  }, []);
+    send({ type: "tool:clearSelection" });
+  }, [send]);
 
   const handleNavigateToRoute = useCallback((route: string) => {
     setIframePath(route);
@@ -253,12 +262,40 @@ export function App() {
 
   const showUsages = usagePanelOpen && selectedComponentName;
 
+  const handleLeftPanelDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftPanelWidth;
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(180, Math.min(500, startWidth + ev.clientX - startX));
+      setLeftPanelWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [leftPanelWidth]);
+
+  const leftPanelDragHandle = (
+    <div
+      onMouseDown={handleLeftPanelDragStart}
+      className="absolute top-0 right-0 w-1 h-full cursor-ew-resize z-10 hover:bg-[var(--studio-accent)]"
+      style={{ transition: "background 0.15s" }}
+    />
+  );
+
   const leftPanel = isolationComponent ? (
     <div
-      className="flex flex-col border-r h-full"
+      className="relative flex flex-col border-r h-full shrink-0"
       style={{
-        width: 250,
-        minWidth: 250,
+        width: leftPanelWidth,
+        minWidth: 180,
         background: "var(--studio-surface)",
         borderColor: "var(--studio-border)",
       }}
@@ -268,6 +305,7 @@ export function App() {
         onBack={handleExitIsolation}
         onCombinationsChange={handleIsolationCombinationsChange}
       />
+      {leftPanelDragHandle}
     </div>
   ) : leftPanelCollapsed ? (
     <div
@@ -289,10 +327,10 @@ export function App() {
     </div>
   ) : (
     <div
-      className="flex flex-col border-r h-full"
+      className="relative flex flex-col border-r h-full shrink-0"
       style={{
-        width: 250,
-        minWidth: 250,
+        width: leftPanelWidth,
+        minWidth: 180,
         background: "var(--studio-surface)",
         borderColor: "var(--studio-border)",
       }}
@@ -340,6 +378,7 @@ export function App() {
           onHoverEnd={handleTreeHoverEnd}
         />
       </div>
+      {leftPanelDragHandle}
     </div>
   );
 

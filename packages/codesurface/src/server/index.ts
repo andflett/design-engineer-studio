@@ -149,8 +149,19 @@ export async function createServer(config: ServerConfig) {
   } else {
     // Production — serve static files
     app.use(express.static(clientDistPath));
-    app.use((_req, res) => {
-      res.sendFile(path.join(clientDistPath, "index.html"));
+    // SPA fallback — serve index.html for navigation routes, skip for asset requests
+    app.use((req, res, next) => {
+      // Don't serve index.html for requests that look like static assets
+      if (req.path.includes(".") && !req.path.endsWith(".html")) {
+        next();
+        return;
+      }
+      const indexPath = path.join(clientDistPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        next();
+      }
     });
   }
 
