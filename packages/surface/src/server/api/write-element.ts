@@ -140,6 +140,15 @@ export function createWriteElementRouter(config: WriteElementConfig) {
         return;
       }
 
+      // Reject writes to files inside node_modules
+      if (body.source.file.includes("node_modules")) {
+        res.status(422).json({
+          error: "readonly_package",
+          message: "Cannot edit — file is inside node_modules",
+        });
+        return;
+      }
+
       // Handle instanceOverride: modify className on a component usage in the page file
       if (body.type === "instanceOverride") {
         if (!body.componentName || !body.newClass) {

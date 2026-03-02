@@ -16,6 +16,8 @@ export interface SelectedElementData {
   instanceSource: SourceLocation | null;
   /** For component instances: the component name (e.g. "CardTitle") */
   componentName: string | null;
+  /** Package name if element originates from node_modules (e.g. "@radix-ui/react-dialog") */
+  packageName: string | null;
   /** Stable CSS selector path (nth-child based) — matches ComponentTreeNode.id */
   domPath: string | null;
   className: string;

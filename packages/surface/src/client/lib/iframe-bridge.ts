@@ -26,6 +26,7 @@ interface RawElementData {
   instanceSourceLine?: number | null;
   instanceSourceCol?: number | null;
   componentName?: string | null;
+  packageName?: string | null;
   fiberProps?: Record<string, string | number | boolean> | null;
 }
 
@@ -53,6 +54,7 @@ function normalizeElementData(data: RawElementData | SelectedElementData): Selec
         ? { file: raw.instanceSourceFile, line: raw.instanceSourceLine!, col: raw.instanceSourceCol! }
         : null,
     componentName: raw.componentName || null,
+    packageName: raw.packageName || null,
     fiberProps: raw.fiberProps || null,
   };
 }

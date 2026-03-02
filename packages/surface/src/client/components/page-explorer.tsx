@@ -20,7 +20,7 @@ import {
   LayersIcon,
 } from "@radix-ui/react-icons";
 import type { ComponentTreeNode } from "../../shared/protocol.js";
-import { ChevronsDownUp, ChevronsUpDown, ListTree } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ListTree, Package } from "lucide-react";
 import { Tooltip } from "./tooltip.js";
 
 interface PageExplorerProps {
@@ -519,6 +519,22 @@ function TreeNodeItem({
 
         {/* Name */}
         <span className="truncate">{node.name}</span>
+
+        {/* Package badge for npm components */}
+        {node.source && node.source.includes("node_modules") && (
+          <Tooltip content="npm package">
+            <Package
+              style={{
+                width: 10,
+                height: 10,
+                flexShrink: 0,
+                opacity: 0.4,
+                color: "var(--studio-text-dimmed)",
+              }}
+              strokeWidth={1.5}
+            />
+          </Tooltip>
+        )}
 
         {/* Chain badge — show +N count for collapsed chains */}
         {isChainRoot && chainCount > 0 && (

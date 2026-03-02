@@ -131,10 +131,14 @@ export function EditorPanel({
   // Serialize writes so only one goes at a time
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
+  const isNpmComponent = !!element?.packageName && !element?.source;
+
   const elementName = element
     ? isComponent
       ? componentEntry?.name || dataSlot
-      : `<${element.tag}>`
+      : element.componentName
+        ? element.componentName
+        : `<${element.tag}>`
     : null;
 
   const tokenRefs = extractTokenReferences(element?.className || "", tokenData);
@@ -300,37 +304,79 @@ export function EditorPanel({
             </div>
           </div>
 
-          {/* File path — prefer element.source, fall back to scanned component filePath */}
-          {(element.source || componentEntry?.filePath) && (
+          {/* File path — prefer element.source, fall back to scanned component filePath, then npm package */}
+          {(element.source || componentEntry?.filePath || element.packageName || element.instanceSource) && (
             <div className="px-4 pb-2.5 pt-0.5">
-              <button
-                onClick={() => {
-                  if (element.source) {
-                    openInEditor(element.source.file, element.source.line, element.source.col);
-                  } else if (componentEntry?.filePath) {
-                    openInEditor(componentEntry.filePath, 1, 0);
+              {(element.source || componentEntry?.filePath) ? (
+                <button
+                  onClick={() => {
+                    if (element.source) {
+                      openInEditor(element.source.file, element.source.line, element.source.col);
+                    } else if (componentEntry?.filePath) {
+                      openInEditor(componentEntry.filePath, 1, 0);
+                    }
+                  }}
+                  className="text-[10px] font-mono truncate block text-left w-full"
+                  style={{
+                    color: "var(--studio-text-dimmed)",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.textDecoration = "underline")
                   }
-                }}
-                className="text-[10px] font-mono truncate block text-left w-full"
-                style={{
-                  color: "var(--studio-text-dimmed)",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.textDecoration = "none")
-                }
-                title="Open in editor"
-              >
-                {element.source
-                  ? `${element.source.file}:${element.source.line}:${element.source.col}`
-                  : componentEntry?.filePath}
-              </button>
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.textDecoration = "none")
+                  }
+                  title="Open in editor"
+                >
+                  {element.source
+                    ? `${element.source.file}:${element.source.line}:${element.source.col}`
+                    : componentEntry?.filePath}
+                </button>
+              ) : (
+                <>
+                  {element.packageName && (
+                    <span
+                      className="text-[10px] font-mono truncate block"
+                      style={{ color: "var(--studio-text-dimmed)", opacity: 0.6 }}
+                    >
+                      {element.packageName}
+                    </span>
+                  )}
+                  {element.instanceSource && (
+                    <button
+                      onClick={() => {
+                        openInEditor(
+                          element.instanceSource!.file,
+                          element.instanceSource!.line,
+                          element.instanceSource!.col,
+                        );
+                      }}
+                      className="text-[10px] font-mono truncate block text-left w-full"
+                      style={{
+                        color: "var(--studio-text-dimmed)",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        marginTop: element.packageName ? 2 : 0,
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.textDecoration = "underline")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.textDecoration = "none")
+                      }
+                      title="Open instance in editor"
+                    >
+                      {`${element.instanceSource.file}:${element.instanceSource.line}`}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -534,6 +580,25 @@ export function EditorPanel({
 
         {activeMode === "instance" && element && (
           <>
+            {isNpmComponent && element.instanceSource && (
+              <div
+                className="px-3 py-2"
+                style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
+              >
+                <div
+                  className="text-[10px] px-2 py-1.5 rounded"
+                  style={{
+                    color: "var(--studio-text-dimmed)",
+                    background: "var(--studio-surface-hover)",
+                  }}
+                >
+                  Editing instance in{" "}
+                  <span className="font-mono">
+                    {element.instanceSource.file.split("/").pop()}:{element.instanceSource.line}
+                  </span>
+                </div>
+              </div>
+            )}
             {isComponent &&
             componentEntry &&
             componentEntry.variants.length > 0 ? (

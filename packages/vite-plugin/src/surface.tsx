@@ -714,10 +714,11 @@ export function Surface() {
       let instanceSourceLine: number | null = null;
       let instanceSourceCol: number | null = null;
       let componentName: string | null = null;
+      let packageName: string | null = null;
 
       const dataSlot = el.getAttribute("data-slot");
       const instanceSource = el.getAttribute("data-instance-source");
-      if (instanceSource && dataSlot) {
+      if (instanceSource) {
         const lc = instanceSource.lastIndexOf(":");
         const slc = instanceSource.lastIndexOf(":", lc - 1);
         if (slc > 0) {
@@ -726,19 +727,44 @@ export function Surface() {
           instanceSourceCol = parseInt(instanceSource.slice(lc + 1), 10);
         }
 
-        // Derive component name from data-slot (e.g. "card-title" -> "CardTitle")
-        componentName = dataSlot
-          .split("-")
-          .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
-          .join("");
+        if (dataSlot) {
+          // Derive component name from data-slot (e.g. "card-title" -> "CardTitle")
+          componentName = dataSlot
+            .split("-")
+            .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+            .join("");
+        }
       }
 
-      // Extract runtime props from React fiber for component instances
+      // Extract runtime props and derive componentName/packageName from React fiber
+      const compFiber = (dataSlot || instanceSource) ? findComponentFiberAbove(el) : null;
+
       let fiberProps: Record<string, string | number | boolean> | null = null;
-      if (dataSlot) {
-        const compFiber = findComponentFiberAbove(el);
-        if (compFiber) {
-          fiberProps = extractFiberProps(compFiber);
+      if (compFiber) {
+        fiberProps = extractFiberProps(compFiber);
+
+        // Derive componentName from fiber when data-slot is not present
+        if (!componentName && instanceSource) {
+          const name = compFiber.type?.displayName || compFiber.type?.name;
+          if (name) componentName = name;
+        }
+
+        // Extract packageName from fiber._debugSource for npm components
+        const debugFile = compFiber._debugSource?.fileName;
+        if (debugFile) {
+          packageName = extractPackageName(debugFile);
+        }
+      }
+
+      // Also check data-source for packageName if no fiber source
+      if (!packageName && !sourceFile) {
+        // No project source — try walking up fibers to find node_modules origin
+        const anyFiber = findComponentFiberAbove(el);
+        if (anyFiber) {
+          const debugFile = anyFiber._debugSource?.fileName;
+          if (debugFile) {
+            packageName = extractPackageName(debugFile);
+          }
         }
       }
 
@@ -758,8 +784,20 @@ export function Surface() {
         instanceSourceLine,
         instanceSourceCol,
         componentName,
+        packageName,
         fiberProps,
       };
+    }
+
+    function extractPackageName(filePath: string): string | null {
+      const nmIdx = filePath.lastIndexOf("node_modules/");
+      if (nmIdx === -1) return null;
+      const rest = filePath.slice(nmIdx + "node_modules/".length);
+      if (rest.startsWith("@")) {
+        const parts = rest.split("/");
+        return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : null;
+      }
+      return rest.split("/")[0] || null;
     }
 
     function selectElement(el: Element) {
