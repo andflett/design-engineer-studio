@@ -1,128 +1,60 @@
 # @designtools/surface
 
-Visual editing for production frontends. @designtools/surface is a multi-framework design tool that understands your design system, sits on top of your production code, and writes changes back to source.
+Visual editing for production frontends. A multi-framework design tool that understands your design system, sits on top of your production code, and writes changes back to source.
 
-[Read the write-up](https://www.flett.cc/projects/design-engineer-studio)
+[Read the write-up](https://www.flett.cc/projects/design-engineer-studio) · [Website](https://designsurface.dev)
 
-## Packages
+> **Active development** — things will break, APIs will change. If you like living on the edge, the source is open and the packages are published.
 
-| Package | Description |
-|---------|-------------|
-| [`@designtools/surface`](packages/surface) | Hybrid visual editor — selection overlays in the target app, editor UI in a separate Vite app |
-| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — injects `data-source` attributes and mounts `<Surface />` |
-| [`@designtools/vite-plugin`](packages/vite-plugin) | Vite plugin — injects `data-source` attributes and auto-mounts `<Surface />` |
-| [`@designtools/astro-plugin`](packages/astro-plugin) | Astro integration — `.astro` template transform and auto-mounts `<Surface />` |
+---
 
-## Architecture
+## Getting started
 
-Surface uses a hybrid architecture where the **selection component** (`<Surface />`) lives inside the target app via the `withDesigntools()` config wrapper, while the **editor UI** remains a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
+Pick your framework and follow the setup below. Each one takes under a minute.
 
-```
-Editor UI (Vite, 4400)
-  |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
-  |       |
-  |       +-- Target app with <Surface /> component
-  |               mounted by withDesigntools() or vite-plugin
-  |               communicates via postMessage
-  |
-  +-- Write server (API routes on same port)
-```
-
-Key design decisions:
-- `data-source` attributes (injected at compile time) provide exact file:line:col mapping for every element
-- CSS property/value pairs as the universal editing primitive, with styling-system hints to preserve tokens
-- Framework plugins (Next.js, Vite) and styling-system adapters (Tailwind, CSS variables, etc.) are orthogonal
-- Tailwind theme resolution — custom scales from v3 configs and v4 `@theme` blocks are auto-detected and used for class suggestions
-
-### Support Matrix
-
-#### Frameworks
-
-| Framework | Plugin | Status | Notes |
-|-----------|--------|--------|-------|
-| Next.js | `@designtools/next-plugin` | Stable | App Router. Babel transform for `data-source` attributes |
-| Vite + React | `@designtools/vite-plugin` | Stable | Any Vite + React project |
-| Astro | `@designtools/astro-plugin` | Stable | `.astro` templates + React/Preact islands |
-| Remix | `@designtools/vite-plugin` | Beta | Vite-based — use the Vite plugin |
-| Vue / Nuxt | — | Planned | |
-| Svelte / SvelteKit | — | Planned | |
-
-#### Styling Systems
-
-| System | Detection | Write format | Status |
-|--------|-----------|-------------|--------|
-| Tailwind CSS v4 | `tailwindcss ^4` in package.json | Utility classes via resolved theme | Stable |
-| Tailwind CSS v3 | `tailwindcss ^3` + config file | Utility classes via theme config | Stable |
-| CSS Variables | `--*` custom properties in stylesheets | Direct property writes in CSS files | Stable |
-| Plain CSS | `.css` files with class selectors | Direct property writes in CSS files | Stable |
-| CSS Modules | `.module.css` imports in JSX | Property writes in module CSS files | Stable |
-| Sass / SCSS | — | — | Planned |
-
-## Demo apps
-
-| Demo | Styling | Port |
-|------|---------|------|
-| **Studio** (`demos/studio-app`) | Tailwind CSS v4, CVA, OKLch tokens | 3000 |
-| **Bootstrap** (`demos/bootstrap-app`) | Bootstrap 5 Sass + CSS custom properties | 3001 |
-| **W3C Tokens** (`demos/w3c-tokens-app`) | W3C Design Tokens Format (DTCG) | 3002 |
-| **CSS Variables** (`demos/css-variables-app`) | Plain CSS custom properties | 3003 |
-| **Tailwind Shadows** (`demos/tailwind-shadows-app`) | Tailwind CSS v4 `@theme` | 3004 |
-| **Vite** (`demos/vite-app`) | Tailwind CSS v4 (Vite + React) | 3000 |
-| **Tailwind v3** (`demos/tailwind-v3-app`) | Tailwind CSS v3 custom theme | 3000 |
-| **CSS** (`demos/css-app`) | Plain CSS + CSS Variables | 3000 |
-| **CSS Modules** (`demos/css-modules-app`) | CSS Modules (.module.css) | 3000 |
+- [Next.js](#nextjs)
+- [Vite + React](#vite--react)
+- [Remix](#remix)
+- [Astro](#astro)
 
 ### Prerequisites
 
 - Node.js 18+
+- A running dev server for your app
 
-### Setup
+---
 
-```bash
-git clone https://github.com/andflett/designtools.git
-cd designtools
-
-# Install monorepo dependencies and build
-npm install
-npm run build
-```
-
-Then install the demo you want to try:
+### Next.js
 
 ```bash
-cd demos/studio-app && npm install && cd ../..
-```
-
-### Run
-
-```bash
-# Terminal 1 — start a demo app
-cd demos/studio-app && npm run dev
-
-# Terminal 2 — start surface
-npm run surface
-```
-
-The editor opens at [http://localhost:4400](http://localhost:4400) with the target app loaded in an iframe.
-
-### Framework setup
-
-#### Next.js
-
-```bash
-npm install -D @designtools/next-plugin
+npm install -D @designtools/next-plugin @designtools/surface
 ```
 
 ```ts
 // next.config.ts
 import { withDesigntools } from "@designtools/next-plugin";
-export default withDesigntools({ /* your config */ });
+
+export default withDesigntools({
+  /* your existing config */
+});
 ```
 
-#### Vite + React (including Remix)
+```bash
+# Terminal 1 — start your app
+npm run dev
+
+# Terminal 2 — start surface
+npx @designtools/surface
+```
+
+> **Demo:** `demos/studio-app` — Tailwind CSS v4 + CVA components
+
+---
+
+### Vite + React
 
 ```bash
-npm install -D @designtools/vite-plugin
+npm install -D @designtools/vite-plugin @designtools/surface
 ```
 
 ```ts
@@ -136,10 +68,49 @@ export default defineConfig({
 });
 ```
 
-#### Astro
+```bash
+# Terminal 1 — start your app
+npm run dev
+
+# Terminal 2 — start surface
+npx @designtools/surface
+```
+
+> **Demo:** `demos/vite-app` — Tailwind CSS v4
+
+---
+
+### Remix
+
+Remix uses Vite under the hood, so the setup is the same as Vite + React.
 
 ```bash
-npm install -D @designtools/astro-plugin
+npm install -D @designtools/vite-plugin @designtools/surface
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { reactRouter } from "@react-router/dev/vite";
+import designtools from "@designtools/vite-plugin";
+
+export default defineConfig({
+  plugins: [designtools(), reactRouter()],
+});
+```
+
+```bash
+npx @designtools/surface
+```
+
+> **Demo:** `demos/remix-app`
+
+---
+
+### Astro
+
+```bash
+npm install -D @designtools/astro-plugin @designtools/surface
 ```
 
 ```js
@@ -153,15 +124,94 @@ export default defineConfig({
 });
 ```
 
-## Supported styling systems
+```bash
+npx @designtools/surface
+```
 
-| System | Detection | Write format |
-|--------|-----------|-------------|
-| Tailwind CSS v4 | `tailwindcss ^4` in package.json | Utility class replacement via resolved theme |
-| Tailwind CSS v3 | `tailwindcss ^3` + config file | Utility class replacement |
-| CSS Variables | `--*` custom properties in stylesheets | Direct property writes in CSS files |
-| Plain CSS | `.css` files with class selectors | Direct property writes in CSS files |
-| CSS Modules | `.module.css` imports in JSX | Property writes in module CSS files |
+> **Demo:** `demos/astro-app` — Astro + React islands
+
+---
+
+## Styling systems
+
+Surface auto-detects your styling approach and writes changes in your project's native format.
+
+| System | Detection | Write format | Status |
+|--------|-----------|-------------|--------|
+| Tailwind CSS v4 | `tailwindcss ^4` in package.json | Utility classes via resolved theme | Stable |
+| Tailwind CSS v3 | `tailwindcss ^3` + config file | Utility classes via theme config | Stable |
+| CSS Variables | `--*` custom properties in stylesheets | Direct property writes in CSS files | Stable |
+| Plain CSS | `.css` files with class selectors | Direct property writes in CSS files | Stable |
+| CSS Modules | `.module.css` imports in JSX | Property writes in module CSS files | Stable |
+| Sass / SCSS | — | — | Planned |
+
+---
+
+## Architecture
+
+Surface uses a hybrid architecture where the **selection component** (`<Surface />`) lives inside the target app, while the **editor UI** is a separate Vite-served React app. The iframe loads the target app directly (no proxy), and all communication happens via `postMessage`.
+
+```
+Editor UI (localhost:4400)
+  |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
+  |       |
+  |       +-- Target app with <Surface /> component
+  |               mounted by framework plugin
+  |               communicates via postMessage
+  |
+  +-- Write server (API routes on same port)
+```
+
+Key design decisions:
+- `data-source` attributes (injected at compile time) map every element to its exact file:line:col
+- CSS property/value pairs as the universal editing primitive, with hints to preserve tokens
+- Framework plugins and styling-system adapters are orthogonal
+- Tailwind theme resolution for both v3 configs and v4 `@theme` blocks
+
+---
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| [`@designtools/surface`](packages/surface) | Hybrid visual editor — CLI + write server + React editor UI |
+| [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — `data-source` Babel transform + `<Surface />` mount |
+| [`@designtools/vite-plugin`](packages/vite-plugin) | Vite plugin — `data-source` transform + `<Surface />` auto-mount |
+| [`@designtools/astro-plugin`](packages/astro-plugin) | Astro integration — `.astro` template transform + `<Surface />` auto-mount |
+
+## Demo apps
+
+| Demo | Framework | Styling | Run command |
+|------|-----------|---------|-------------|
+| `demos/studio-app` | Next.js | Tailwind CSS v4, CVA, OKLch tokens | `npm run surface` |
+| `demos/vite-app` | Vite + React | Tailwind CSS v4 | `npm run surface:vite` |
+| `demos/remix-app` | Remix | Tailwind CSS v4 | `npm run surface:remix` |
+| `demos/astro-app` | Astro | Tailwind CSS v4 + React islands | `npm run surface:astro` |
+| `demos/tailwind-v3-app` | Vite + React | Tailwind CSS v3 custom theme | `npm run surface:tw3` |
+| `demos/css-app` | Vite + React | Plain CSS + CSS Variables | `npm run surface:css` |
+| `demos/css-modules-app` | Vite + React | CSS Modules (.module.css) | `npm run surface:css-modules` |
+| `demos/design-system` | Next.js | Design tokens | `npm run surface:design-system` |
+
+```bash
+# Clone and build
+git clone https://github.com/andflett/designtools.git
+cd designtools
+npm install
+npm run build
+
+# Install a demo and run
+cd demos/studio-app && npm install && cd ../..
+
+# Terminal 1
+cd demos/studio-app && npm run dev
+
+# Terminal 2
+npm run surface
+```
+
+The editor opens at [http://localhost:4400](http://localhost:4400).
+
+---
 
 ## Project structure
 
@@ -173,20 +223,19 @@ designtools/
 │   ├── vite-plugin/   Vite plugin + data-source transform
 │   └── astro-plugin/  Astro integration + .astro template transform
 ├── demos/
-│   ├── studio-app/              Tailwind CSS v4 + CVA demo
-│   ├── bootstrap-app/           Bootstrap 5 demo
-│   ├── w3c-tokens-app/          W3C Design Tokens demo
-│   ├── css-variables-app/       Plain CSS variables demo
-│   ├── tailwind-shadows-app/    Tailwind CSS v4 shadows demo
-│   ├── vite-app/                Tailwind CSS v4 (Vite + React)
-│   ├── tailwind-v3-app/         Tailwind CSS v3 custom theme
-│   ├── css-app/                 Plain CSS + CSS Variables
-│   └── css-modules-app/         CSS Modules (.module.css)
+│   ├── studio-app/         Next.js + Tailwind v4 + CVA
+│   ├── vite-app/           Vite + React + Tailwind v4
+│   ├── remix-app/          Remix + Tailwind v4
+│   ├── astro-app/          Astro + React islands
+│   ├── tailwind-v3-app/    Vite + Tailwind v3 custom theme
+│   ├── css-app/            Plain CSS + CSS Variables
+│   ├── css-modules-app/    CSS Modules
+│   └── design-system/      Design tokens demo
 ```
 
 ## Testing with a local project
 
-To test local changes to `surface` and `next-plugin` against any Next.js project on your machine:
+To test local changes against your own project:
 
 ### 1. Build the packages
 
@@ -195,41 +244,29 @@ cd /path/to/designtools
 npm run build
 ```
 
-### 2. Link the Next.js plugin
-
-The `next-plugin` lives in your target project's `node_modules`, so use `npm link` to point it at your local build:
+### 2. Link the plugin for your framework
 
 ```bash
-# Register the package globally (one-time)
+# Next.js
 cd packages/next-plugin && npm link
+cd /path/to/your-app && npm link @designtools/next-plugin
 
-# In your target project
-cd /path/to/your-app
-npm link @designtools/next-plugin
-```
-
-### Vite / Astro projects
-
-```bash
-# Register the vite-plugin globally (one-time)
+# Vite / Remix
 cd packages/vite-plugin && npm link
+cd /path/to/your-app && npm link @designtools/vite-plugin
 
-# In your target project
-cd /path/to/your-app
-npm link @designtools/vite-plugin
+# Astro
+cd packages/astro-plugin && npm link
+cd /path/to/your-app && npm link @designtools/astro-plugin
 ```
-
-For Astro projects, link `@designtools/astro-plugin` instead.
 
 ### 3. Run surface from source
 
-Since surface is a standalone CLI (not a dependency), run it directly from the build output instead of linking:
-
 ```bash
-# Terminal 1 — start your app
+# Terminal 1
 cd /path/to/your-app && npm run dev
 
-# Terminal 2 — run surface from your local build
+# Terminal 2
 cd /path/to/your-app && node /path/to/designtools/packages/surface/dist/cli.js
 ```
 
@@ -239,16 +276,12 @@ Rebuild and the link picks up changes automatically:
 
 ```bash
 cd /path/to/designtools
-npm run build --workspace=packages/next-plugin
-npm run build --workspace=packages/surface
+npm run build
 ```
 
-Then restart the dev server and surface CLI.
+Then restart the dev server and surface.
 
-### Notes
-
-- `npm install` in the target project removes links. Re-run `npm link @designtools/next-plugin` after installing.
-- To unlink: `cd /path/to/your-app && npm unlink @designtools/next-plugin`
+> `npm install` in the target project removes links. Re-run `npm link` after installing.
 
 ## License
 

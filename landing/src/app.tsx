@@ -9,7 +9,7 @@ import { Stack } from "./components/stack.js";
 import { Waitlist } from "./components/waitlist.js";
 import { Footer } from "./components/footer.js";
 import { Privacy } from "./components/privacy.js";
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from '@vercel/analytics/react';
 
 function useHash() {
   return useSyncExternalStore(
