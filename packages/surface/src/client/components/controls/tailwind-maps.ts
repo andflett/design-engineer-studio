@@ -77,7 +77,10 @@ export interface TwScales {
 }
 
 export function getTwScales(theme: ResolvedTailwindTheme | null | undefined): TwScales {
-  const spacing = theme?.spacing?.length ? theme.spacing.map((e) => e.key) : SPACING_SCALE;
+  const themeSpacingKeys = new Set(theme?.spacing?.map((e) => e.key) ?? []);
+  const spacing = theme?.spacing?.length
+    ? [...theme.spacing.map((e) => e.key), ...SPACING_SCALE.filter((s) => !themeSpacingKeys.has(s))]
+    : SPACING_SCALE;
   const fontSize = theme?.fontSize?.length ? theme.fontSize.map((e) => e.key) : FONT_SIZE_SCALE;
   const fontWeight = theme?.fontWeight?.length ? theme.fontWeight.map((e) => e.key) : FONT_WEIGHT_SCALE;
   const lineHeight = theme?.lineHeight?.length ? theme.lineHeight.map((e) => e.key) : LINE_HEIGHT_SCALE;

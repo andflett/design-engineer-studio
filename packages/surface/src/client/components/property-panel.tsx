@@ -41,6 +41,8 @@ import {
   type ParsedProperty,
   type PropertyCategory,
 } from "../../shared/tailwind-parser.js";
+import type { ResolvedTailwindTheme } from "../../shared/tailwind-theme.js";
+import { getTwScales } from "./controls/tailwind-maps.js";
 
 // ---------------------------------------------------------------------------
 // Tailwind property → CSS longhand expansion (mirrors TW_PROP_TO_CSS)
@@ -148,25 +150,25 @@ function synthesizeBoxProps(
 }
 
 /** Icon + scale config for single-row properties */
-function getPropertyControl(prop: ParsedProperty): {
+function getPropertyControl(prop: ParsedProperty, spacingScale: readonly string[] = SPACING_SCALE): {
   icon?: React.ComponentType<{ style?: React.CSSProperties }>;
-  scale: string[];
+  scale: readonly string[];
   label: string;
 } {
   const SizeIcon = function SizeIcon({ style }: { style?: React.CSSProperties }) {
     return <Maximize style={style} strokeWidth={1} size={15} />;
   };
   switch (prop.property) {
-    case "width": return { icon: WidthIcon, scale: SPACING_SCALE, label: "Width" };
-    case "height": return { icon: HeightIcon, scale: SPACING_SCALE, label: "Height" };
-    case "minWidth": return { icon: WidthIcon, scale: SPACING_SCALE, label: "Min W" };
-    case "minHeight": return { icon: HeightIcon, scale: SPACING_SCALE, label: "Min H" };
-    case "maxWidth": return { icon: WidthIcon, scale: SPACING_SCALE, label: "Max W" };
-    case "maxHeight": return { icon: HeightIcon, scale: SPACING_SCALE, label: "Max H" };
-    case "size": return { icon: SizeIcon, scale: SPACING_SCALE, label: "Size" };
-    case "gap": return { icon: ColumnSpacingIcon, scale: SPACING_SCALE, label: "Gap" };
-    case "gapX": return { icon: ColumnSpacingIcon, scale: SPACING_SCALE, label: "Col Gap" };
-    case "gapY": return { icon: ColumnSpacingIcon, scale: SPACING_SCALE, label: "Row Gap" };
+    case "width": return { icon: WidthIcon, scale: spacingScale, label: "Width" };
+    case "height": return { icon: HeightIcon, scale: spacingScale, label: "Height" };
+    case "minWidth": return { icon: WidthIcon, scale: spacingScale, label: "Min W" };
+    case "minHeight": return { icon: HeightIcon, scale: spacingScale, label: "Min H" };
+    case "maxWidth": return { icon: WidthIcon, scale: spacingScale, label: "Max W" };
+    case "maxHeight": return { icon: HeightIcon, scale: spacingScale, label: "Max H" };
+    case "size": return { icon: SizeIcon, scale: spacingScale, label: "Size" };
+    case "gap": return { icon: ColumnSpacingIcon, scale: spacingScale, label: "Gap" };
+    case "gapX": return { icon: ColumnSpacingIcon, scale: spacingScale, label: "Col Gap" };
+    case "gapY": return { icon: ColumnSpacingIcon, scale: spacingScale, label: "Row Gap" };
     case "fontSize": return { icon: FontSizeIcon, scale: FONT_SIZE_SCALE, label: "Size" };
     case "fontWeight": return { icon: FontBoldIcon, scale: FONT_WEIGHT_SCALE, label: "Weight" };
     case "borderWidth": return { icon: undefined, scale: ["0", "1", "2", "4", "8"], label: "Border" };
@@ -182,6 +184,7 @@ interface PropertyPanelProps {
   classes: string;
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
+  tailwindTheme?: ResolvedTailwindTheme | null;
   flat?: boolean;
 }
 
@@ -189,8 +192,10 @@ export function PropertyPanel({
   classes,
   onClassChange,
   tokenGroups,
+  tailwindTheme,
   flat = false,
 }: PropertyPanelProps) {
+  const spacingScale = getTwScales(tailwindTheme).spacing;
   const parsed = parseClasses(classes);
 
   const categories: { key: PropertyCategory; label: string }[] = [
@@ -227,6 +232,7 @@ export function PropertyPanel({
             properties={parsed[cat.key]}
             onClassChange={onClassChange}
             tokenGroups={tokenGroups}
+            spacingScale={spacingScale}
           />
         ))}
       </div>
@@ -243,6 +249,7 @@ export function PropertyPanel({
           properties={parsed[cat.key]}
           onClassChange={onClassChange}
           tokenGroups={tokenGroups}
+          spacingScale={spacingScale}
         />
       ))}
 
@@ -281,11 +288,13 @@ function CategoryContent({
   properties,
   onClassChange,
   tokenGroups,
+  spacingScale,
 }: {
   category: PropertyCategory;
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups?: Record<string, any[]>;
+  spacingScale?: readonly string[];
 }) {
   if (category === "layout") {
     return <LayoutRows properties={properties} onClassChange={onClassChange} />;
@@ -300,13 +309,13 @@ function CategoryContent({
     );
   }
   if (category === "spacing") {
-    return <SpacingRows properties={properties} onClassChange={onClassChange} />;
+    return <SpacingRows properties={properties} onClassChange={onClassChange} spacingScale={spacingScale} />;
   }
   if (category === "shape") {
     return <ShapeRows properties={properties} onClassChange={onClassChange} />;
   }
   // size, typography, etc.
-  return <SmartRows properties={properties} onClassChange={onClassChange} />;
+  return <SmartRows properties={properties} onClassChange={onClassChange} spacingScale={spacingScale} />;
 }
 
 function CategorySection({
@@ -315,12 +324,14 @@ function CategorySection({
   properties,
   onClassChange,
   tokenGroups,
+  spacingScale,
 }: {
   category: PropertyCategory;
   label: string;
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
+  spacingScale?: readonly string[];
 }) {
   const [collapsed, setCollapsed] = useState(true);
 
@@ -342,6 +353,7 @@ function CategorySection({
             properties={properties}
             onClassChange={onClassChange}
             tokenGroups={tokenGroups}
+            spacingScale={spacingScale}
           />
         </div>
       )}
@@ -356,9 +368,11 @@ function CategorySection({
 function SpacingRows({
   properties,
   onClassChange,
+  spacingScale,
 }: {
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
+  spacingScale?: readonly string[];
 }) {
   const paddingProps = properties.filter((p) =>
     p.property.startsWith("padding")
@@ -379,7 +393,7 @@ function SpacingRows({
         <ClassBoxSpacing box="margin" properties={marginProps} onClassChange={onClassChange} />
       )}
       {gapProps.map((prop) => (
-        <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} />
+        <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} spacingScale={spacingScale} />
       ))}
     </>
   );
@@ -658,9 +672,11 @@ function ColorRows({
 function SmartRows({
   properties,
   onClassChange,
+  spacingScale,
 }: {
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
+  spacingScale?: readonly string[];
 }) {
   const pairKeys: [string, string][] = [
     ["width", "height"],
@@ -678,8 +694,8 @@ function SmartRows({
     if (propA || propB) {
       rows.push(
         <div key={`${a}-${b}`} className="grid grid-cols-2 gap-1.5">
-          {propA && <PropertyRow prop={propA} onClassChange={onClassChange} />}
-          {propB && <PropertyRow prop={propB} onClassChange={onClassChange} />}
+          {propA && <PropertyRow prop={propA} onClassChange={onClassChange} spacingScale={spacingScale} />}
+          {propB && <PropertyRow prop={propB} onClassChange={onClassChange} spacingScale={spacingScale} />}
         </div>
       );
       if (propA) rendered.add(propA);
@@ -689,7 +705,7 @@ function SmartRows({
 
   for (const prop of properties) {
     if (rendered.has(prop)) continue;
-    rows.push(<PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} />);
+    rows.push(<PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} spacingScale={spacingScale} />);
   }
 
   return <>{rows}</>;
@@ -702,11 +718,13 @@ function SmartRows({
 function PropertyRow({
   prop,
   onClassChange,
+  spacingScale,
 }: {
   prop: ParsedProperty;
   onClassChange: (oldClass: string, newClass: string) => void;
+  spacingScale?: readonly string[];
 }) {
-  const ctrl = getPropertyControl(prop);
+  const ctrl = getPropertyControl(prop, spacingScale);
   const twPrefix = prop.fullClass.replace(/-[\w[\].]+$/, "");
 
   if (ctrl.scale.length > 0) {
@@ -716,7 +734,7 @@ function PropertyRow({
         value={prop.value}
         computedValue={prop.value}
         currentClass={prop.fullClass}
-        scale={ctrl.scale as string[]}
+        scale={ctrl.scale}
         prefix={twPrefix}
         cssProp={ctrl.label}
         onCommitClass={(newClass, _oldClass) => {

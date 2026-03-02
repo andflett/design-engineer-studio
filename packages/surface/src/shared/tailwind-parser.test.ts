@@ -27,6 +27,16 @@ describe("parseClasses", () => {
     expect(result.spacing[2]).toMatchObject({ property: "gap", value: "6" });
   });
 
+  it("parses named spacing tokens (px-sm, py-md, p-2xl, m-lg)", () => {
+    const result = parseClasses("px-sm py-md p-2xl m-lg gap-xs");
+    expect(result.spacing).toHaveLength(5);
+    expect(result.spacing[0]).toMatchObject({ property: "paddingX", value: "sm" });
+    expect(result.spacing[1]).toMatchObject({ property: "paddingY", value: "md" });
+    expect(result.spacing[2]).toMatchObject({ property: "padding", value: "2xl" });
+    expect(result.spacing[3]).toMatchObject({ property: "margin", value: "lg" });
+    expect(result.spacing[4]).toMatchObject({ property: "gap", value: "xs" });
+  });
+
   it("parses shape classes", () => {
     const result = parseClasses("rounded-lg border-2");
     expect(result.shape).toHaveLength(2);

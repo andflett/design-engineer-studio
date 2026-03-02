@@ -242,10 +242,17 @@ describe("computedToTailwindClass with custom theme", () => {
     });
   });
 
-  it("falls back to arbitrary for spacing not in custom scale", () => {
-    // 24px is in the default scale but NOT in our custom theme
+  it("uses default scale for spacing not in custom theme", () => {
+    // 24px is in the default scale but NOT in our custom theme — merge means defaults still available
     expect(computedToTailwindClass("padding-top", "24px", customTheme)).toEqual({
-      tailwindClass: "pt-[24px]", exact: false,
+      tailwindClass: "pt-6", exact: true,
+    });
+  });
+
+  it("theme tokens win over defaults on collision", () => {
+    // 8px maps to "2" in defaults but "md" in custom theme — theme wins
+    expect(computedToTailwindClass("padding-top", "8px", customTheme)).toEqual({
+      tailwindClass: "pt-md", exact: true,
     });
   });
 
@@ -320,9 +327,10 @@ describe("uniformBoxToTailwind with custom theme", () => {
     });
   });
 
-  it("falls back to arbitrary for non-custom-scale value", () => {
+  it("uses default scale for non-custom-scale value", () => {
+    // 12px maps to "3" in defaults — merge means defaults still available
     expect(uniformBoxToTailwind("padding", "12px", customTheme)).toEqual({
-      tailwindClass: "p-[12px]", exact: false,
+      tailwindClass: "p-3", exact: true,
     });
   });
 

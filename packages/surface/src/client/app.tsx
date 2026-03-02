@@ -359,16 +359,19 @@ export function App() {
       {/* Collapse button + Elements explorer */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div
-          className="pl-2 pr-2.5 py-1.5 shrink-0"
+          className="pl-2 pr-2.5 pt-1.5 pb-2 shrink-0"
           style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
         >
-          <div className="flex items-center">
+              <div className="flex items-start justify-between">
+                <div>
             <span
               className="flex-1 text-[10px] font-semibold uppercase tracking-wide pl-1"
               style={{ color: "var(--studio-text-muted)" }}
             >
               {projectName || "Explorer"}
-            </span>
+                  </span>
+                            <ProjectInfo targetPort={targetUrl ? parseInt(new URL(targetUrl).port, 10) || 3000 : 3000} />
+                </div>
             <button
               onClick={() => setLeftPanelCollapsed(true)}
               className="studio-icon-btn shrink-0"
@@ -378,7 +381,6 @@ export function App() {
               <PanelLeft strokeWidth={1.5} size={14} />
             </button>
           </div>
-          <ProjectInfo targetPort={targetUrl ? parseInt(new URL(targetUrl).port, 10) || 3000 : 3000} />
         </div>
         {/* Usage panel (above explorer, when open) */}
         {showUsages && (

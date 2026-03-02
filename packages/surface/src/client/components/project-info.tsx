@@ -95,11 +95,11 @@ export function ProjectInfo({ targetPort }: { targetPort: number }) {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
-          className="text-left w-full pl-1 -mt-0.5 mb-0.5 group"
+          className="text-left w-full pl-1 -mt-0.5 mb-0.5 group "
           style={{ lineHeight: 1 }}
         >
           <span
-            className="text-[9px] font-mono tracking-wide"
+            className="text-[9px] font-mono tracking-wide hover:underline cursor-pointer"
             style={{ color: "var(--studio-text-dimmed)" }}
           >
             {subtitle}
@@ -111,8 +111,8 @@ export function ProjectInfo({ targetPort }: { targetPort: number }) {
           className="studio-popover"
           side="bottom"
           align="start"
-          sideOffset={4}
-          style={{ width: 240, padding: 0 }}
+          sideOffset={8}
+          style={{ width: 260, padding: 0 }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div
@@ -138,16 +138,16 @@ export function ProjectInfo({ targetPort }: { targetPort: number }) {
                 </span>
                 <span
                   className="text-[10px] font-mono text-right ml-3 truncate"
-                  style={{ color: "var(--studio-text-secondary)", maxWidth: 140 }}
+                  style={{
+                    color: "var(--studio-text-secondary)",
+                    maxWidth: 140,
+                  }}
                 >
                   {row.value}
                 </span>
               </div>
             ))}
           </div>
-          <Popover.Arrow
-            style={{ fill: "var(--studio-surface-raised)" }}
-          />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

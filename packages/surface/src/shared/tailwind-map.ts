@@ -377,7 +377,9 @@ export function computedToTailwindClass(
   }
 
   if (SPACING_PROPS.has(cssProp)) {
-    const spacingMap = themeMaps?.spacingPx || SPACING_PX_MAP;
+    const spacingMap = themeMaps?.spacingPx
+      ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
+      : SPACING_PX_MAP;
     const scaleVal = spacingMap[computedValue];
     const prefix = CSS_TO_TW_PREFIX[cssProp];
     if (scaleVal && prefix) {
@@ -420,7 +422,9 @@ export function uniformBoxToTailwind(
 ): TailwindMatch | null {
   const prefix = type === "padding" ? "p" : "m";
   const themeMaps = getThemeMaps(theme);
-  const spacingMap = themeMaps?.spacingPx || SPACING_PX_MAP;
+  const spacingMap = themeMaps?.spacingPx
+    ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
+    : SPACING_PX_MAP;
   const scaleVal = spacingMap[value];
   if (scaleVal) {
     return { tailwindClass: `${prefix}-${scaleVal}`, exact: true };
@@ -441,7 +445,9 @@ export function axisBoxToTailwind(
   const yPrefix = type === "padding" ? "py" : "my";
 
   const themeMaps = getThemeMaps(theme);
-  const spacingMap = themeMaps?.spacingPx || SPACING_PX_MAP;
+  const spacingMap = themeMaps?.spacingPx
+    ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
+    : SPACING_PX_MAP;
   const xScale = spacingMap[x];
   const yScale = spacingMap[y];
 

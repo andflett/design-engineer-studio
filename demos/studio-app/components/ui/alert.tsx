@@ -13,9 +13,9 @@ const alertVariants = cva(
         warning: "border-yellow-500/50 bg-yellow-500/5 text-yellow-700 [&>svg]:text-yellow-600",
       },
       size: {
-        sm: "px-3 py-2 text-xs",
-        default: "px-4 py-3",
-        lg: "px-5 py-4",
+        sm: "px-md py-sm text-xs",
+        default: "px-sm py-sm",
+        lg: "px-16 py-4",
       },
       border: {
         default: "border",

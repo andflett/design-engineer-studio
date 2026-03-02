@@ -27,7 +27,7 @@ export function ScaleInput({
   computedValue: string;
   /** The actual Tailwind class on this element (e.g. "text-2xl"), if any */
   currentClass: string | null;
-  scale: string[];
+  scale: readonly string[];
   prefix: string;
   cssProp: string;
   onPreview?: (v: string) => void;

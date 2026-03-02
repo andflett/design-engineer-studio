@@ -556,6 +556,7 @@ export function EditorPanel({
                       key={dim.name}
                       dim={dim}
                       componentEntry={componentEntry}
+                      tailwindTheme={tailwindTheme}
                       onClassChange={(oldClass, newClass, variantContext) => {
                         withSave(async () => {
                           await handleComponentClassChange(
@@ -764,10 +765,12 @@ function ComponentVariantSection({
   dim,
   componentEntry,
   onClassChange,
+  tailwindTheme,
 }: {
   dim: any;
   componentEntry: any;
   onClassChange: (oldClass: string, newClass: string, variantContext: string) => void;
+  tailwindTheme?: ResolvedTailwindTheme | null;
 }) {
   const tokenData = useTokens();
   const [collapsed, setCollapsed] = useState(true);
@@ -826,6 +829,7 @@ function ComponentVariantSection({
                       onClassChange(oldClass, newClass, opt);
                     }}
                     tokenGroups={tokenData?.groups || {}}
+                    tailwindTheme={tailwindTheme}
                     flat
                   />
                 </div>
