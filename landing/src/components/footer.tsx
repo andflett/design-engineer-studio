@@ -19,6 +19,11 @@ export function Footer() {
               about
             </a>
           </li>
+          <li>
+            <a href="#privacy" className="text-[12px] text-ink3 hover:text-ink2 transition-colors font-mono">
+              privacy
+            </a>
+          </li>
         </ul>
       </div>
     </footer>
