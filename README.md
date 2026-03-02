@@ -27,7 +27,7 @@ Pick your framework and follow the setup below. Each one takes under a minute.
 ### Next.js
 
 ```bash
-npm install -D @designtools/next-plugin @designtools/surface
+npm install -D @designtools/next-plugin
 ```
 
 ```ts
@@ -54,7 +54,7 @@ npx @designtools/surface
 ### Vite + React
 
 ```bash
-npm install -D @designtools/vite-plugin @designtools/surface
+npm install -D @designtools/vite-plugin
 ```
 
 ```ts
@@ -85,7 +85,7 @@ npx @designtools/surface
 Remix uses Vite under the hood, so the setup is the same as Vite + React.
 
 ```bash
-npm install -D @designtools/vite-plugin @designtools/surface
+npm install -D @designtools/vite-plugin
 ```
 
 ```ts
@@ -110,7 +110,7 @@ npx @designtools/surface
 ### Astro
 
 ```bash
-npm install -D @designtools/astro-plugin @designtools/surface
+npm install -D @designtools/astro-plugin
 ```
 
 ```js
