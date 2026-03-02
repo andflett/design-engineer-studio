@@ -27,6 +27,11 @@ export interface ComponentRegistry {
   components: ComponentEntry[];
 }
 
+interface VariantExtractionResult {
+  baseClasses: string;
+  variants: VariantDimension[];
+}
+
 export async function scanComponents(
   projectRoot: string,
   overrideDir?: string,
@@ -73,8 +78,356 @@ export async function scanComponents(
   return { components };
 }
 
+// ---------------------------------------------------------------------------
+// Config-object extractors (patterns 1–5)
+// ---------------------------------------------------------------------------
+
+/** Pattern 1: CVA — `cva("base classes", { variants, defaultVariants })` */
+function extractCva(decl: any): VariantExtractionResult | null {
+  if (
+    !n.CallExpression.check(decl.init) ||
+    !isIdentifierNamed(decl.init.callee, "cva")
+  ) return null;
+
+  const args = decl.init.arguments;
+  // CVA uses a string as 1st arg; if it's an object, that's PandaCSS (pattern 5)
+  if (args[0] && n.ObjectExpression.check(args[0])) return null;
+
+  const baseClasses = extractStringValue(args[0]) || "";
+  const configArg = args[1];
+  const variants = configArg && n.ObjectExpression.check(configArg)
+    ? extractVariantsFromConfig(configArg)
+    : [];
+
+  return { baseClasses, variants };
+}
+
+/** Pattern 2: Tailwind Variants — `tv({ base: "...", variants, defaultVariants })` */
+function extractTv(decl: any): VariantExtractionResult | null {
+  if (
+    !n.CallExpression.check(decl.init) ||
+    !isIdentifierNamed(decl.init.callee, "tv")
+  ) return null;
+
+  const configArg = decl.init.arguments[0];
+  if (!configArg || !n.ObjectExpression.check(configArg)) return null;
+
+  const baseProp = findObjProperty(configArg, "base");
+  const baseClasses = baseProp ? extractStringValue(baseProp.value) || "" : "";
+  const variants = extractVariantsFromConfig(configArg);
+
+  return { baseClasses, variants };
+}
+
+/** Pattern 3: Stitches — `styled("button", { variants, defaultVariants })` */
+function extractStyled(decl: any): VariantExtractionResult | null {
+  if (
+    !n.CallExpression.check(decl.init) ||
+    !isIdentifierNamed(decl.init.callee, "styled")
+  ) return null;
+
+  const configArg = decl.init.arguments[1];
+  if (!configArg || !n.ObjectExpression.check(configArg)) return null;
+
+  const variants = extractVariantsFromConfig(configArg);
+  return { baseClasses: "", variants };
+}
+
+/** Pattern 4: Vanilla Extract — `recipe({ base: "...", variants, defaultVariants })` */
+function extractRecipe(decl: any): VariantExtractionResult | null {
+  if (
+    !n.CallExpression.check(decl.init) ||
+    !isIdentifierNamed(decl.init.callee, "recipe")
+  ) return null;
+
+  const configArg = decl.init.arguments[0];
+  if (!configArg || !n.ObjectExpression.check(configArg)) return null;
+
+  const baseProp = findObjProperty(configArg, "base");
+  const baseClasses = baseProp ? extractStringValue(baseProp.value) || "" : "";
+  const variants = extractVariantsFromConfig(configArg);
+
+  return { baseClasses, variants };
+}
+
+/** Pattern 5: PandaCSS — `cva({ base: { ... }, variants, defaultVariants })` (1st arg is object) */
+function extractPandaCva(decl: any): VariantExtractionResult | null {
+  if (
+    !n.CallExpression.check(decl.init) ||
+    !isIdentifierNamed(decl.init.callee, "cva")
+  ) return null;
+
+  const configArg = decl.init.arguments[0];
+  if (!configArg || !n.ObjectExpression.check(configArg)) return null;
+
+  const baseProp = findObjProperty(configArg, "base");
+  const baseClasses = baseProp ? extractStringValue(baseProp.value) || "" : "";
+  const variants = extractVariantsFromConfig(configArg);
+
+  return { baseClasses, variants };
+}
+
+/** Pattern 6: Plain object map — `const sizeStyles = { sm: "...", md: "...", lg: "..." }` */
+function extractPlainObjectMap(decl: any): VariantExtractionResult | null {
+  if (!n.Identifier.check(decl.id) || !n.ObjectExpression.check(decl.init)) return null;
+
+  const varName = decl.id.name;
+  // Heuristic: variable name must suggest a variant/style map
+  if (!/variant|style|class|map|theme|appearance/i.test(varName)) return null;
+
+  const obj = decl.init;
+  if (obj.properties.length < 2) return null;
+
+  // All properties must be string-valued
+  const options: string[] = [];
+  const classes: Record<string, string> = {};
+  for (const prop of obj.properties) {
+    if (!isObjectProperty(prop)) return null;
+    const key = getPropertyKeyName(prop);
+    const val = extractStringValue(prop.value);
+    if (!key || val === null) return null;
+    options.push(key);
+    classes[key] = val;
+  }
+
+  // Derive dimension name from variable name (strip "Styles", "Classes", "Map", etc.)
+  const dimName = varName.replace(/(?:Styles|Classes|Map|Variants|Theme)$/i, "").replace(/^.*?([A-Z][a-z]+)$/, (_: string, m: string) => m.toLowerCase()) || varName;
+
+  return {
+    baseClasses: "",
+    variants: [{
+      name: dimName,
+      options,
+      default: options[0],
+      classes,
+    }],
+  };
+}
+
+/** All config-object extractors in priority order */
+const configExtractors = [
+  extractCva,       // pattern 1 — returns null if 1st arg is object
+  extractTv,        // pattern 2
+  extractStyled,    // pattern 3
+  extractRecipe,    // pattern 4
+  extractPandaCva,  // pattern 5 — catches cva({...}) that extractCva skipped
+  extractPlainObjectMap, // pattern 6 — most conservative, runs last
+];
+
+// ---------------------------------------------------------------------------
+// Pattern 7: TypeScript union props
+// ---------------------------------------------------------------------------
+
+/** Props to skip when extracting variant dimensions from TS types */
+const TS_PROP_SKIP_LIST = new Set([
+  "children", "className", "class", "style", "ref", "key", "id",
+  "onClick", "onChange", "onSubmit", "onBlur", "onFocus", "onKeyDown",
+  "onKeyUp", "onMouseDown", "onMouseUp", "onMouseEnter", "onMouseLeave",
+  "as", "asChild", "href", "src", "alt", "title", "name", "value",
+  "type", "role", "tabIndex", "placeholder", "htmlFor", "action",
+  "method", "target", "rel", "open", "checked", "selected", "readOnly",
+  "required", "disabled", "hidden", "autoFocus", "autoComplete",
+  "label", "description", "content", "header", "footer", "icon",
+  "slot", "data-slot", "data-testid",
+]);
+
+/** Check if a prop name looks like an aria attribute */
+function isAriaOrDataProp(name: string): boolean {
+  return name.startsWith("aria-") || name.startsWith("data-") || name.startsWith("on");
+}
+
 /**
- * AST-based component parser. Extracts data-slot components, CVA variants,
+ * Pattern 7: Extract variant dimensions from TypeScript union props.
+ * Finds the component function's parameter type annotation, resolves the
+ * interface/type, and creates dimensions for string literal union properties.
+ */
+function extractTsUnionProps(decl: any, ast: any): VariantExtractionResult | null {
+  const funcNode = getFunctionNode(decl);
+  if (!funcNode) return null;
+
+  const params = funcNode.params;
+  if (!params || params.length === 0) return null;
+
+  const firstParam = params[0];
+
+  // Get defaults from destructuring: { size = "md", variant = "primary" }
+  const defaults: Record<string, string> = {};
+  let typeAnnotation: any = null;
+
+  if (n.ObjectPattern.check(firstParam)) {
+    extractDestructuredDefaults(firstParam, defaults);
+    typeAnnotation = firstParam.typeAnnotation;
+  } else if (n.Identifier.check(firstParam)) {
+    typeAnnotation = firstParam.typeAnnotation;
+  } else if (n.AssignmentPattern.check(firstParam) && n.ObjectPattern.check(firstParam.left)) {
+    extractDestructuredDefaults(firstParam.left, defaults);
+    typeAnnotation = firstParam.left.typeAnnotation;
+  }
+
+  if (!typeAnnotation) return null;
+
+  // Unwrap TSTypeAnnotation wrapper
+  const annotation = typeAnnotation.typeAnnotation || typeAnnotation;
+
+  // Try inline object type first
+  if (n.TSTypeLiteral.check(annotation)) {
+    const variants = extractUnionDimensionsFromMembers(annotation.members, defaults);
+    if (variants.length > 0) return { baseClasses: "", variants };
+  }
+
+  // Resolve type reference: `props: ButtonProps` → find `interface ButtonProps { ... }`
+  const typeName = extractTypeReferenceName(annotation);
+  if (!typeName) return null;
+
+  const typeDecl = findTypeDeclaration(ast, typeName);
+  if (!typeDecl) return null;
+
+  const members = getTypeMembers(typeDecl);
+  if (!members) return null;
+
+  const variants = extractUnionDimensionsFromMembers(members, defaults);
+  if (variants.length === 0) return null;
+
+  return { baseClasses: "", variants };
+}
+
+/** Unwrap VariableDeclarator → forwardRef → ArrowFunction / FunctionExpression */
+function getFunctionNode(decl: any): any {
+  const init = decl.init;
+  if (!init) return null;
+
+  // const Foo = (...) => { ... }
+  if (n.ArrowFunctionExpression.check(init) || n.FunctionExpression.check(init)) {
+    return init;
+  }
+
+  // const Foo = forwardRef((...) => { ... })
+  if (n.CallExpression.check(init) && isForwardRefCall(init)) {
+    const arg = init.arguments[0];
+    if (n.ArrowFunctionExpression.check(arg) || n.FunctionExpression.check(arg)) {
+      return arg;
+    }
+  }
+
+  return null;
+}
+
+/** Extract default values from destructured params: `{ size = "md" }` */
+function extractDestructuredDefaults(pattern: any, defaults: Record<string, string>): void {
+  for (const prop of pattern.properties) {
+    if (!isObjectProperty(prop) && !n.Property.check(prop)) continue;
+    const key = n.Identifier.check(prop.key) ? prop.key.name : null;
+    if (!key) continue;
+
+    // { size = "md" } — AssignmentPattern in the value position
+    if (n.AssignmentPattern.check(prop.value)) {
+      const val = extractStringValue(prop.value.right);
+      if (val) defaults[key] = val;
+    }
+  }
+}
+
+/** Get the type name from a TSTypeReference: `ButtonProps` from `: ButtonProps` */
+function extractTypeReferenceName(annotation: any): string | null {
+  if (!n.TSTypeReference.check(annotation)) return null;
+  const typeName = annotation.typeName;
+  if (n.Identifier.check(typeName)) return typeName.name;
+  return null;
+}
+
+/** Walk AST to find `interface Foo { ... }` or `type Foo = { ... }` */
+function findTypeDeclaration(ast: any, name: string): any {
+  let result: any = null;
+  recast.visit(ast, {
+    visitTSInterfaceDeclaration(path: any) {
+      if (path.node.id && path.node.id.name === name) {
+        result = path.node;
+        return false;
+      }
+      this.traverse(path);
+    },
+    visitTSTypeAliasDeclaration(path: any) {
+      if (path.node.id && path.node.id.name === name) {
+        result = path.node;
+        return false;
+      }
+      this.traverse(path);
+    },
+  });
+  return result;
+}
+
+/** Get the members array from an interface or type alias declaration */
+function getTypeMembers(typeDecl: any): any[] | null {
+  // interface Foo { ... }
+  if (n.TSInterfaceDeclaration.check(typeDecl)) {
+    return typeDecl.body?.body || null;
+  }
+  // type Foo = { ... }
+  if (n.TSTypeAliasDeclaration.check(typeDecl)) {
+    const ann = typeDecl.typeAnnotation;
+    if (n.TSTypeLiteral.check(ann)) return ann.members;
+    // type Foo = BaseProps & { variant: ... } — check intersection
+    if (n.TSIntersectionType.check(ann)) {
+      const members: any[] = [];
+      for (const t of ann.types) {
+        if (n.TSTypeLiteral.check(t)) members.push(...t.members);
+      }
+      return members.length > 0 ? members : null;
+    }
+  }
+  return null;
+}
+
+/** Extract variant dimensions from interface/type members */
+function extractUnionDimensionsFromMembers(
+  members: any[],
+  defaults: Record<string, string>
+): VariantDimension[] {
+  const dimensions: VariantDimension[] = [];
+
+  for (const member of members) {
+    if (!n.TSPropertySignature.check(member)) continue;
+    const key = n.Identifier.check(member.key) ? member.key.name : null;
+    if (!key) continue;
+    if (TS_PROP_SKIP_LIST.has(key) || isAriaOrDataProp(key)) continue;
+
+    const typeAnn = member.typeAnnotation?.typeAnnotation || member.typeAnnotation;
+    if (!typeAnn) continue;
+
+    const literals = extractStringLiteralsFromUnion(typeAnn);
+    if (literals.length < 2) continue;
+
+    dimensions.push({
+      name: key,
+      options: literals,
+      default: defaults[key] || literals[0],
+      classes: {},
+    });
+  }
+
+  return dimensions;
+}
+
+/** Pull string literal values from a TSUnionType: `"sm" | "md" | "lg"` → ["sm", "md", "lg"] */
+function extractStringLiteralsFromUnion(typeNode: any): string[] {
+  if (!n.TSUnionType.check(typeNode)) return [];
+
+  const literals: string[] = [];
+  for (const t of typeNode.types) {
+    if (n.TSLiteralType.check(t) && t.literal && "value" in t.literal && typeof (t.literal as any).value === "string") {
+      literals.push((t.literal as any).value);
+    }
+  }
+  return literals;
+}
+
+// ---------------------------------------------------------------------------
+// Main AST parser
+// ---------------------------------------------------------------------------
+
+/**
+ * AST-based component parser. Extracts data-slot components, variant definitions,
  * export names, and token references from a single file.
  */
 function parseComponentAST(
@@ -89,8 +442,8 @@ function parseComponentAST(
     return [];
   }
 
-  // Collect CVA call info: variable name → { baseClasses, variants }
-  const cvaMap = new Map<string, { baseClasses: string; variants: VariantDimension[] }>();
+  // Collect variant config info: variable name → { baseClasses, variants }
+  const variantMap = new Map<string, VariantExtractionResult>();
 
   // Collect data-slot → component variable name associations
   const slotToComponent = new Map<string, string>();
@@ -105,24 +458,46 @@ function parseComponentAST(
   let currentComponentName: string | null = null;
 
   recast.visit(ast, {
-    // Find cva() calls: const fooVariants = cva("base classes", { variants: {...}, defaultVariants: {...} })
+    // Find variant definitions in variable declarations
     visitVariableDeclaration(path) {
       for (const decl of path.node.declarations) {
-        if (
-          n.VariableDeclarator.check(decl) &&
-          n.Identifier.check(decl.id) &&
-          n.CallExpression.check(decl.init) &&
-          isIdentifierNamed(decl.init.callee, "cva")
-        ) {
-          const varName = decl.id.name;
-          const args = decl.init.arguments;
-          const baseClasses = extractStringValue(args[0]) || "";
-          const configArg = args[1];
-          const variants = configArg && n.ObjectExpression.check(configArg)
-            ? extractVariantsFromConfig(configArg)
-            : [];
+        if (!n.VariableDeclarator.check(decl) || !n.Identifier.check(decl.id)) continue;
 
-          cvaMap.set(varName, { baseClasses, variants });
+        const varName = decl.id.name;
+
+        // Try config-object extractors (patterns 1–6)
+        for (const extractor of configExtractors) {
+          const result = extractor(decl);
+          if (result) {
+            variantMap.set(varName, result);
+            break;
+          }
+        }
+
+        // Fallback: pattern 7 — TS union props on arrow/function expression components
+        if (!variantMap.has(varName)) {
+          const tsResult = extractTsUnionProps(decl, ast);
+          if (tsResult) variantMap.set(varName, tsResult);
+        }
+      }
+      this.traverse(path);
+    },
+
+    // Pattern 7 for named function declarations: `function Button({ size = "md" }: ButtonProps)`
+    visitFunctionDeclaration(path) {
+      const node = path.node;
+      if (node.id && n.Identifier.check(node.id)) {
+        const name = node.id.name;
+        if (!variantMap.has(name)) {
+          // Build a pseudo-declarator so extractTsUnionProps can work
+          const tsResult = extractTsUnionProps({ init: null, id: node.id }, ast);
+          // Try directly from function params
+          if (!tsResult) {
+            const directResult = extractTsUnionPropsFromFunction(node, ast);
+            if (directResult) variantMap.set(name, directResult);
+          } else {
+            variantMap.set(name, tsResult);
+          }
         }
       }
       this.traverse(path);
@@ -245,9 +620,9 @@ function parseComponentAST(
     const exportName = exportedNames.has(componentName) ? componentName : null;
     if (!exportName) continue;
 
-    // Try to find matching CVA definition (e.g. buttonVariants for Button)
-    const cvaVarName = findCvaForComponent(componentName, cvaMap);
-    const cvaData = cvaVarName ? cvaMap.get(cvaVarName) : null;
+    // Try to find matching variant definition
+    const variantVarName = findVariantConfigForComponent(componentName, variantMap);
+    const variantData = variantVarName ? variantMap.get(variantVarName) : null;
 
     const name = dataSlot
       .split("-")
@@ -259,8 +634,8 @@ function parseComponentAST(
       filePath,
       dataSlot,
       exportName,
-      baseClasses: cvaData?.baseClasses || "",
-      variants: cvaData?.variants || [],
+      baseClasses: variantData?.baseClasses || "",
+      variants: variantData?.variants || [],
       tokenReferences: tokenRefs,
       acceptsChildren: acceptsChildrenSet.has(componentName),
     });
@@ -268,6 +643,56 @@ function parseComponentAST(
 
   return entries;
 }
+
+/**
+ * Extract TS union props directly from a function declaration's params.
+ * Used for `function Button({ size = "md" }: ButtonProps) { ... }`
+ */
+function extractTsUnionPropsFromFunction(funcNode: any, ast: any): VariantExtractionResult | null {
+  const params = funcNode.params;
+  if (!params || params.length === 0) return null;
+
+  const firstParam = params[0];
+  const defaults: Record<string, string> = {};
+  let typeAnnotation: any = null;
+
+  if (n.ObjectPattern.check(firstParam)) {
+    extractDestructuredDefaults(firstParam, defaults);
+    typeAnnotation = firstParam.typeAnnotation;
+  } else if (n.Identifier.check(firstParam)) {
+    typeAnnotation = firstParam.typeAnnotation;
+  } else if (n.AssignmentPattern.check(firstParam) && n.ObjectPattern.check(firstParam.left)) {
+    extractDestructuredDefaults(firstParam.left, defaults);
+    typeAnnotation = firstParam.left.typeAnnotation;
+  }
+
+  if (!typeAnnotation) return null;
+
+  const annotation = typeAnnotation.typeAnnotation || typeAnnotation;
+
+  if (n.TSTypeLiteral.check(annotation)) {
+    const variants = extractUnionDimensionsFromMembers(annotation.members, defaults);
+    if (variants.length > 0) return { baseClasses: "", variants };
+  }
+
+  const typeName = extractTypeReferenceName(annotation);
+  if (!typeName) return null;
+
+  const typeDecl = findTypeDeclaration(ast, typeName);
+  if (!typeDecl) return null;
+
+  const members = getTypeMembers(typeDecl);
+  if (!members) return null;
+
+  const variants = extractUnionDimensionsFromMembers(members, defaults);
+  if (variants.length === 0) return null;
+
+  return { baseClasses: "", variants };
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 /** Check if a node is an identifier with a specific name. */
 function isIdentifierNamed(node: any, name: string): boolean {
@@ -309,8 +734,8 @@ function extractStringValue(node: any): string | null {
 }
 
 /**
- * Extract variant dimensions from a CVA config ObjectExpression.
- * Handles: cva("base", { variants: { variant: { default: "...", ... } }, defaultVariants: { variant: "default" } })
+ * Extract variant dimensions from a config ObjectExpression with `variants` and `defaultVariants` properties.
+ * Shared by all config-object extractors (CVA, TV, Stitches, Vanilla Extract, PandaCSS).
  */
 function extractVariantsFromConfig(configObj: any): VariantDimension[] {
   const dimensions: VariantDimension[] = [];
@@ -400,19 +825,30 @@ function findEnclosingComponentName(astPath: any): string | null {
 }
 
 /**
- * Find the CVA variable that matches a component.
- * Convention: Button → buttonVariants, Badge → badgeVariants
+ * Find the variant config variable that matches a component.
+ * Supports multiple naming conventions across variant libraries.
  */
-function findCvaForComponent(
+function findVariantConfigForComponent(
   componentName: string,
-  cvaMap: Map<string, any>
+  variantMap: Map<string, VariantExtractionResult>
 ): string | null {
   const lower = componentName.charAt(0).toLowerCase() + componentName.slice(1);
-  const expected = `${lower}Variants`;
-  if (cvaMap.has(expected)) return expected;
 
-  // Fallback: if there's only one CVA definition, use it
-  if (cvaMap.size === 1) return cvaMap.keys().next().value!;
+  // Check naming conventions in priority order
+  const candidates = [
+    componentName,          // direct match — styled(), TS union on function component
+    `${lower}Variants`,     // CVA, PandaCSS convention
+    lower,                  // tv() convention
+    `${lower}Recipe`,       // Vanilla Extract convention
+    `${lower}Styles`,       // general convention
+  ];
+
+  for (const candidate of candidates) {
+    if (variantMap.has(candidate)) return candidate;
+  }
+
+  // Fallback: if there's only one variant definition, use it
+  if (variantMap.size === 1) return variantMap.keys().next().value!;
 
   return null;
 }

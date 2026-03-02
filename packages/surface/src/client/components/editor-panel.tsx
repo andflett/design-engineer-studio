@@ -621,7 +621,18 @@ export function EditorPanel({
                   onRevertInlineStyles={onRevertInlineStyles}
                   onCommitClass={(tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
-                    if (element.source) {
+                    // Component instances: write to the usage site (instanceSource)
+                    if (element.instanceSource && element.componentName) {
+                      withSave(async () => {
+                        await handleInstanceOverride(
+                          element.instanceSource!,
+                          element.componentName!,
+                          tailwindClass,
+                          oldClass || undefined,
+                        );
+                      });
+                    } else if (element.source) {
+                      // Plain elements (no instance source): write to element source
                       const source = element.source;
                       if (oldClass) {
                         withSave(async () => {

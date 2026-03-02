@@ -10,14 +10,18 @@
   },
   "workspaces": [
     "packages/next-plugin",
-    "packages/surface"
+    "packages/surface",
+    "packages/vite-plugin"
   ],
   "scripts": {
     "surface": "npm -w packages/next-plugin run build && cd demos/studio-app && npm run dev & sleep 3 && cd demos/studio-app && npx tsx ../../packages/surface/src/cli.ts",
     "surface:design-system": "npm -w packages/next-plugin run build && cd demos/design-system && npm run dev & sleep 3 && cd demos/design-system && npx tsx ../../packages/surface/src/cli.ts",
+    "surface:vite": "npm -w packages/vite-plugin run build && cd demos/vite-app && npm run dev & sleep 3 && cd demos/vite-app && npx tsx ../../packages/surface/src/cli.ts",
     "build:surface": "npm -w packages/next-plugin run build && npm -w packages/surface run build",
+    "build:vite-plugin": "npm -w packages/vite-plugin run build",
+    "publish:vite-plugin": "bash scripts/publish.sh patch vite-plugin",
     "publish:surface": "bash scripts/publish.sh patch surface",
-    "build": "npm -w packages/next-plugin run build && npm -w packages/surface run build",
+    "build": "npm -w packages/next-plugin run build && npm -w packages/surface run build && npm -w packages/vite-plugin run build",
     "publish": "bash scripts/publish.sh",
     "publish:next-plugin": "bash scripts/publish.sh patch next-plugin"
   },

@@ -1,9 +1,9 @@
-# Codesurface Roadmap: Styling & Framework Expansion
+# Surface Roadmap: Styling & Framework Expansion
 
 ## Strategic Position
 
 Onlook, Bolt.new, Lovable, V0 = cloud-first AI app builders, all locked to Next.js + Tailwind.
-Codesurface = local CLI tool for developers editing styles on their own running app.
+Surface = local CLI tool for developers editing styles on their own running app.
 
 **Our moat: multi-styling-system, multi-framework visual style editing that writes back to source.**
 
@@ -43,6 +43,16 @@ Meanwhile, the developer working on a production app with CSS Modules, or CSS va
 
 The `write-element` endpoint's `changes[]` path only converts CSS -> Tailwind classes. For css-variables, plain-css, and bootstrap projects, element-level style changes from the property panel have no write path. We detect 6 styling systems but can only write element styles for 1.
 
+### Client UI coupling (ScaleInput)
+
+The Tailwind coupling isn't just server-side. `ScaleInput` (the core property control used throughout the computed property panel) is Tailwind-aware:
+- **Scale mode** shows Tailwind scale values (`sm`, `md`, `lg`, `2xl`) in a dropdown
+- **Arbitrary mode** wraps CSS values in Tailwind arbitrary syntax (`pt-[14px]`)
+- `computedToTailwindClass()` is called directly in the commit handler
+- Commit builds class strings like `${prefix}-${selected}`
+
+**The fix is parameterization, not a redesign.** The two-mode UX (token scale vs custom CSS) maps naturally to any styling system — for non-Tailwind projects, scale mode shows the project's design tokens (CSS variables, Bootstrap utilities) and arbitrary mode sends raw CSS values without Tailwind wrapping. The visual UI stays identical. Make `ScaleInput` accept scale data and commit behavior as props rather than hardcoding Tailwind internals. Same applies to `computed-property-panel.tsx` which calls `computedToTailwindClass()` to derive display values.
+
 ---
 
 ## Roadmap
@@ -74,14 +84,14 @@ The `write-element` endpoint's `changes[]` path only converts CSS -> Tailwind cl
 
 ### Phase 2: Framework plugins
 
-**Goal:** Codesurface works beyond Next.js.
+**Goal:** Surface works beyond Next.js.
 
 #### 2a. Vite plugin for React
 - **Effort:** Medium
 - **Market:** Vite is the standard non-Next.js React setup. CRA is dead. This one plugin also covers Remix (Vite-based since v2) and any Vite + React app
 - **How:**
   - Port the Babel visitor from `next-plugin/src/loader.ts` into a Vite `transform()` hook — the visitor is ~60 lines and framework-agnostic
-  - Mount injection: detect `main.tsx` or `App.tsx` (configurable) and inject `<CodeSurface />`
+  - Mount injection: detect `main.tsx` or `App.tsx` (configurable) and inject `<Surface />`
   - Package as `@designtools/vite-plugin`
 - **Complexity:** Entry point detection is less predictable than Next.js's `app/layout.tsx`. Provide a config option with smart defaults
 
@@ -128,12 +138,13 @@ The `write-element` endpoint's `changes[]` path only converts CSS -> Tailwind cl
 | 1a. Plain CSS adapter | S | Every non-framework CSS project | **P0** |
 | 1b. CSS Variables adapter | S | Growing — modern CSS movement | **P0** |
 | 1c. CSS Modules | S-M | #1 non-Tailwind approach in React | **P0** |
+| npm component handling | S-M | Every real app (robustness) | **P1** |
 | 2a. Vite plugin | M | All non-Next.js React apps | **P1** |
-| 1d. Bootstrap adapter | M | Enterprise/legacy (slow adopters) | **P1** |
-| 2b. Vue/Nuxt plugin | L | Zero competition, large global market | **P1** |
+| 2b. Vue/Nuxt plugin | L | Zero competition, large global market | **P2** |
 | 3a. Tailwind v3 theme | M | Correctness fix, not new market | **P2** |
-| 2c. Astro plugin | M | Growing content site market | **P2** |
-| 3b. W3C Design Tokens | M | Future-facing standard | **P2** |
+| 2c. Astro plugin | M | Growing content site market | **P3** |
+| 3b. W3C Design Tokens | M | Future-facing standard | **P3** |
+| 1d. Bootstrap adapter | M | Enterprise/legacy (slow adopters) | **P3** |
 | 3c. Sass/SCSS variables | M | Declining, overlaps with Bootstrap | **P3** |
 | 2d. Svelte/SvelteKit | L | Small passionate niche | **P3** |
 
@@ -143,9 +154,155 @@ The `write-element` endpoint's `changes[]` path only converts CSS -> Tailwind cl
 2. **CSS Variables element adapter** (1b) — extends existing token writes to property panel
 3. **CSS Modules support** (1c) — covers the most common non-Tailwind pattern in the React ecosystem
 
-These three make the pitch real: "codesurface works on your existing project, whatever styling approach you use."
+These three make the pitch real: "surface works on your existing project, whatever styling approach you use."
 
-Then: **Vite plugin** (2a) to break out of Next.js, followed by **Vue/Nuxt** (2b) to enter a completely uncontested market.
+Then: **Vite plugin** (2a) to break out of Next.js. Then **Vue/Nuxt** (2b) — zero competition there, but do it only once the React story is fully credible. Vue/Svelte communities are disproportionately active in open source, making them high-value for an OSS project even if raw adoption is smaller.
+
+Bootstrap is deprioritized to P3. The 22% developer number is misleading — it skews heavily toward legacy enterprise teams unlikely to adopt new dev tools. Lower ROI than CSS Modules, plain CSS, or framework expansion.
+
+## Handling npm-Installed Components (node_modules)
+
+### The Problem
+
+Real apps use components from npm packages — shadcn/ui, Radix, MUI, Chakra, Headless UI, etc. Surface's Babel/Vite transforms skip `node_modules`, so rendered elements from these packages have no `data-source` attributes. When a user clicks on an element rendered by an npm component, the editor needs to handle it gracefully rather than silently failing or showing a broken state.
+
+### Current Behavior
+
+| Layer | What happens | Gap |
+|-------|-------------|-----|
+| **Babel/Vite transform** | Skips `node_modules` — correct, we can't write there | None |
+| **DOM selection** | Elements are clickable regardless of source attribution | None |
+| **`SelectedElementData`** | `source: null` when element has no `data-source` attr | No indication of *why* it's null |
+| **`instanceSource`** | Populated if the component usage site is in user code (e.g. `<Card>` written in `page.tsx`) | Works — this is the edit path |
+| **Editor panel header** | Shows file path only when `element.source \|\| componentEntry?.filePath` — npm elements show nothing | No explanation of why it's missing |
+| **Write endpoints** | `safePath()` rejects paths outside projectRoot | Returns generic 400 error, not a helpful message |
+| **Computed property panel** | Renders normally, commits style changes | Commit silently fails if no writable source exists |
+| **Component tab** | Only shown for `data-slot` elements | Correct gating, but no explanation for non-slot npm components |
+| **Page Explorer** | Hides components without `data-instance-source` or `data-slot` | Correct filtering |
+
+### What Should Happen
+
+The core principle: **npm components are inspectable but not definition-editable. Instance overrides (className, props) at the usage site are the edit path.**
+
+#### Editability Model
+
+Three tiers of editability for any selected element:
+
+| Tier | Condition | What's editable | UI treatment |
+|------|-----------|----------------|-------------|
+| **Full** | `source` points to a project file | Everything — component definition, instance overrides, tokens | Default (current behavior) |
+| **Instance-only** | `source` is null or outside project, but `instanceSource` exists | className override on the instance, prop overrides, inline styles at usage site | Show instance tab with full controls. Component/definition tab shows read-only badge with explanation |
+| **Inspect-only** | Neither `source` nor `instanceSource` available (deeply nested npm internals) | Nothing writable — computed styles are read-only | Show computed values for reference. Clear "Read-only — from package" indicator. No commit buttons |
+
+#### Protocol Changes
+
+Add an `editability` field to `SelectedElementData`:
+
+```typescript
+export interface SelectedElementData {
+  // ... existing fields ...
+  /** Package name if element originates from node_modules (e.g. "@radix-ui/react-dialog") */
+  packageName: string | null;
+}
+```
+
+The `packageName` is derivable on the client from the `source` field — if `source.file` contains `node_modules/<pkg>`, extract the package name. But better to resolve it server-side during the component scan, since some elements won't have `source` at all. The injected `<Surface />` component can walk up the React fiber tree to find the nearest component with a `node_modules` source and extract the package name.
+
+The editability tier is computed client-side from the existing fields:
+- `source` exists and doesn't contain `node_modules` → **Full**
+- `instanceSource` exists → **Instance-only** (regardless of `source`)
+- Neither → **Inspect-only**
+
+No new protocol messages needed — this is purely a UI interpretation of existing data.
+
+#### Client UI Changes
+
+**1. Editor panel header — show package origin**
+
+When an element is instance-only or inspect-only, show the package name where the file path normally goes:
+
+```
+[ComponentInstance icon] DialogContent
+📦 @radix-ui/react-dialog          ← instead of blank
+```
+
+Clicking it could open the package on npm or show the installed version.
+
+**2. Property panel — editability indicators**
+
+For instance-only elements:
+- Computed property panel renders normally — inline preview still works (postMessage doesn't need source)
+- Commit buttons are enabled — they write via `instanceSource` (className override on the usage site)
+- A subtle note at the top: "Editing instance in `app/page.tsx:24`" to make clear where changes land
+
+For inspect-only elements:
+- Computed property panel renders in **read-only mode** — values displayed but inputs disabled
+- No commit buttons
+- Note: "This element is from `@radix-ui/react-dialog` and can't be edited directly. Select the parent component instance to override styles."
+- Offer a "Go to instance" action that selects the nearest ancestor with `instanceSource`
+
+**3. Component tab gating**
+
+Currently gated on `data-slot`. For npm components without `data-slot`:
+- Don't show the component tab (already correct)
+- If the component *does* have `data-slot` (shadcn/ui pattern — user copies components into their project), it's already a project file and fully editable
+
+**4. Page Explorer enhancements**
+
+npm components that *are* visible (have `data-slot` or `data-instance-source`) should show a package badge icon to distinguish them from project-local components. This is informational — helps users understand their component tree.
+
+#### Server-Side Changes
+
+**1. Write endpoint error responses**
+
+Currently `safePath()` throws a generic error. Add a specific check:
+
+```typescript
+// In write-element.ts, before safePath()
+if (source.file.includes("node_modules")) {
+  return res.status(422).json({
+    error: "readonly_package",
+    message: `Cannot edit ${source.file} — it's inside node_modules. Use instance overrides instead.`,
+    packageName: extractPackageName(source.file),
+  });
+}
+```
+
+This gives the client a structured error to show a helpful message rather than a generic failure toast.
+
+**2. Instance override path — already works**
+
+The `instanceOverride` write type in `write-element.ts` already handles this correctly — it writes to the `instanceSource` file (the user's page/component that *uses* the npm component). No changes needed here.
+
+**3. Component scan enrichment**
+
+`scan-components.ts` could tag scanned components with their origin (project vs dependency) so the Page Explorer has this info without needing fiber tree walking. Components from `node_modules` that appear in the tree (via `data-slot`) would get `origin: "package"` and `packageName`.
+
+### Implementation Plan
+
+| Step | Effort | What |
+|------|--------|------|
+| 1. Add `packageName` to element data | S | Fiber walk or source path parsing in the Surface injected component |
+| 2. Compute editability tier client-side | S | Utility function from `source`, `instanceSource`, `packageName` fields |
+| 3. Editor panel header — package origin display | S | Conditional rendering when `packageName` is set |
+| 4. Read-only mode for inspect-only elements | S-M | Disable inputs in ComputedPropertyPanel, hide commit buttons |
+| 5. "Go to instance" action | S | Walk DOM ancestors to find nearest element with `instanceSource`, trigger selection |
+| 6. Structured error from write endpoints | S | Check for `node_modules` in path before `safePath()` |
+| 7. Page Explorer package badges | S | Icon/label for `origin: "package"` entries |
+
+**Priority: P1** — not a new feature, but a robustness requirement. Every real app has npm components. A confused or broken experience when clicking on them undermines trust in the tool. Should ship alongside or shortly after Phase 1 styling adapters.
+
+### Edge Cases
+
+**shadcn/ui and "ejected" components**: These are npm-installed via `npx shadcn-ui add` but copied into the project's `components/ui/` directory. They have `data-source` pointing to project files. Fully editable — no special handling needed.
+
+**Monorepo internal packages**: A component from `packages/shared-ui` imported by `apps/web` — depending on the build setup, `data-source` may point to a path within the monorepo but outside the app's `projectRoot`. `safePath()` would reject it. Consider: expand `projectRoot` to the monorepo root, or add a `--include` flag for additional writable paths. Worth noting but not blocking — defer to Phase 2.
+
+**CSS from npm packages**: A component from `@mui/material` applies styles via CSS-in-JS or bundled CSS. Token editing of CSS variables that the npm component *consumes* is still possible if those variables are defined in the project's CSS files. The token editor already handles this — it edits the variable declaration, not the component.
+
+**React Server Components**: Some RSC elements won't have fiber data available on the client. The `source: null` + `instanceSource: null` case covers this — they'd be inspect-only. Fine for now.
+
+---
 
 ## What We're NOT Building
 
@@ -165,6 +322,6 @@ Then: **Vite plugin** (2a) to break out of Next.js, followed by **Vue/Nuxt** (2b
 | **Bolt.new** | Multi (React default) | Tailwind default | WebContainer | Prototypers |
 | **Webflow/Framer** | Own runtime | Own system | Cloud | Designers |
 | **Browser DevTools** | Any | Any | Local | Developers (no persistence) |
-| **Codesurface** | Next.js (expanding) | Multi-system (expanding) | Local | Developers on real codebases |
+| **Surface** | Next.js (expanding) | Multi-system (expanding) | Local | Developers on real codebases |
 
 The gap we fill: DevTools-level flexibility (any framework, any styling) with source-file persistence. Nobody else occupies this space.

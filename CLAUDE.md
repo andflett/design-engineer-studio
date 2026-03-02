@@ -12,6 +12,7 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 |---------|-------|
 | `@designtools/surface` | Hybrid architecture — selection in target app, editor UI separate |
 | `@designtools/next-plugin` | Config wrapper for `data-source` attributes + `<Surface />` mount |
+| `@designtools/vite-plugin` | Vite plugin for `data-source` attributes + `<Surface />` auto-mount |
 
 ## Monorepo layout
 
@@ -19,15 +20,17 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 packages/
   surface/      Hybrid visual editor
   next-plugin/  Next.js config wrapper + data-source Babel transform
+  vite-plugin/  Vite plugin for source annotation + Surface auto-mount
 demos/
   studio-app/           Tailwind CSS v4 demo (Next.js)
+  vite-app/             Tailwind CSS v4 demo (Vite + React)
   bootstrap-app/        Bootstrap 5 demo
   w3c-tokens-app/       W3C Design Tokens demo
   css-variables-app/    Plain CSS variables demo
   tailwind-shadows-app/ Tailwind shadows demo
 ```
 
-- `packages/next-plugin` and `packages/surface` are npm workspaces.
+- `packages/next-plugin`, `packages/surface`, and `packages/vite-plugin` are npm workspaces.
 - `demos/*` are standalone Next.js apps (not workspaces).
 
 ## Key conventions

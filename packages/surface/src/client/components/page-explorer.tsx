@@ -237,16 +237,51 @@ export function PageExplorer({
             )}
           </>
         ) : (
-          /* No scope data — render flat tree */
-          <div className="flex-1 overflow-y-auto overflow-x-auto studio-scrollbar py-1">
-            {allNodes.map((node) => (
-              <TreeNodeItem
-                key={node.id}
-                node={node}
-                depth={0}
-                {...treeItemProps}
-              />
-            ))}
+          /* No scope data — render flat tree with toggle */
+          <div className="flex flex-col flex-1 min-h-0">
+            <div
+              className="flex justify-between items-center px-3 py-2 shrink-0"
+              style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
+            >
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wide"
+                style={{ color: "var(--studio-text-muted)" }}
+              >
+                Elements
+              </span>
+              <Tooltip
+                content={isDomMode ? "Show components only" : "Show all elements"}
+                side="bottom"
+              >
+                <button
+                  className="studio-icon-btn"
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 3,
+                    color: isDomMode ? "var(--studio-accent)" : undefined,
+                    opacity: isDomMode ? 1 : 0.5,
+                  }}
+                  onClick={toggleDomMode}
+                >
+                  {isDomMode ? (
+                    <ListTree style={{ width: 13, height: 13 }} strokeWidth={1.5} />
+                  ) : (
+                    <LayersIcon style={{ width: 13, height: 13 }} />
+                  )}
+                </button>
+              </Tooltip>
+            </div>
+            <div className="flex-1 overflow-y-auto overflow-x-auto studio-scrollbar py-1">
+              {allNodes.map((node) => (
+                <TreeNodeItem
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  {...treeItemProps}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>

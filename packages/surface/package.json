@@ -5,6 +5,10 @@
   "type": "module",
   "license": "CC-BY-NC-4.0",
   "author": "Andrew Flett",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andflett/designtools"
+  },
   "engines": {
     "node": ">=18"
   },
