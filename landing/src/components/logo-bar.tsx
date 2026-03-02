@@ -65,7 +65,6 @@ const logos: { name: string; svg: React.ReactNode }[] = [
     svg: (
       <svg viewBox="0 0 124 141.53" className="h-5 w-auto" fill="currentColor">
         <path d="M10.383 126.892L0 0l124 .255-10.979 126.637-50.553 14.638z" fillOpacity="0.5" />
-        <path d="M62.468 129.275V12.085l51.064.17-9.106 104.85z" fillOpacity="0.65" />
         <path d="M100.851 27.064H22.298l2.128 15.318h37.276l-36.68 15.745 2.127 14.808h54.043l-1.958 20.68-18.298 3.575-16.595-4.255-1.277-11.745H27.83l2.042 24.426 32.681 9.106 31.32-9.957 4-47.745H64.765l36.085-14.978z" fillOpacity="1" />
       </svg>
     ),
@@ -75,15 +74,16 @@ const logos: { name: string; svg: React.ReactNode }[] = [
 function LogoItem({ name, svg, index }: { name: string; svg: React.ReactNode; index: number }) {
   return (
     <motion.div
-      className="group relative flex flex-col items-center cursor-pointer"
+      className="group relative flex flex-col items-center cursor-pointer outline-none"
+      tabIndex={0}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 + index * 0.05 }}
     >
-      <div className="text-white/35 group-hover:text-white/70 transition-colors duration-300 p-3">
+      <div className="text-white/40 group-hover:text-white/70 group-active:text-white/70 group-focus:text-white/70 transition-colors duration-300 p-3">
         {svg}
       </div>
-      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-mono text-white/0 group-hover:text-white/50 translate-y-1 group-hover:translate-y-0 transition-all duration-300 pointer-events-none">
+      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-mono text-white/0 group-hover:text-white/50 group-active:text-white/50 group-focus:text-white/50 translate-y-1 group-hover:translate-y-0 group-active:translate-y-0 group-focus:translate-y-0 transition-all duration-300 pointer-events-none">
         {name}
       </span>
     </motion.div>
@@ -92,7 +92,7 @@ function LogoItem({ name, svg, index }: { name: string; svg: React.ReactNode; in
 
 export function LogoBar() {
   return (
-    <div className="flex items-center justify-center gap-6 md:gap-10 flex-wrap pt-10 pb-4">
+    <div className="flex items-center justify-center gap-2 md:gap-10 flex-wrap pt-10 pb-4">
       {logos.map((logo, i) => (
         <LogoItem key={logo.name} name={logo.name} svg={logo.svg} index={i} />
       ))}

@@ -12,9 +12,8 @@ const frameworkRows = [
   { name: "Next.js", versions: "App + Pages router", status: "stable" },
   { name: "Vite + React", versions: "via plugin", status: "stable" },
   { name: "Astro", versions: "Islands", status: "stable" },
-  { name: "Remix", versions: "Vite-based", status: "next" },
-  { name: "Vue / Nuxt", versions: "SFC templates", status: "planned" },
-  { name: "Svelte", versions: "SvelteKit", status: "planned" },
+  { name: "Remix", versions: "Vite-based", status: "stable" },
+  { name: "Vue / Nuxt", versions: "SFC templates", status: "next" },
 ];
 
 function StatusDot({ status }: { status: string }) {
@@ -23,10 +22,10 @@ function StatusDot({ status }: { status: string }) {
       <span
         className={`w-1.5 h-1.5 rounded-full ${
           status === "stable"
-            ? "bg-ink"
+            ? "bg-green-400"
             : status === "next"
-              ? "bg-ink3"
-              : "bg-edge"
+              ? "bg-amber-400"
+              : "bg-ink3/40"
         }`}
       />
       {status}
@@ -105,9 +104,9 @@ export function Compatibility() {
 
         <Reveal delay={0.15}>
           <div className="mt-8 flex items-center gap-6 text-[11px] text-ink3 font-mono">
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-ink" /> stable</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-ink3" /> next</span>
-            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-edge" /> planned</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400" /> stable</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> next</span>
+            <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-ink3/40" /> planned</span>
           </div>
         </Reveal>
       </div>

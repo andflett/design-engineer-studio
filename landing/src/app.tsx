@@ -4,13 +4,12 @@ import { Hero } from "./components/hero.js";
 import { DemoWindow } from "./components/demo-window.js";
 import { Philosophy } from "./components/philosophy.js";
 import { ThreeTiers } from "./components/three-tiers.js";
-import { Differentiators } from "./components/differentiators.js";
 import { Compatibility } from "./components/compatibility.js";
 import { Stack } from "./components/stack.js";
-import { Waitlist, WaitlistForm } from "./components/waitlist.js";
+import { Waitlist } from "./components/waitlist.js";
 import { Footer } from "./components/footer.js";
 import { Privacy } from "./components/privacy.js";
-import { motion } from "motion/react";
+import { Analytics } from "@vercel/analytics/next";
 
 function useHash() {
   return useSyncExternalStore(
@@ -44,9 +43,9 @@ export function App() {
       <Philosophy />
       <ThreeTiers />
       <Compatibility />
-      <Differentiators />
       <Stack />
       <Footer />
+      <Analytics />
     </>
   );
 }

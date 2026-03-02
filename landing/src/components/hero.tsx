@@ -2,16 +2,15 @@ import { motion } from "motion/react";
 import { DitherGradient } from "./dither-gradient.js";
 import { DitherGlow } from "./dither-glow.js";
 import { LogoBar } from "./logo-bar.js";
-import { WaitlistForm } from "./waitlist.js";
 
 export function Hero() {
   return (
     <section className="relative pt-0 text-center overflow-hidden">
       {/* Dark header band that dissolves via Bayer dither */}
       <div className="bg-ink">
-        <div className="pt-28 pb-14 max-w-[1100px] mx-auto px-6 relative">
+        <div className="pt-28 pb-8 md:pb-11 max-w-[1100px] mx-auto px-6 relative">
           {/* Dithered glow — static, not inside motion */}
-          <div className="relative inline-flex justify-center mb-6">
+          <div className="relative inline-flex justify-center mb-8">
             <DitherGlow
               width={550}
               height={125}
@@ -39,7 +38,7 @@ export function Hero() {
           >
             Visual editing for
             <br />
-            production frontends
+            <span className="glitch" data-text="production">production</span> frontends
           </motion.h1>
 
           <motion.p

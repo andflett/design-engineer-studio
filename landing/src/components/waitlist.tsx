@@ -58,8 +58,8 @@ export function WaitlistForm({ dark }: { dark?: boolean }) {
               }}
               className={
                 dark
-                  ? "flex-1 px-4 py-2.5 text-sm font-mono bg-white/10 border border-white/20 text-white rounded-lg outline-none focus:border-white/40 transition-colors placeholder:text-white/30"
-                  : "flex-1 px-4 py-2.5 text-sm font-mono bg-page border border-edge rounded-lg outline-none focus:border-ink3 transition-colors placeholder:text-ink3/50"
+                  ? "flex-1 px-4 h-[42px] text-sm font-mono bg-white/10 border border-white/20 text-white rounded-lg outline-none focus:border-white/40 transition-colors placeholder:text-white/30"
+                  : "flex-1 px-4 h-[42px] text-sm font-mono bg-page border border-edge rounded-lg outline-none focus:border-ink3 transition-colors placeholder:text-ink3/50"
               }
             />
             <button
@@ -67,8 +67,8 @@ export function WaitlistForm({ dark }: { dark?: boolean }) {
               disabled={state === "loading"}
               className={
                 dark
-                  ? "px-5 py-2.5 text-sm font-medium bg-white text-ink rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50"
-                  : "px-5 py-2.5 text-sm font-medium bg-btn text-white rounded-lg hover:bg-btn/90 transition-colors disabled:opacity-50"
+                  ? "px-5 h-[42px] text-sm font-medium bg-white text-ink rounded-lg hover:bg-white/90 transition-colors disabled:opacity-50 cursor-pointer"
+                  : "px-5 h-[42px] text-sm font-medium bg-btn text-white rounded-lg hover:bg-btn/90 transition-colors disabled:opacity-50 cursor-pointer"
               }
             >
               {state === "loading" ? "..." : "Join waitlist"}
@@ -93,13 +93,13 @@ export function Waitlist() {
       <div className="max-w-[1100px] mx-auto px-6 text-center">
         <Reveal>
           <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
-            Early access
+            Open source
           </p>
           <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-4" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
-            Get notified when we launch
+            Get notified when we're stable
           </h2>
           <p className="text-ink2 max-w-[420px] mx-auto mb-8 text-[15px] leading-relaxed">
-            We'll let you know when it's safe to use.
+            It's open source, so no hard sell, but we'll let you know when it's safe to use.
           </p>
           <WaitlistForm />
           <p className="text-[11px] text-ink3/60 mt-4 font-mono">

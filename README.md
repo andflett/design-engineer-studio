@@ -1,6 +1,6 @@
-# Design Tools
+# @designtools/surface
 
-Visual editing CLI tools for web applications — edit styles, tokens, and components visually with changes written back to source files.
+Visual editing for production frontends. @designtools/surface is a multi-framework design tool that understands your design system, sits on top of your production code, and writes changes back to source.
 
 [Read the write-up](https://www.flett.cc/projects/design-engineer-studio)
 

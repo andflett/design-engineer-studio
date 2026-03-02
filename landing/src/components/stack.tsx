@@ -28,7 +28,7 @@ export function Stack() {
               color="rgba(255,255,255,0.08)"
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
             />
-            <span className="inline-flex items-center gap-2.5 px-4 py-1.5 text-xs font-medium text-ink3 font-mono relative rounded-full">
+            <span className="inline-flex items-center uppercase gap-2.5 px-4 py-1.5 text-xs font-medium text-ink3 font-mono relative rounded-full">
               <span className="animate-pulse w-1.5 h-1.5 bg-amber-400 rounded-full" />
               Active development
             </span>
@@ -47,7 +47,7 @@ export function Stack() {
         <Reveal delay={0.1}>
           <p className="text-base text-ink2 max-w-[480px] mx-auto leading-relaxed mb-10">
             We're not ready yet. Things will break, APIs will change, and
-            your <span className="font-mono text-[13px]">node_modules</span> might
+            your colleagues might
             judge you. But if you like living on the edge, the source is
             open and the package is published.
           </p>
@@ -76,11 +76,7 @@ export function Stack() {
           </div>
         </Reveal>
 
-        <Reveal delay={0.2}>
-          <p className="mt-8 text-[11px] text-ink3 font-mono">
-            Expect sharp edges. Bring your own hard hat.
-          </p>
-        </Reveal>
+    
       </div>
     </section>
   );

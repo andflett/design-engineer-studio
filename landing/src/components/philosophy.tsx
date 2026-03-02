@@ -1,48 +1,45 @@
+import { BracesContent } from "pixelarticons/react/BracesContent";
+import { Target } from "pixelarticons/react/Target";
+import { Grid3x3 } from "pixelarticons/react/Grid3x3";
 import { Reveal } from "./reveal.js";
 
 const cards = [
   {
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none">
-        <rect x="1" y="1" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M1 7h18M7 7v12" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    icon: <BracesContent width={20} height={20} />,
     title: "Your code, not a canvas",
     description:
-      "No import/export cycle. Codesurface loads your running app in an iframe and edits source files directly. The app you see is the app you ship.",
+      "No import/export cycle. Surface loads your running app in an iframe and edits source files directly. The app you see is the app you ship.",
   },
   {
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M10 1v4M10 15v4M1 10h4M15 10h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" />
-      </svg>
-    ),
+    icon: <Target width={20} height={20} />,
     title: "Deterministic, not generative",
     description:
       "You click a property, you change a value, the exact edit is written to your file. No AI guessing what you meant. Precision by default.",
   },
   {
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none">
-        <rect x="2" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="2" y="11" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="11" y="11" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      </svg>
-    ),
+    icon: <Grid3x3 width={20} height={20} />,
     title: "Design system thinking",
     description:
-      "Tokens, components, instances. Codesurface maps your codebase structure and encourages systematic changes over freeform pixel pushing.",
+      "Tokens, components, instances. Surface maps your codebase structure and encourages systematic changes over freeform pixel pushing.",
   },
 ];
 
 export function Philosophy() {
   return (
-    <section className="py-24 border-t border-edge-subtle">
-      <div className="max-w-[1100px] mx-auto px-6">
-        <div className="grid grid-cols-3 max-md:grid-cols-1 gap-px bg-edge-subtle rounded-xl overflow-hidden border border-edge-subtle">
+    <>
+      <div className="dither-band" />
+      <section className="py-24 bg-raised checker-dither">
+        <div className="max-w-[1100px] mx-auto px-6">
+          <div className="text-center mb-12">
+            <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
+              Philosophy
+            </p>
+            <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1]" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
+              Your code, your rules
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-3 max-md:grid-cols-1 gap-px bg-edge-subtle rounded-xl overflow-hidden border border-edge-subtle">
           {cards.map((card, i) => (
             <Reveal key={card.title} delay={i * 0.08}>
               <div className="bg-page p-8 h-full">
@@ -57,7 +54,22 @@ export function Philosophy() {
             </Reveal>
           ))}
         </div>
-      </div>
-    </section>
+          <Reveal delay={0.25}>
+            <p className="mt-8 text-center text-[13px] text-ink3">
+              Read the full story and follow along with development on{" "}
+              <a
+                href="https://www.flett.cc/projects/design-engineer-studio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ink2 underline underline-offset-2 hover:text-ink transition-colors font-mono"
+              >
+                flett.cc
+              </a>
+            </p>
+          </Reveal>
+        </div>
+      </section>
+      <div className="dither-band" />
+    </>
   );
 }
