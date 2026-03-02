@@ -62,6 +62,7 @@ interface EditorPanelProps {
   element: SelectedElementData | null;
   theme: "light" | "dark";
   iframePath: string;
+  stylingType: string;
   onPreviewToken: (token: string, value: string) => void;
   onClearTokenPreview: () => void;
   onPreviewShadow: (variableName: string, value: string, shadowName?: string) => void;
@@ -85,6 +86,7 @@ export function EditorPanel({
   element,
   theme,
   iframePath,
+  stylingType,
   onPreviewToken,
   onClearTokenPreview,
   onPreviewShadow,
@@ -154,6 +156,8 @@ export function EditorPanel({
       .then((data) => setInstanceProps(data.props ?? null))
       .catch(() => setInstanceProps(null));
   }, [element?.instanceSource?.file, element?.instanceSource?.line, element?.instanceSource?.col, element?.componentName, isComponent, instancePropsVersion]);
+
+  const isCssMode = !!stylingType && !stylingType.startsWith("tailwind");
 
   const withSave = async (fn: () => Promise<void>) => {
     const queued = writeQueueRef.current.then(async () => {
@@ -433,13 +437,11 @@ export function EditorPanel({
                   parentComputedStyles={element.parentComputed || {}}
                   onPreviewInlineStyle={onPreviewInlineStyle}
                   onRevertInlineStyles={onRevertInlineStyles}
-                  onCommitClass={(tailwindClass, oldClass) => {
+                  onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
                     const isCva =
                       componentEntry && componentEntry.variants.length > 0;
                     if (isCva) {
-                      // CVA components: classes live in the cva() call, not on the
-                      // JSX element. Use the component/regex write API.
                       if (oldClass) {
                         withSave(async () => {
                           await handleComponentClassChange(
@@ -449,7 +451,6 @@ export function EditorPanel({
                           );
                         });
                       } else if (element.source) {
-                        // addClass: fall back to element write (appends to JSX className)
                         const source = element.source;
                         withSave(async () => {
                           await handleWriteElement(
@@ -460,8 +461,6 @@ export function EditorPanel({
                         });
                       }
                     } else if (element.source) {
-                      // Non-CVA components (cn("classes", className)) and plain elements:
-                      // classes are in the JSX className expression, AST approach works.
                       const source = element.source;
                       if (oldClass) {
                         withSave(async () => {
@@ -483,6 +482,10 @@ export function EditorPanel({
                       }
                     }
                   }}
+                  onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                    const source = element.source!;
+                    withSave(() => handleWriteStyle(source, prop, val));
+                  } : undefined}
                 />
               </div>
             )}
@@ -593,7 +596,7 @@ export function EditorPanel({
                       parentComputedStyles={element.parentComputed || {}}
                       onPreviewInlineStyle={onPreviewInlineStyle}
                       onRevertInlineStyles={onRevertInlineStyles}
-                      onCommitClass={(tailwindClass, oldClass) => {
+                      onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
                         if (oldClass && tailwindClass === oldClass) return;
                         if (element.instanceSource && element.componentName) {
                           withSave(async () => {
@@ -606,6 +609,10 @@ export function EditorPanel({
                           });
                         }
                       }}
+                      onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                        const source = element.source!;
+                        withSave(() => handleWriteStyle(source, prop, val));
+                      } : undefined}
                     />
                   </div>
                 )}
@@ -619,7 +626,7 @@ export function EditorPanel({
                   parentComputedStyles={element.parentComputed || {}}
                   onPreviewInlineStyle={onPreviewInlineStyle}
                   onRevertInlineStyles={onRevertInlineStyles}
-                  onCommitClass={(tailwindClass, oldClass) => {
+                  onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
                     // Component instances: write to the usage site (instanceSource)
                     if (element.instanceSource && element.componentName) {
@@ -632,7 +639,6 @@ export function EditorPanel({
                         );
                       });
                     } else if (element.source) {
-                      // Plain elements (no instance source): write to element source
                       const source = element.source;
                       if (oldClass) {
                         withSave(async () => {
@@ -654,6 +660,10 @@ export function EditorPanel({
                       }
                     }
                   }}
+                  onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                    const source = element.source!;
+                    withSave(() => handleWriteStyle(source, prop, val));
+                  } : undefined}
                 />
               </div>
             )}
@@ -977,6 +987,28 @@ async function handleResetInstanceClassName(
     if (!data.ok) console.error("Reset instance className failed:", data.error);
   } catch (err) {
     console.error("Reset instance className error:", err);
+  }
+}
+
+async function handleWriteStyle(
+  source: SourceLocation,
+  property: string,
+  value: string,
+) {
+  try {
+    const res = await fetch("/api/write-element", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "cssProperty",
+        source,
+        changes: [{ property, value }],
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.error("CSS write failed:", data.error);
+  } catch (err) {
+    console.error("CSS write error:", err);
   }
 }
 

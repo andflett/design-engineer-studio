@@ -23,12 +23,17 @@
     "publish:surface": "bash scripts/publish.sh patch surface",
     "build": "npm -w packages/next-plugin run build && npm -w packages/surface run build && npm -w packages/vite-plugin run build",
     "publish": "bash scripts/publish.sh",
-    "publish:next-plugin": "bash scripts/publish.sh patch next-plugin"
+    "publish:next-plugin": "bash scripts/publish.sh patch next-plugin",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@types/supertest": "^7.2.0",
+    "supertest": "^7.2.2",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   }
 }

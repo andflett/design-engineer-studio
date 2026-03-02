@@ -31,27 +31,24 @@ Meanwhile, the developer working on a production app with CSS Modules, or CSS va
 |------------|--------|
 | Styling detection | All 6 types (tailwind-v4, v3, bootstrap, css-variables, plain-css, unknown) |
 | Token scanning | CSS custom properties, shadows, borders, gradients, spacing |
-| Element style writes | **Tailwind only** (className replacement via AST) |
+| Element style writes (Tailwind) | ✅ className replacement via AST |
+| Element style writes (CSS) | ✅ CSS rule edit, CSS modules, inline style fallback |
 | Token value writes | CSS custom properties (regex in :root/.dark blocks) |
 | Component class writes | Regex-based with cva()/variant awareness |
 | Shadow writes | CSS, SCSS, @theme, W3C Design Tokens |
 | Framework detection | Next.js, Vite, Remix (from package.json) |
-| Framework plugin | Next.js only (Webpack + Turbopack) |
+| Framework plugin (Next.js) | ✅ Webpack + Turbopack (`@designtools/next-plugin`) |
+| Framework plugin (Vite) | ✅ Vite transform hook (`@designtools/vite-plugin`) |
 | postMessage protocol | Selection, inline style preview, token preview, revert |
+| Test suite | ✅ 154 tests — unit, AST fixtures, server integration (vitest + supertest) |
 
-## The Critical Gap
+## Remaining Gap
 
-The `write-element` endpoint's `changes[]` path only converts CSS -> Tailwind classes. For css-variables, plain-css, and bootstrap projects, element-level style changes from the property panel have no write path. We detect 6 styling systems but can only write element styles for 1.
+Bootstrap projects still have no element-level write path (1d). The CSS write adapters cover plain-css, css-variables, and css-modules. Bootstrap's utility class system would need a dedicated adapter mapping CSS values to Bootstrap classes.
 
-### Client UI coupling (ScaleInput)
+### Client UI coupling (ScaleInput) — ✅ Resolved
 
-The Tailwind coupling isn't just server-side. `ScaleInput` (the core property control used throughout the computed property panel) is Tailwind-aware:
-- **Scale mode** shows Tailwind scale values (`sm`, `md`, `lg`, `2xl`) in a dropdown
-- **Arbitrary mode** wraps CSS values in Tailwind arbitrary syntax (`pt-[14px]`)
-- `computedToTailwindClass()` is called directly in the commit handler
-- Commit builds class strings like `${prefix}-${selected}`
-
-**The fix is parameterization, not a redesign.** The two-mode UX (token scale vs custom CSS) maps naturally to any styling system — for non-Tailwind projects, scale mode shows the project's design tokens (CSS variables, Bootstrap utilities) and arbitrary mode sends raw CSS values without Tailwind wrapping. The visual UI stays identical. Make `ScaleInput` accept scale data and commit behavior as props rather than hardcoding Tailwind internals. Same applies to `computed-property-panel.tsx` which calls `computedToTailwindClass()` to derive display values.
+The Tailwind coupling in the client was resolved by adding `onCommitStyle` as a parallel commit path alongside `onCommitClass`. When `stylingType` indicates a non-Tailwind project (`isCssMode = !stylingType.startsWith("tailwind")`), all controls — `ScaleInput`, `BoxSpacing`, `KeywordControl`, `ScrubInput`, color pickers — send raw CSS property/value pairs via `onCommitStyle` instead of Tailwind classes via `onCommitClass`. The visual UI stays identical; only the commit behavior changes.
 
 ---
 
@@ -61,21 +58,20 @@ The Tailwind coupling isn't just server-side. `ScaleInput` (the core property co
 
 **Goal:** The property panel writes changes for ANY detected styling system, not just Tailwind.
 
-#### 1a. Plain CSS write adapter
-- **Effort:** Small
+#### 1a. Plain CSS write adapter ✅
+- **Status:** Done
 - **What:** Write CSS property/value directly to a stylesheet rule or inline style attribute
-- **How:** Find the element via `data-source`, resolve its className to a CSS rule in the project's stylesheets, write the property/value. Fallback: write as inline `style` attribute on the JSX element (AST edit)
-- **Files:** New `write-css.ts` adapter, update `write-element.ts` to dispatch by styling system type
+- **Implementation:** `write-css-rule.ts` (findCssRule, writeCssProperty), `write-element.ts` `cssProperty` handler with 3-step fallback (CSS modules → project stylesheets → inline style)
 
-#### 1b. CSS Variables element adapter
-- **Effort:** Small
+#### 1b. CSS Variables element adapter ✅
+- **Status:** Done
 - **What:** Extend the existing token write path to work from the property panel's per-element flow
-- **How:** When a property's computed value resolves to a CSS variable, write changes to the `--var` declaration. Already partially built — token editor writes CSS custom properties, this extends that to the element editing flow
+- **Implementation:** `onCommitStyle` prop threaded through computed-property-panel → controls, dispatched by `stylingType` in editor-panel
 
-#### 1c. CSS Modules support
-- **Effort:** Small-Medium
-- **Market:** The most common non-Tailwind styling approach in Next.js and Vite projects. Often used alongside Tailwind. #1 in State of CSS for non-utility approaches
-- **How:** Detect `.module.css` imports via `import styles from '*.module.css'` patterns. Resolve `styles.foo` to the `.foo` rule in the module file. Write CSS property/value changes directly to that rule. The scoping is handled by the build tool — we just edit the source file
+#### 1c. CSS Modules support ✅
+- **Status:** Done
+- **What:** Detect `.module.css` imports, resolve `styles.foo` to CSS rules, write property/value changes
+- **Implementation:** `findCssModuleImports()`, `resolveModuleClassNames()` in `write-css-rule.ts`, integrated into `cssProperty` handler
 
 #### 1d. Bootstrap write adapter
 - **Effort:** Medium
@@ -86,14 +82,10 @@ The Tailwind coupling isn't just server-side. `ScaleInput` (the core property co
 
 **Goal:** Surface works beyond Next.js.
 
-#### 2a. Vite plugin for React
-- **Effort:** Medium
-- **Market:** Vite is the standard non-Next.js React setup. CRA is dead. This one plugin also covers Remix (Vite-based since v2) and any Vite + React app
-- **How:**
-  - Port the Babel visitor from `next-plugin/src/loader.ts` into a Vite `transform()` hook — the visitor is ~60 lines and framework-agnostic
-  - Mount injection: detect `main.tsx` or `App.tsx` (configurable) and inject `<Surface />`
-  - Package as `@designtools/vite-plugin`
-- **Complexity:** Entry point detection is less predictable than Next.js's `app/layout.tsx`. Provide a config option with smart defaults
+#### 2a. Vite plugin for React ✅
+- **Status:** Done
+- **What:** Vite plugin for data-source annotation + Surface auto-mount
+- **Implementation:** `@designtools/vite-plugin` package with `transform()` hook for data-source attributes, `mount-transform.ts` for Surface injection into entry points
 
 #### 2b. Vue/Nuxt plugin
 - **Effort:** Large
@@ -133,32 +125,39 @@ The Tailwind coupling isn't just server-side. `ScaleInput` (the core property co
 
 ## Priority Matrix
 
-| Item | Effort | Unserved Market | Priority |
-|------|--------|----------------|----------|
-| 1a. Plain CSS adapter | S | Every non-framework CSS project | **P0** |
-| 1b. CSS Variables adapter | S | Growing — modern CSS movement | **P0** |
-| 1c. CSS Modules | S-M | #1 non-Tailwind approach in React | **P0** |
-| npm component handling | S-M | Every real app (robustness) | **P1** |
-| 2a. Vite plugin | M | All non-Next.js React apps | **P1** |
-| 2b. Vue/Nuxt plugin | L | Zero competition, large global market | **P2** |
-| 3a. Tailwind v3 theme | M | Correctness fix, not new market | **P2** |
-| 2c. Astro plugin | M | Growing content site market | **P3** |
-| 3b. W3C Design Tokens | M | Future-facing standard | **P3** |
-| 1d. Bootstrap adapter | M | Enterprise/legacy (slow adopters) | **P3** |
-| 3c. Sass/SCSS variables | M | Declining, overlaps with Bootstrap | **P3** |
-| 2d. Svelte/SvelteKit | L | Small passionate niche | **P3** |
+| Item | Effort | Unserved Market | Priority | Status |
+|------|--------|----------------|----------|--------|
+| 1a. Plain CSS adapter | S | Every non-framework CSS project | **P0** | ✅ Done |
+| 1b. CSS Variables adapter | S | Growing — modern CSS movement | **P0** | ✅ Done |
+| 1c. CSS Modules | S-M | #1 non-Tailwind approach in React | **P0** | ✅ Done |
+| npm component handling | S-M | Every real app (robustness) | **P1** | |
+| 2a. Vite plugin | M | All non-Next.js React apps | **P1** | ✅ Done |
+| 2b. Vue/Nuxt plugin | L | Zero competition, large global market | **P2** | |
+| 3a. Tailwind v3 theme | M | Correctness fix, not new market | **P2** | |
+| 2c. Astro plugin | M | Growing content site market | **P3** | |
+| 3b. W3C Design Tokens | M | Future-facing standard | **P3** | |
+| 1d. Bootstrap adapter | M | Enterprise/legacy (slow adopters) | **P3** | |
+| 3c. Sass/SCSS variables | M | Declining, overlaps with Bootstrap | **P3** | |
+| 2d. Svelte/SvelteKit | L | Small passionate niche | **P3** | |
 
-## Recommended First Sprint
+## Completed Sprint (March 2026)
 
-1. **Plain CSS write adapter** (1a) — gets multi-system element editing working
-2. **CSS Variables element adapter** (1b) — extends existing token writes to property panel
-3. **CSS Modules support** (1c) — covers the most common non-Tailwind pattern in the React ecosystem
+All P0 items and the highest-priority P1 item are done:
 
-These three make the pitch real: "surface works on your existing project, whatever styling approach you use."
+1. ✅ **Plain CSS write adapter** (1a) — multi-system element editing working
+2. ✅ **CSS Variables element adapter** (1b) — `onCommitStyle` prop chain for non-Tailwind projects
+3. ✅ **CSS Modules support** (1c) — `findCssModuleImports()` + `resolveModuleClassNames()` + `writeCssProperty()`
+4. ✅ **Vite plugin** (2a) — `@designtools/vite-plugin` with data-source transform + Surface auto-mount
 
-Then: **Vite plugin** (2a) to break out of Next.js. Then **Vue/Nuxt** (2b) — zero competition there, but do it only once the React story is fully credible. Vue/Svelte communities are disproportionately active in open source, making them high-value for an OSS project even if raw adoption is smaller.
+The pitch is now real: "surface works on your existing project, whatever styling approach you use, whether it's Next.js or Vite."
 
-Bootstrap is deprioritized to P3. The 22% developer number is misleading — it skews heavily toward legacy enterprise teams unlikely to adopt new dev tools. Lower ROI than CSS Modules, plain CSS, or framework expansion.
+## Recommended Next Sprint
+
+1. **npm component handling** (P1) — robustness for real apps with shadcn/ui, Radix, MUI, etc.
+2. **Vue/Nuxt plugin** (2b, P2) — zero competition, large global market
+3. **Tailwind v3 theme resolution** (3a, P2) — correctness fix for custom themes
+
+Bootstrap is deprioritized to P3. The 22% developer number is misleading — it skews heavily toward legacy enterprise teams unlikely to adopt new dev tools. Lower ROI than framework expansion.
 
 ## Handling npm-Installed Components (node_modules)
 
@@ -301,6 +300,26 @@ The `instanceOverride` write type in `write-element.ts` already handles this cor
 **CSS from npm packages**: A component from `@mui/material` applies styles via CSS-in-JS or bundled CSS. Token editing of CSS variables that the npm component *consumes* is still possible if those variables are defined in the project's CSS files. The token editor already handles this — it edits the variable declaration, not the component.
 
 **React Server Components**: Some RSC elements won't have fiber data available on the client. The `source: null` + `instanceSource: null` case covers this — they'd be inspect-only. Fine for now.
+
+---
+
+## Testing
+
+### Current Coverage
+
+| Tier | What | Status |
+|------|------|--------|
+| Unit tests | Pure functions (tailwind-parser, tailwind-map, oklch, safe-path, write-css-rule, mount-transform) | Done |
+| AST fixture tests | ast-helpers, find-element (parse → transform → verify) | Done |
+| Server integration | write-element API (supertest + fixture project, all write types) | Done |
+| E2E browser tests | Full editor ↔ iframe ↔ server round-trip | **Not started** |
+
+### Playwright E2E Tests
+- **Effort:** Medium
+- **What:** Browser automation tests that launch Surface + a demo app, select elements in the iframe, make changes via the property panel, and verify source files are updated
+- **Why:** The postMessage protocol, iframe selection, and inline preview paths are untested. Unit/integration tests cover the server and pure logic but not the full editor-to-source round-trip through the browser
+- **How:** Playwright against `demos/studio-app` (Tailwind) and `demos/css-variables-app` (plain CSS). Test: element selection, class replacement, CSS property writes, token editing, undo/revert. Assert both DOM state and file contents
+- **Priority:** P2 — add after Phase 1 styling adapters are stable
 
 ---
 

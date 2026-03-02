@@ -18,7 +18,7 @@ Visual editing CLI tools for web applications — edit styles, tokens, and compo
 
 ```
 packages/
-  surface/      Hybrid visual editor
+  surface/      Hybrid visual editor (CLI + server + React SPA)
   next-plugin/  Next.js config wrapper + data-source Babel transform
   vite-plugin/  Vite plugin for source annotation + Surface auto-mount
 demos/
@@ -28,10 +28,13 @@ demos/
   w3c-tokens-app/       W3C Design Tokens demo
   css-variables-app/    Plain CSS variables demo
   tailwind-shadows-app/ Tailwind shadows demo
+tests/
+  fixtures/             Test fixture projects (for integration tests)
+  write-element.test.ts Server integration tests (supertest)
 ```
 
 - `packages/next-plugin`, `packages/surface`, and `packages/vite-plugin` are npm workspaces.
-- `demos/*` are standalone Next.js apps (not workspaces).
+- `demos/*` are standalone apps (not workspaces).
 
 ## Key conventions
 
@@ -63,6 +66,7 @@ demos/
 | Detector files | `detect-<noun>.ts` | `detect-styling.ts` |
 | API routers | `write-<noun>.ts` | `write-element.ts` |
 | Client components | `<noun>-<role>.tsx` | `editor-panel.tsx` |
+| Test files | `<module>.test.ts` (co-located) | `tailwind-parser.test.ts` |
 
 ### Styling system types
 
@@ -87,14 +91,18 @@ Editor UI (Vite, 4400)
   |-- <iframe src="http://localhost:3000" />   <- direct, no proxy
   |       |
   |       +-- Target app with <Surface /> component
-  |               mounted by withDesigntools()
+  |               mounted by withDesigntools() or vite-plugin
   |               communicates via postMessage
   |
   +-- Write server (API routes on same port)
+        POST /api/write-element   <- element class/CSS changes
+        POST /api/tokens          <- CSS custom property edits
+        POST /api/component       <- CVA variant class edits
+        GET  /scan/all            <- unified scan data
 ```
 
 - No proxy — iframe loads the target app directly at its dev server URL
-- `withDesigntools()` (from `@designtools/next-plugin`) injects `data-source` attributes at compile time and mounts the `<Surface />` selection component
+- Framework plugins inject `data-source` attributes at compile time and mount the `<Surface />` selection component
 - `data-source="file:line:col"` on every JSX element provides exact source mapping
 - Editor UI and write server run on port 4400
 - postMessage is the only communication channel between editor and target app
@@ -103,17 +111,32 @@ Editor UI (Vite, 4400)
 
 Messages use CSS property/value pairs as the universal primitive, with optional `hints` to preserve styling-system semantics (Tailwind classes, design tokens, etc.).
 
-**Target app -> Editor**: `tool:injectedReady`, `tool:elementSelected`, `tool:pathChanged`
-**Editor -> Target app**: `tool:enterSelectionMode`, `tool:exitSelectionMode`, `tool:previewStyle`, `tool:revertPreview`
+**Target app -> Editor**: `tool:injectedReady`, `tool:elementSelected`, `tool:pathChanged`, `tool:componentTree`
+**Editor -> Target app**: `tool:enterSelectionMode`, `tool:exitSelectionMode`, `tool:previewInlineStyle`, `tool:revertInlineStyles`, `tool:previewTokenValue`, `tool:revertTokenValues`
 
 ### Write adapters
 
-Styling system adapters translate CSS property/value changes into the native format:
-- Tailwind: CSS value -> nearest utility class from resolved theme
-- CSS variables: CSS value -> variable assignment in stylesheet
-- Plain CSS: CSS value -> direct property in stylesheet or inline
+Two commit modes, chosen by `stylingType`:
+
+| Mode | Systems | Client path | Server path |
+|------|---------|-------------|-------------|
+| **Class mode** | `tailwind-v4`, `tailwind-v3` | `onCommitClass(twClass, oldClass)` → `handleWriteElement(replaceClass)` | JSX className AST edit |
+| **CSS mode** | `plain-css`, `css-variables`, `css-modules`, `unknown` | `onCommitStyle(cssProp, cssValue)` → `handleWriteStyle()` | CSS rule edit or inline style fallback |
+
+CSS mode fallback chain (server-side):
+1. **CSS Modules** — if source file imports `.module.css` and className uses `styles.foo`, find `.foo {}` in the module file
+2. **Project stylesheets** — search `cssFiles` config for matching `.classname` rule
+3. **Inline style** — write `style={{ property: value }}` on the JSX element (AST edit)
 
 Framework plugins and styling-system adapters are orthogonal. Framework = source mapping + selection. Styling system = how changes are written.
+
+### Instance vs Component editing
+
+When clicking a component (element with `data-slot`):
+- **Component tab**: edits the component definition (CVA variant classes) — affects ALL instances
+- **Instance tab**: edits the usage site (className override, prop changes) — affects THIS instance only
+
+The `instanceSource` field carries the usage site location (from `data-instance-source`). Write types: `replaceClass`/`addClass` for element source, `instanceOverride` for usage site, `cssProperty` for CSS mode.
 
 ### Key files
 
@@ -121,9 +144,70 @@ Framework plugins and styling-system adapters are orthogonal. Framework = source
 |------|---------|
 | `packages/surface/src/cli.ts` | CLI entry point |
 | `packages/surface/src/server/index.ts` | Express server + write API + Vite middleware |
-| `packages/surface/src/client/` | Editor React SPA |
+| `packages/surface/src/server/api/write-element.ts` | Element class/CSS writes (all types) |
+| `packages/surface/src/server/api/write-tokens.ts` | CSS custom property writes |
+| `packages/surface/src/server/lib/ast-helpers.ts` | Recast-based JSX manipulation |
+| `packages/surface/src/server/lib/find-element.ts` | Element finder via data-source coordinates |
+| `packages/surface/src/server/lib/write-css-rule.ts` | CSS rule finder/writer, CSS module resolver |
+| `packages/surface/src/server/lib/safe-path.ts` | Path traversal prevention |
+| `packages/surface/src/server/lib/scan-tokens.ts` | CSS token scanner |
+| `packages/surface/src/server/lib/scan-components.ts` | Component scanner (CVA, data-slot) |
+| `packages/surface/src/server/lib/detect-styling.ts` | Styling system detection |
+| `packages/surface/src/client/app.tsx` | Main React app |
+| `packages/surface/src/client/components/editor-panel.tsx` | Three-tab editor (Token, Component, Instance) |
+| `packages/surface/src/client/components/computed-property-panel.tsx` | Figma-style property controls |
+| `packages/surface/src/shared/protocol.ts` | postMessage type definitions |
+| `packages/surface/src/shared/tailwind-map.ts` | CSS → Tailwind class mapping |
+| `packages/surface/src/shared/tailwind-parser.ts` | Tailwind class parser |
 | `packages/next-plugin/src/index.ts` | withDesigntools() config wrapper |
 | `packages/next-plugin/src/loader.ts` | Babel transform for data-source attributes |
+| `packages/vite-plugin/src/plugin.ts` | Vite transform hook for data-source attributes |
+| `packages/vite-plugin/src/mount-transform.ts` | Auto-mount Surface in Vite entry points |
+
+## Editor UI conventions
+
+- **Dark theme only** for the editor chrome. CSS variables prefixed `--studio-*` define the palette.
+- **Font sizes**: Section headers 9px uppercase, property labels 10px, values 11px monospace.
+- **Scrub inputs**: Icon + text input with drag-to-scrub for numeric values.
+- **Scale inputs**: Composite control — dropdown for scale values + arbitrary text input, toggled by a button. In CSS mode, shows raw CSS values instead of Tailwind scale.
+- **Segmented controls** (`.studio-segmented`): Tab switching and layout property toggles.
+- **Section headers** (`.studio-section-hdr`): Collapsible sections with chevron, uppercase label, count badge.
+- **Tooltips**: Use `@radix-ui/react-tooltip` via `<Tooltip>` wrapper. Never use HTML `title` attributes.
+
+### Key CSS classes
+
+| Class | Purpose |
+|-------|---------|
+| `.studio-tab-explainer` | Help text box at top of each tab |
+| `.studio-segmented` | Tab switcher / segmented control |
+| `.studio-section-hdr` | Collapsible section header |
+| `.studio-prop-row` | Single property row |
+| `.studio-scrub-input` | Drag-to-scrub numeric input |
+| `.studio-scale-input` | Token/CSS toggle scale input |
+| `.studio-swatch` | Color swatch with checkerboard |
+| `.studio-popover` | Floating popover panel |
+| `.studio-icon-btn` | Toolbar icon button |
+| `.studio-input` | Text input |
+| `.studio-select` | Select dropdown |
+
+## Testing
+
+Test runner: **vitest** (co-located `*.test.ts` files + `tests/` directory).
+
+```bash
+npm test              # run all tests once
+npm run test:watch    # watch mode
+```
+
+### Test tiers
+
+| Tier | What | Examples |
+|------|------|---------|
+| **Unit** | Pure functions with no I/O | `tailwind-parser.test.ts`, `tailwind-map.test.ts`, `oklch.test.ts`, `safe-path.test.ts`, `write-css-rule.test.ts`, `mount-transform.test.ts` |
+| **AST fixtures** | Parse → transform → verify source output | `ast-helpers.test.ts`, `find-element.test.ts` |
+| **Server integration** | supertest against Express router + fixture project | `tests/write-element.test.ts` — covers replaceClass, addClass, cssProperty (CSS modules, stylesheets, inline fallback), path traversal |
+
+Test fixtures live in `tests/fixtures/project-a/` — JSX files, CSS modules, and stylesheets that the integration tests read/write (restored after each test).
 
 ## Ports
 
@@ -161,7 +245,13 @@ npx tsc --noEmit --project packages/surface/tsconfig.json
 npm run build
 ```
 
-### Run surface in dev
+### Run tests
+
+```bash
+npm test
+```
+
+### Run surface in dev (Next.js)
 
 ```bash
 # Terminal 1: demo app
@@ -171,15 +261,45 @@ cd demos/studio-app && npm run dev
 npm run surface
 ```
 
+### Run surface in dev (Vite)
+
+```bash
+# Terminal 1: demo app
+cd demos/vite-app && npm run dev
+
+# Terminal 2: surface
+npm run surface:vite
+```
+
 ### Publish
 
 ```bash
 npm run publish:surface       # publish surface only
+npm run publish:vite-plugin   # publish vite-plugin only
+npm run publish:next-plugin   # publish next-plugin only
 npm run publish               # publish all packages
 ```
 
 ## Adding a new demo app
 
-1. Create `demos/<name>/` with: `package.json`, `tsconfig.json`, `next.config.ts`, `app/layout.tsx`, `app/page.tsx`
-2. Use a unique port in the `dev` script: `next dev --port <N>`
+1. Create `demos/<name>/` with: `package.json`, `tsconfig.json`, config file, entry points
+2. Use a unique port in the `dev` script
 3. **Do not** add demos to the workspaces array — they are standalone
+
+## .claude/ reference docs
+
+Additional context documents in `.claude/`:
+
+| File | Purpose |
+|------|---------|
+| `design-principles.md` | Binding constraints on write reliability, protocol agnosticism, multi-system support. **Read when planning implementation work.** |
+| `roadmap-styling-framework-expansion.md` | Strategic roadmap for styling system + framework expansion. Tracks done/planned work. |
+| `explorer-tree-decisions.md` | Page Explorer (layers panel) design decisions and enhancement ideas. |
+| `exploration-history.md` | Historical record of architectural approaches explored and rejected (proxy, EID markers, scoring). Useful context for understanding why the current architecture exists. |
+
+## Common pitfalls
+
+- **ESM imports**: All relative imports must use `.js` extensions, even for `.ts` source files.
+- **Stale `.next` cache**: After changing the next-plugin, delete `demos/studio-app/.next` before restarting.
+- **Rebuild plugins**: After changing `surface.tsx` or `loader.ts`, run `npm -w packages/next-plugin run build`.
+- **`next/dynamic` with `ssr: false`** does NOT work in Server Components. Use plain imports — `"use client"` on the imported component is sufficient.

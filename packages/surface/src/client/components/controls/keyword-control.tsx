@@ -38,10 +38,12 @@ export function KeywordControl({
   prop,
   onPreviewInlineStyle,
   onCommitClass,
+  onCommitStyle,
 }: {
   prop: UnifiedProperty;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const options = getKeywordOptions(prop.cssProperty);
   const Icon = getPropertyIcon(prop.cssProperty);
@@ -64,8 +66,12 @@ export function KeywordControl({
       value={prop.computedValue}
       onChange={(v) => {
         onPreviewInlineStyle(prop.cssProperty, v);
-        const match = computedToTailwindClass(prop.cssProperty, v);
-        if (match) onCommitClass(match.tailwindClass);
+        if (onCommitStyle) {
+          onCommitStyle(prop.cssProperty, v);
+        } else {
+          const match = computedToTailwindClass(prop.cssProperty, v);
+          if (match) onCommitClass(match.tailwindClass);
+        }
       }}
       options={[
         ...(!options.includes(prop.computedValue) ? [{ value: prop.computedValue }] : []),

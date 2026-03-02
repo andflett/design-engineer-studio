@@ -67,7 +67,7 @@ When the user clicks an element in the viewport, the tree auto-expands the path 
 
 ### 9. Framework-agnostic editor, framework-specific extraction
 
-The tree extraction (fiber walking) lives in `next-plugin/codesurface.tsx`. The editor (`page-explorer.tsx`) only receives `ComponentTreeNode[]` over postMessage and is completely framework-agnostic. A future Vue or Svelte plugin would populate the same shape.
+The tree extraction (fiber walking) lives in the framework plugin's `<Surface />` component (e.g. `next-plugin/surface.tsx`). The editor (`page-explorer.tsx`) only receives `ComponentTreeNode[]` over postMessage and is completely framework-agnostic. A future Vue or Svelte plugin would populate the same shape.
 
 ### 10. Fallback for non-React apps
 

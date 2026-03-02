@@ -5,6 +5,7 @@
 
 import { Router } from "express";
 import fs from "fs/promises";
+import path from "path";
 import { safePath } from "../lib/safe-path.js";
 import { builders as b } from "ast-types";
 import {
@@ -19,10 +20,12 @@ import {
 import { findElementAtSource, findComponentAtSource } from "../lib/find-element.js";
 import { computedToTailwindClass } from "../../shared/tailwind-map.js";
 import { parseClasses } from "../../shared/tailwind-parser.js";
+import { writeCssProperty, findCssRule, findCssModuleImports, resolveModuleClassNames } from "../lib/write-css-rule.js";
 
 interface WriteElementConfig {
   projectRoot: string;
   stylingType: string;
+  cssFiles: string[];
 }
 
 interface StyleChange {
@@ -40,7 +43,7 @@ interface WriteElementBody {
     col: number;
   };
   changes?: StyleChange[];
-  type?: "replaceClass" | "addClass" | "instanceOverride" | "prop" | "resetInstanceClassName";
+  type?: "replaceClass" | "addClass" | "instanceOverride" | "prop" | "resetInstanceClassName" | "cssProperty";
   oldClass?: string;
   newClass?: string;
   componentName?: string;
@@ -300,6 +303,102 @@ export function createWriteElementRouter(config: WriteElementConfig) {
         return;
       }
 
+      // Handle cssProperty: write CSS property/value to stylesheet or inline style
+      if (body.type === "cssProperty") {
+        if (!body.changes || body.changes.length === 0) {
+          res.status(400).json({ error: "Missing changes for cssProperty" });
+          return;
+        }
+
+        const fullPath = safePath(config.projectRoot, body.source.file);
+        const source = await fs.readFile(fullPath, "utf-8");
+
+        for (const change of body.changes) {
+          const cssProp = change.property;
+          const cssValue = change.value;
+
+          // 1. Try CSS module imports — find .module.css and matching class
+          const moduleImports = findCssModuleImports(source);
+          let written = false;
+
+          if (moduleImports.length > 0) {
+            const bindings = new Map(moduleImports.map((m) => [m.binding, m.modulePath]));
+            const classNames = resolveModuleClassNames(source, body.source.line, body.source.col, bindings);
+
+            for (const className of classNames) {
+              for (const imp of moduleImports) {
+                const cssPath = safePath(
+                  config.projectRoot,
+                  path.join(path.dirname(body.source.file), imp.modulePath),
+                );
+                try {
+                  let css = await fs.readFile(cssPath, "utf-8");
+                  const result = writeCssProperty(css, `.${className}`, cssProp, cssValue);
+                  if (result) {
+                    await fs.writeFile(cssPath, result, "utf-8");
+                    written = true;
+                    break;
+                  }
+                } catch { /* file not found — try next */ }
+              }
+              if (written) break;
+            }
+          }
+
+          // 2. Try project stylesheets — search cssFiles for matching class rules
+          if (!written && config.cssFiles.length > 0) {
+            // Extract class names from the element's className attribute
+            const parser = await getParser();
+            const ast = parseSource(source, parser);
+            const elementPath = findElementAtSource(ast, body.source.line, body.source.col);
+            if (elementPath) {
+              const classAttr = findAttr(elementPath.node, "className");
+              const classNameStr = classAttr?.value?.value as string | undefined;
+              if (classNameStr) {
+                const classes = classNameStr.split(/\s+/).filter(Boolean);
+                for (const cls of classes) {
+                  for (const cssFile of config.cssFiles) {
+                    const cssPath = safePath(config.projectRoot, cssFile);
+                    try {
+                      let css = await fs.readFile(cssPath, "utf-8");
+                      if (findCssRule(css, `.${cls}`)) {
+                        const result = writeCssProperty(css, `.${cls}`, cssProp, cssValue);
+                        if (result) {
+                          await fs.writeFile(cssPath, result, "utf-8");
+                          written = true;
+                          break;
+                        }
+                      }
+                    } catch { /* file not found — try next */ }
+                  }
+                  if (written) break;
+                }
+              }
+            }
+          }
+
+          // 3. Fallback: write inline style on the JSX element
+          if (!written) {
+            const parser = await getParser();
+            const ast = parseSource(source, parser);
+            const elementPath = findElementAtSource(ast, body.source.line, body.source.col);
+            if (!elementPath) {
+              res.status(404).json({
+                error: `Element not found at ${body.source.file}:${body.source.line}:${body.source.col}`,
+              });
+              return;
+            }
+
+            setInlineStyleProperty(elementPath.node, cssProp, cssValue);
+            const output = printSource(ast);
+            await fs.writeFile(fullPath, output, "utf-8");
+          }
+        }
+
+        res.json({ ok: true });
+        return;
+      }
+
       if (!body.changes || body.changes.length === 0) {
         res.status(400).json({ error: "Missing changes" });
         return;
@@ -385,4 +484,59 @@ export function createWriteElementRouter(config: WriteElementConfig) {
   });
 
   return router;
+}
+
+/**
+ * Convert a CSS property name (e.g. "background-color") to camelCase (e.g. "backgroundColor").
+ */
+function cssPropToCamel(prop: string): string {
+  return prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+/**
+ * Add or update a property in the inline `style` JSX attribute.
+ * Creates `style={{ prop: "value" }}` if no style attr exists.
+ */
+function setInlineStyleProperty(openingElement: any, cssProp: string, cssValue: string): void {
+  const camelProp = cssPropToCamel(cssProp);
+  const styleAttr = findAttr(openingElement, "style");
+
+  if (styleAttr && styleAttr.value?.type === "JSXExpressionContainer") {
+    const expr = styleAttr.value.expression;
+    if (expr.type === "ObjectExpression") {
+      // Find existing property
+      const existing = expr.properties.find(
+        (p: any) => p.type === "ObjectProperty" && p.key?.type === "Identifier" && p.key.name === camelProp
+      );
+      if (existing) {
+        existing.value = b.stringLiteral(cssValue);
+      } else {
+        expr.properties.push(
+          b.objectProperty(b.identifier(camelProp), b.stringLiteral(cssValue))
+        );
+      }
+      return;
+    }
+  }
+
+  // No style attribute or not an object expression — create a new one
+  if (styleAttr) {
+    // Replace with object expression containing the property
+    styleAttr.value = b.jsxExpressionContainer(
+      b.objectExpression([
+        b.objectProperty(b.identifier(camelProp), b.stringLiteral(cssValue)),
+      ])
+    );
+  } else {
+    openingElement.attributes.push(
+      b.jsxAttribute(
+        b.jsxIdentifier("style"),
+        b.jsxExpressionContainer(
+          b.objectExpression([
+            b.objectProperty(b.identifier(camelProp), b.stringLiteral(cssValue)),
+          ])
+        )
+      )
+    );
+  }
 }

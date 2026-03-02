@@ -313,34 +313,23 @@ Styling system adapters (Tailwind, Bootstrap, CSS variables, plain CSS) are orth
 
 ---
 
-## Current State Summary
+## Current State (March 2026)
+
+> **Note:** The legacy packages (`core`, `studio`) referenced in Phases 1–4 above were removed in early 2026. The tag `v0-legacy` marks the last version containing them. The current architecture is the "hybrid" described in Phase 5, fully realized.
 
 | Layer | Approach | Status |
 |-------|----------|--------|
-| App integration | Proxy (zero-config) | Working, marked for removal |
-| App integration | Config wrapper (`withDesigntools()`) | Working, path forward |
-| Source mapping | Heuristic scoring | Working, fallback only |
-| Source mapping | EID markers | Working, marked for removal |
-| Source mapping | `data-source` attributes | Working, primary strategy |
-| Element writes | recast AST transforms | Working, keeping |
-| Token writes | Regex find-and-replace in CSS | Working, keeping |
-| Editor ↔ App | postMessage via iframe | Working, protocol being updated |
-| CSS isolation | Separate Vite app in iframe | Working, keeping |
+| App integration | Proxy (zero-config) | **Removed** |
+| App integration | Config wrapper (Next.js: `withDesigntools()`, Vite: `designtools()`) | **Active** — both plugins shipped |
+| Source mapping | Heuristic scoring / EID markers | **Removed** |
+| Source mapping | `data-source` attributes | **Active** — primary and only strategy |
+| Element writes (Tailwind) | className AST replacement via recast | **Active** |
+| Element writes (CSS) | CSS rule edit / inline style fallback | **Active** — ships for plain-css, css-variables, css-modules |
+| Token writes | Regex find-and-replace in CSS | **Active** |
+| Editor ↔ App | postMessage via iframe | **Active** |
+| CSS isolation | Separate Vite app in iframe | **Active** |
 
-### Key files
-
-| File | What it does |
-|------|-------------|
-| `packages/core/src/server/create-server.ts` | Proxy middleware, HTML injection, HMR pass-through |
-| `packages/core/src/inject/selection.ts` | Selection overlays, click handling, data extraction, postMessage |
-| `packages/core/src/client/lib/iframe-bridge.ts` | postMessage helpers (sendToIframe, onIframeMessage) |
-| `packages/core/src/scanner/detect-styling.ts` | Detect Tailwind/Bootstrap/CSS variables/etc. |
-| `packages/core/src/scanner/scan-tokens.ts` | Parse CSS custom properties into token definitions |
-| `packages/studio/src/server/api/write-element.ts` | AST-based JSX writes, EID markers, element matching |
-| `packages/studio/src/server/api/write-tokens.ts` | Regex-based CSS token value writes |
-| `packages/studio/src/client/components/editor-panel.tsx` | Editor sidebar, EID lifecycle, write calls |
-| `packages/next-plugin/src/index.ts` | withDesigntools() config wrapper |
-| `packages/next-plugin/src/loader.ts` | Babel transform for data-source attributes |
+See `CLAUDE.md` for current key files and architecture details.
 
 ---
 

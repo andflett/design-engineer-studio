@@ -95,6 +95,8 @@ interface ComputedPropertyPanelProps {
   onPreviewInlineStyle: (property: string, value: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (tailwindClass: string, oldClass?: string) => void;
+  /** CSS mode: commit raw CSS property/value instead of Tailwind classes */
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +111,7 @@ export function ComputedPropertyPanel({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: ComputedPropertyPanelProps) {
   const tokenData = useTokens();
   const shadowData = useShadows();
@@ -162,6 +165,7 @@ export function ComputedPropertyPanel({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
     </div>
@@ -185,6 +189,7 @@ function UnifiedSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   category: ComputedCategory;
   label: string;
@@ -198,6 +203,7 @@ function UnifiedSection({
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(true);
   const activeProps = properties.filter((p) => p.hasValue);
@@ -225,6 +231,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : category === "spacing" ? (
             <SpacingSection
@@ -234,6 +241,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : category === "border" ? (
             <BorderSection
@@ -243,6 +251,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : category === "size" ? (
             <SizeSection
@@ -251,6 +260,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : category === "typography" ? (
             <TypographySection
@@ -259,6 +269,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : category === "effects" ? (
             <EffectsSection
@@ -270,6 +281,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ) : (
             activeProps.map((prop) => (
@@ -280,6 +292,7 @@ function UnifiedSection({
                 onPreviewInlineStyle={onPreviewInlineStyle}
                 onRevertInlineStyles={onRevertInlineStyles}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle}
               />
             ))
           )}
@@ -292,6 +305,7 @@ function UnifiedSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           )}
         </div>
@@ -367,6 +381,7 @@ function LayoutSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   displayValue: string;
@@ -374,6 +389,7 @@ function LayoutSection({
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const displayProp = properties.find((p) => p.cssProperty === "display");
   const positionProp = properties.find((p) => p.cssProperty === "position");
@@ -393,11 +409,15 @@ function LayoutSection({
 
   const handleSegmentedChange = (cssProp: string, cssValue: string) => {
     onPreviewInlineStyle(cssProp, cssValue);
-    const match = computedToTailwindClass(cssProp, cssValue);
-    if (match) {
-      const prop = properties.find((p) => p.cssProperty === cssProp);
-      const oldClass = prop?.fullClass || undefined;
-      onCommitClass(match.tailwindClass, oldClass);
+    if (onCommitStyle) {
+      onCommitStyle(cssProp, cssValue);
+    } else {
+      const match = computedToTailwindClass(cssProp, cssValue);
+      if (match) {
+        const prop = properties.find((p) => p.cssProperty === cssProp);
+        const oldClass = prop?.fullClass || undefined;
+        onCommitClass(match.tailwindClass, oldClass);
+      }
     }
   };
 
@@ -451,6 +471,7 @@ function LayoutSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
       {isFlexGrid && flexGridAddableProps.length > 0 && (
@@ -460,6 +481,7 @@ function LayoutSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
       {otherProps.map((prop) => (
@@ -470,6 +492,7 @@ function LayoutSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
     </>
@@ -486,12 +509,14 @@ function SizeSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const active = properties.filter((p) => p.hasValue);
   const widthProp = active.find((p) => p.cssProperty === "width");
@@ -509,6 +534,7 @@ function SizeSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           )}
           {heightProp && (
@@ -518,6 +544,7 @@ function SizeSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           )}
         </div>
@@ -530,6 +557,7 @@ function SizeSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
     </>
@@ -547,6 +575,7 @@ function SpacingSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   computedStyles: Record<string, string>;
@@ -554,6 +583,7 @@ function SpacingSection({
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const activeProps = properties.filter((p) => p.hasValue);
   const paddingProps = activeProps.filter((p) => p.cssProperty.startsWith("padding-"));
@@ -571,6 +601,7 @@ function SpacingSection({
           computedStyles={computedStyles}
           onPreviewInlineStyle={onPreviewInlineStyle}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
 
@@ -583,6 +614,7 @@ function SpacingSection({
           computedStyles={computedStyles}
           onPreviewInlineStyle={onPreviewInlineStyle}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
 
@@ -593,6 +625,7 @@ function SpacingSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
     </>
@@ -631,12 +664,14 @@ function TypographySection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const findProp = (cssProp: string) => properties.find((p) => p.cssProperty === cssProp);
 
@@ -651,12 +686,15 @@ function TypographySection({
 
   const handleSegmentedChange = (cssProp: string, cssValue: string) => {
     onPreviewInlineStyle(cssProp, cssValue);
-    const match = computedToTailwindClass(cssProp, cssValue);
-    if (match) {
-      // Find the old class to replace (from the prop's current fullClass)
-      const prop = findProp(cssProp);
-      const oldClass = prop?.fullClass || undefined;
-      onCommitClass(match.tailwindClass, oldClass);
+    if (onCommitStyle) {
+      onCommitStyle(cssProp, cssValue);
+    } else {
+      const match = computedToTailwindClass(cssProp, cssValue);
+      if (match) {
+        const prop = findProp(cssProp);
+        const oldClass = prop?.fullClass || undefined;
+        onCommitClass(match.tailwindClass, oldClass);
+      }
     }
   };
 
@@ -681,6 +719,7 @@ function TypographySection({
             cssProp="font-family"
             onPreview={(v) => onPreviewInlineStyle("font-family", v)}
             onCommitClass={onCommitClass}
+            onCommitStyle={onCommitStyle ? (v) => onCommitStyle("font-family", v) : undefined}
           />
         </div>
       )}
@@ -701,6 +740,7 @@ function TypographySection({
                 cssProp="font-size"
                 onPreview={(v) => onPreviewInlineStyle("font-size", v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle("font-size", v) : undefined}
               />
             </div>
           )}
@@ -717,6 +757,7 @@ function TypographySection({
                 cssProp="font-weight"
                 onPreview={(v) => onPreviewInlineStyle("font-weight", v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle("font-weight", v) : undefined}
               />
             </div>
           )}
@@ -739,6 +780,7 @@ function TypographySection({
                 cssProp="line-height"
                 onPreview={(v) => onPreviewInlineStyle("line-height", v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle("line-height", v) : undefined}
               />
             </div>
           )}
@@ -755,6 +797,7 @@ function TypographySection({
                 cssProp="letter-spacing"
                 onPreview={(v) => onPreviewInlineStyle("letter-spacing", v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle("letter-spacing", v) : undefined}
               />
             </div>
           )}
@@ -806,6 +849,7 @@ function TypographySection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
 
@@ -816,6 +860,7 @@ function TypographySection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
     </>
@@ -833,6 +878,7 @@ function BorderSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   computedStyles: Record<string, string>;
@@ -840,6 +886,7 @@ function BorderSection({
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const active = properties.filter((p) => p.hasValue);
   const allRadiusProps = properties.filter((p) => p.cssProperty.includes("radius"));
@@ -887,6 +934,7 @@ function BorderSection({
               const fixedClass = cls === "border-1" ? "border" : cls;
               onCommitClass(fixedClass, oldClass);
             }}
+            onCommitStyle={onCommitStyle ? (v) => onCommitStyle("border-width", v) : undefined}
           />
         ) : (
           widthProps.map((prop) => (
@@ -897,6 +945,7 @@ function BorderSection({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           ))
         )}
@@ -910,6 +959,7 @@ function BorderSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
     </>
@@ -929,6 +979,7 @@ function EffectsSection({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   tokenGroups: Record<string, any[]>;
@@ -938,6 +989,7 @@ function EffectsSection({
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const opacityProp = properties.find((p) => p.cssProperty === "opacity");
   const shadowProp = properties.find((p) => p.cssProperty === "box-shadow");
@@ -1009,6 +1061,7 @@ function EffectsSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       )}
 
@@ -1021,6 +1074,7 @@ function EffectsSection({
           onPreviewInlineStyle={onPreviewInlineStyle}
           onRevertInlineStyles={onRevertInlineStyles}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       ))}
     </>
@@ -1037,12 +1091,14 @@ function AddableRows({
   onPreviewInlineStyle,
   onRevertInlineStyles,
   onCommitClass,
+  onCommitStyle,
 }: {
   properties: UnifiedProperty[];
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const [activated, setActivated] = useState<Set<string>>(new Set());
 
@@ -1058,6 +1114,7 @@ function AddableRows({
               onPreviewInlineStyle={onPreviewInlineStyle}
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
+              onCommitStyle={onCommitStyle}
             />
           );
         }
@@ -1090,12 +1147,14 @@ function UnifiedControl({
   onPreviewInlineStyle,
   onRevertInlineStyles: _revert,
   onCommitClass,
+  onCommitStyle,
 }: {
   prop: UnifiedProperty;
   tokenGroups: Record<string, any[]>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   // 1. Color controls
   if (prop.controlType === "color") {
@@ -1129,12 +1188,22 @@ function UnifiedControl({
           tokens={colorTokens}
           activeToken={hasToken ? prop.tokenMatch!.tokenName : undefined}
           onSelectToken={(token) => {
-            onCommitClass(`${twPrefix}-${token}`);
+            if (onCommitStyle) {
+              // In CSS mode, find the token's resolved value from colorTokens
+              const t = colorTokens.find((ct) => ct.name === token);
+              if (t) onCommitStyle(prop.cssProperty, `var(--${token})`);
+            } else {
+              onCommitClass(`${twPrefix}-${token}`);
+            }
           }}
           onChange={(c) => onPreviewInlineStyle(prop.cssProperty, c)}
           onCommit={(c) => {
-            const oldClass = prop.fullClass || undefined;
-            onCommitClass(`${twPrefix}-[${c.replace(/\s+/g, "_")}]`, oldClass);
+            if (onCommitStyle) {
+              onCommitStyle(prop.cssProperty, c);
+            } else {
+              const oldClass = prop.fullClass || undefined;
+              onCommitClass(`${twPrefix}-[${c.replace(/\s+/g, "_")}]`, oldClass);
+            }
           }}
         />
       </div>
@@ -1185,6 +1254,7 @@ function UnifiedControl({
           cssProp={prop.cssProperty}
           onPreview={(v) => onPreviewInlineStyle(prop.cssProperty, v)}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle ? (v) => onCommitStyle(prop.cssProperty, v) : undefined}
         />
       </div>
     );
@@ -1223,6 +1293,7 @@ function UnifiedControl({
           cssProp={prop.cssProperty}
           onPreview={(v) => onPreviewInlineStyle(prop.cssProperty, v)}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle ? (v) => onCommitStyle(prop.cssProperty, v) : undefined}
         />
       </div>
     );
@@ -1237,6 +1308,7 @@ function UnifiedControl({
           prop={prop}
           onPreviewInlineStyle={onPreviewInlineStyle}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
         />
       </div>
     );
@@ -1252,8 +1324,12 @@ function UnifiedControl({
         tooltip={prop.cssProperty}
         onPreview={(v) => onPreviewInlineStyle(prop.cssProperty, v)}
         onCommit={(v) => {
-          const match = computedToTailwindClass(prop.cssProperty, v);
-          if (match) onCommitClass(match.tailwindClass);
+          if (onCommitStyle) {
+            onCommitStyle(prop.cssProperty, v);
+          } else {
+            const match = computedToTailwindClass(prop.cssProperty, v);
+            if (match) onCommitClass(match.tailwindClass);
+          }
         }}
       />
     </div>

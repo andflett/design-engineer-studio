@@ -49,6 +49,7 @@ export function BoxSpacingControl({
   computedStyles,
   onPreviewInlineStyle,
   onCommitClass,
+  onCommitStyle,
 }: {
   /** "padding" or "margin" */
   box: "padding" | "margin";
@@ -58,6 +59,7 @@ export function BoxSpacingControl({
   computedStyles: Record<string, string>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -107,7 +109,8 @@ export function BoxSpacingControl({
             cssProp={box}
             onPreview={(v) => onPreviewInlineStyle(box, v)}
             onCommitClass={onCommitClass}
-            onCommitValue={(v) => {
+            onCommitStyle={onCommitStyle ? (v) => onCommitStyle(box, v) : undefined}
+            onCommitValue={onCommitStyle ? undefined : (v) => {
               const match = uniformBoxToTailwind(box, v);
               if (match) {
                 onCommitClass(match.tailwindClass);
@@ -143,7 +146,11 @@ export function BoxSpacingControl({
                     onPreviewInlineStyle(`${box}-right`, v);
                   }}
                   onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
+                  onCommitStyle={onCommitStyle ? (v) => {
+                    onCommitStyle(`${box}-left`, v);
+                    onCommitStyle(`${box}-right`, v);
+                  } : undefined}
+                  onCommitValue={onCommitStyle ? undefined : (v) => {
                     const { xClass } = axisBoxToTailwind(box, v, axis.y);
                     if (xClass) {
                       onCommitClass(xClass.tailwindClass);
@@ -168,7 +175,11 @@ export function BoxSpacingControl({
                     onPreviewInlineStyle(`${box}-bottom`, v);
                   }}
                   onCommitClass={onCommitClass}
-                  onCommitValue={(v) => {
+                  onCommitStyle={onCommitStyle ? (v) => {
+                    onCommitStyle(`${box}-top`, v);
+                    onCommitStyle(`${box}-bottom`, v);
+                  } : undefined}
+                  onCommitValue={onCommitStyle ? undefined : (v) => {
                     const { yClass } = axisBoxToTailwind(box, axis.x, v);
                     if (yClass) {
                       onCommitClass(yClass.tailwindClass);
@@ -189,8 +200,12 @@ export function BoxSpacingControl({
             tooltip={box}
             onPreview={(v) => onPreviewInlineStyle(box, v)}
             onCommit={(v) => {
-              const match = uniformBoxToTailwind(box, v);
-              if (match) onCommitClass(match.tailwindClass);
+              if (onCommitStyle) {
+                onCommitStyle(box, v);
+              } else {
+                const match = uniformBoxToTailwind(box, v);
+                if (match) onCommitClass(match.tailwindClass);
+              }
             }}
           />
         )
@@ -215,6 +230,7 @@ export function BoxSpacingControl({
                 cssProp={cssProp}
                 onPreview={(v) => onPreviewInlineStyle(cssProp, v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle(cssProp, v) : undefined}
               />
             );
           })}

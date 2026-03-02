@@ -45,6 +45,7 @@ export async function createServer(config: ServerConfig) {
     createWriteElementRouter({
       projectRoot: config.projectRoot,
       stylingType: config.stylingType,
+      cssFiles: config.styling?.cssFiles || [],
     })
   );
 

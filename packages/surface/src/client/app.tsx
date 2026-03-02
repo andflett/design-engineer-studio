@@ -402,6 +402,7 @@ export function App() {
       element={selectedElement}
       theme={theme}
       iframePath={iframePath}
+      stylingType={stylingType}
       onPreviewToken={handlePreviewToken}
       onClearTokenPreview={handleClearTokenPreview}
       onPreviewShadow={handlePreviewShadow}

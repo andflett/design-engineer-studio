@@ -17,6 +17,7 @@ export function ScaleInput({
   onPreview,
   onCommitClass,
   onCommitValue,
+  onCommitStyle,
 }: {
   icon?: React.ComponentType<{ style?: React.CSSProperties }>;
   label?: string;
@@ -32,6 +33,8 @@ export function ScaleInput({
   onPreview?: (v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
   onCommitValue?: (v: string) => void;
+  /** CSS mode: commit raw CSS property/value instead of Tailwind classes */
+  onCommitStyle?: (cssValue: string) => void;
 }) {
   // Strip prefix from value if present (e.g. "text-base" → "base", "font-bold" → "bold")
   const normalizedValue = value.startsWith(prefix + "-")
@@ -79,6 +82,12 @@ export function ScaleInput({
       setDraft(computedValue);
       return;
     }
+    if (onCommitStyle) {
+      // CSS mode: convert scale label to CSS value via computedToTailwindClass reverse
+      // or just commit the raw value — the scale labels ARE the CSS values for most props
+      onCommitStyle(selected);
+      return;
+    }
     const newClass = `${prefix}-${selected}`;
     const oldClass = getOldClass();
     onCommitClass(newClass, oldClass);
@@ -88,10 +97,16 @@ export function ScaleInput({
   const handleArbitraryCommit = (v: string) => {
     const trimmed = v.trim();
     if (!trimmed) return;
-    const oldClass = getOldClass();
     // Hold the committed value so the input doesn't flicker back to the old
     // computedValue during the write→HMR roundtrip.
     pendingValueRef.current = trimmed;
+
+    if (onCommitStyle) {
+      onCommitStyle(trimmed);
+      return;
+    }
+
+    const oldClass = getOldClass();
     // 1. Direct scale match (works for spacing: "4" → "p-4")
     if (scale.includes(trimmed)) {
       const newClass = `${prefix}-${trimmed}`;
