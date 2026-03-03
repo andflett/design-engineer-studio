@@ -491,6 +491,30 @@ body {
   color: white;
 }
 
+/* Floating pill toolbar — overlays bottom center of iframe area */
+.studio-floating-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border: 1px solid var(--studio-border-subtle);
+  border-radius: 999px;
+  background: var(--studio-surface);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  padding: 0 4px;
+  gap: 2px;
+}
+.studio-floating-toolbar .studio-toolbar-btn {
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+}
+
 .studio-address-bar:focus-within {
   border-color: var(--studio-accent);
 }

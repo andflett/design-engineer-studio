@@ -102,7 +102,7 @@ export function ToolChrome({
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
       <div
-        className="flex items-center h-11 pl-3 pr-4 gap-3 border-b shrink-0"
+        className="flex items-center h-11 pl-3.5 pr-4 gap-3 border-b shrink-0"
         style={{
           background: "var(--studio-surface)",
           borderColor: "var(--studio-border)",
@@ -151,63 +151,66 @@ export function ToolChrome({
           </form>
         </div>
 
-        {/* Right: tools */}
-        <div className="studio-toolbar-group shrink-0">
-          {showSelectionMode && (
-            <Tooltip
-              content={
-                selectionMode ? "Selection mode on" : "Selection mode off"
-              }
-              side="bottom"
-            >
-              <button
-                onClick={onToggleSelectionMode}
-                className={`studio-toolbar-btn p-2 ${selectionMode ? "active" : ""}`}
-              >
-                <CursorArrowIcon height={15} width={15} />
-              </button>
-            </Tooltip>
-          )}
-
-          <Tooltip
-            content="Re-scan tokens, components, and styles from source files"
-            side="bottom"
-          >
-            <button
-              onClick={handleRescan}
-              className="studio-toolbar-btn p-2"
-              disabled={rescanning}
-            >
-              <ReloadIcon height={15} width={15} />
-            </button>
-          </Tooltip>
-
-          <Tooltip
-            content={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-            side="bottom"
-          >
-            <button onClick={onToggleTheme} className="p-2 studio-toolbar-btn">
-              {theme === "light" ? (
-                <SunIcon height={15} width={15} />
-              ) : (
-                <MoonIcon height={15} width={15} />
-              )}
-            </button>
-          </Tooltip>
-        </div>
       </div>
 
       {/* Main area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {leftPanel}
-        <Viewport
-          viewportWidth={viewportWidth}
-          onViewportWidthChange={onViewportWidthChange}
-          zoom={zoom}
-          iframePath={iframePath}
-          targetUrl={targetUrl}
-          iframeRef={iframeRef}
-        />
+        <div className="flex-1 flex flex-col relative min-w-0 min-h-0">
+          <Viewport
+            viewportWidth={viewportWidth}
+            onViewportWidthChange={onViewportWidthChange}
+            zoom={zoom}
+            iframePath={iframePath}
+            targetUrl={targetUrl}
+            iframeRef={iframeRef}
+          />
+
+          {/* Floating toolbar pill */}
+          <div className="studio-floating-toolbar">
+            {showSelectionMode && (
+              <Tooltip
+                content={
+                  selectionMode ? "Selection mode on" : "Selection mode off"
+                }
+                side="top"
+              >
+                <button
+                  onClick={onToggleSelectionMode}
+                  className={`studio-toolbar-btn p-2 ${selectionMode ? "active" : ""}`}
+                >
+                  <CursorArrowIcon height={15} width={15} />
+                </button>
+              </Tooltip>
+            )}
+
+            <Tooltip
+              content="Re-scan tokens, components, and styles from source files"
+              side="top"
+            >
+              <button
+                onClick={handleRescan}
+                className="studio-toolbar-btn p-2"
+                disabled={rescanning}
+              >
+                <ReloadIcon height={15} width={15} />
+              </button>
+            </Tooltip>
+
+            <Tooltip
+              content={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+              side="top"
+            >
+              <button onClick={onToggleTheme} className="p-2 studio-toolbar-btn">
+                {theme === "light" ? (
+                  <SunIcon height={15} width={15} />
+                ) : (
+                  <MoonIcon height={15} width={15} />
+                )}
+              </button>
+            </Tooltip>
+          </div>
+        </div>
 
         {editorPanel}
       </div>

@@ -95,7 +95,7 @@ export function ProjectInfo({ targetPort }: { targetPort: number }) {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
-          className="text-left w-full pl-1 -mt-0.5 mb-0.5 group "
+          className="text-left w-full pl-1 mb-0.5 group "
           style={{ lineHeight: 1 }}
         >
           <span

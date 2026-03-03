@@ -28,15 +28,15 @@ export default function HomePage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 space-y-5">
       <PageHeader title="Workspace" tag="Beta" description="Manage your team and deployments.">
-        <Button variant="destructive" size="sm" className="text-3xl">Deploy</Button>
+        <Button variant="default">Deploy</Button>
       </PageHeader>
       <SearchBar placeholder="Search members, projects…" action="Go" />
-      <Alert variant="warning" size="sm" border="thick">
+      <Alert variant="warning" >
         <AlertTitle>API usage at 91%</AlertTitle>
-        <AlertDescription className="text-xl font-medium leading-tight tracking-tight">Consider upgrading before Friday.</AlertDescription>
+        <AlertDescription >Consider upgrading before Friday.</AlertDescription>
       </Alert>
       <Metric label="Revenue" value="$48k" unit="MRR" progress={72} variant="gradient" />
-      <UserCard initials="AC" name="Andrew Flett" role="Lead Designer" status="online" size="lg" shape="square" />
+      <UserCard initials="AC" name="Andrew Flett" role="Lead Designer" status="online" size="lg" shape="circle" />
       <ToggleRow label="Notifications" description="Receive push alerts" checked={notifications} onCheckedChange={setNotifications} />
       <Separator />
       <Table>

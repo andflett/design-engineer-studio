@@ -359,19 +359,19 @@ export function App() {
       {/* Collapse button + Elements explorer */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <div
-          className="pl-2 pr-2.5 pt-1.5 pb-2 shrink-0"
+          className="pl-2.5 pr-2.5 pt-3 pb-3 shrink-0"
           style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
         >
-              <div className="flex items-start justify-between">
-                <div>
-            <span
-              className="flex-1 text-[10px] font-semibold uppercase tracking-wide pl-1"
-              style={{ color: "var(--studio-text-muted)" }}
-            >
-              {projectName || "Explorer"}
-                  </span>
-                            <ProjectInfo targetPort={targetUrl ? parseInt(new URL(targetUrl).port, 10) || 3000 : 3000} />
-                </div>
+          <div className="flex items-start justify-between">
+            <div className="flex gap-0 flex-col">
+              <span
+                className="flex-1 text-[10px] font-semibold uppercase tracking-wide pl-1"
+                style={{ color: "var(--studio-text-muted)" }}
+              >
+                {projectName || "Explorer"}
+              </span>
+              <ProjectInfo targetPort={targetUrl ? parseInt(new URL(targetUrl).port, 10) || 3000 : 3000} />
+            </div>
             <button
               onClick={() => setLeftPanelCollapsed(true)}
               className="studio-icon-btn shrink-0"

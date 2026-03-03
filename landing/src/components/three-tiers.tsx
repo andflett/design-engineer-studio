@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Reveal } from "./reveal.js";
 // @ts-ignore
 import tokensSrc from "../assets/tokens.png?format=webp&quality=80";
@@ -12,7 +13,15 @@ import usageSrc from "../assets/usage3.png?format=webp&quality=100";
 // @ts-ignore
 import explorerSrc from "../assets/explorer.png?format=webp";
 
-const tiers = [
+interface Tier {
+  number: string;
+  title: string;
+  description: string;
+  screenshot: string;
+  imgClass?: string;
+}
+
+const tiers: Tier[] = [
   {
     number: "01",
     title: "Tokens",
@@ -87,7 +96,7 @@ export function ThreeTiers() {
                       alt={tier.title}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover object-top"
+                      className={clsx("w-full h-full object-cover object-top", tier.imgClass)}
                     />
                   )}
                 </div>
