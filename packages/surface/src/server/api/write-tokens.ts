@@ -12,13 +12,12 @@ export function createTokensRouter(projectRoot: string) {
         filePath: string; // relative path to CSS file
         token: string; // e.g. "--primary"
         value: string; // e.g. "oklch(55% 0.15 250)"
-        selector: string; // ":root" or ".dark"
+        selector: string; // ":root", ".dark", or "@theme"
       };
 
       const fullPath = safePath(projectRoot, filePath);
       let css = await fs.readFile(fullPath, "utf-8");
 
-      // Find the correct selector block and replace the token value
       css = replaceTokenInBlock(css, selector, token, value);
 
       await fs.writeFile(fullPath, css, "utf-8");
@@ -36,17 +35,13 @@ export function createTokensRouter(projectRoot: string) {
   return router;
 }
 
-function replaceTokenInBlock(
+/** Extract a top-level selector block from CSS, returning its open/close positions. */
+function findBlock(
   css: string,
-  selector: string,
-  token: string,
-  newValue: string
-): string {
-  const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const blockStart = css.search(new RegExp(`${selectorEscaped}\\s*\\{`));
-  if (blockStart === -1) {
-    throw new Error(`Selector "${selector}" not found in CSS file`);
-  }
+  selectorPattern: RegExp
+): { openBrace: number; blockEnd: number } | null {
+  const blockStart = css.search(selectorPattern);
+  if (blockStart === -1) return null;
 
   const openBrace = css.indexOf("{", blockStart);
   let depth = 1;
@@ -56,25 +51,76 @@ function replaceTokenInBlock(
     if (css[pos] === "}") depth--;
     pos++;
   }
-  const blockEnd = pos;
+  return { openBrace, blockEnd: pos };
+}
 
+/** Check whether a CSS block (inner text between braces) contains a given custom property. */
+function blockContainsToken(block: string, token: string): boolean {
+  const tokenEscaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Use a non-word-char lookbehind so "--primary" doesn't match inside "--color-primary"
+  return new RegExp(`(?<![\\w-])${tokenEscaped}\\s*:`).test(block);
+}
+
+/** Replace (or append) a token value inside a CSS block in the source string. */
+function writeTokenIntoBlock(
+  css: string,
+  openBrace: number,
+  blockEnd: number,
+  token: string,
+  newValue: string
+): string {
   let block = css.slice(openBrace + 1, blockEnd - 1);
 
   const tokenEscaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const tokenRegex = new RegExp(
-    `(${tokenEscaped}\\s*:\\s*)([^;]+)(;)`,
-    "g"
-  );
+  const tokenRegex = new RegExp(`(${tokenEscaped}\\s*:\\s*)([^;]+)(;)`, "g");
 
   if (!tokenRegex.test(block)) {
-    // Token doesn't exist in this block (e.g. dark mode override not yet defined).
-    // Append it to the block so dark mode can override the light value.
+    // Token not in block yet — append it (e.g. adding a dark-mode override)
     const indent = block.match(/\n(\s+)--/)?.[1] ?? "  ";
     block = block.trimEnd() + `\n${indent}${token}: ${newValue};\n`;
-    return css.slice(0, openBrace + 1) + block + css.slice(blockEnd - 1);
+  } else {
+    block = block.replace(tokenRegex, `$1${newValue}$3`);
   }
 
-  block = block.replace(tokenRegex, `$1${newValue}$3`);
-
   return css.slice(0, openBrace + 1) + block + css.slice(blockEnd - 1);
+}
+
+function replaceTokenInBlock(
+  css: string,
+  selector: string,
+  token: string,
+  newValue: string
+): string {
+  const selectorEscaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const hinted = findBlock(css, new RegExp(`${selectorEscaped}[^{]*\\{`));
+
+  // If the hinted selector block exists and contains the token, write there.
+  if (hinted) {
+    const block = css.slice(hinted.openBrace + 1, hinted.blockEnd - 1);
+    if (blockContainsToken(block, token)) {
+      return writeTokenIntoBlock(css, hinted.openBrace, hinted.blockEnd, token, newValue);
+    }
+  }
+
+  // The token is not in the hinted block (e.g. tailwind-v4 project where semantic
+  // tokens live in :root instead of @theme). Search common selectors for a block
+  // that actually contains this token.
+  const fallbackSelectors = [":root", ".dark", "@theme"];
+  for (const fb of fallbackSelectors) {
+    if (fb === selector) continue;
+    const fbEscaped = fb.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const found = findBlock(css, new RegExp(`${fbEscaped}[^{]*\\{`));
+    if (!found) continue;
+    const block = css.slice(found.openBrace + 1, found.blockEnd - 1);
+    if (blockContainsToken(block, token)) {
+      return writeTokenIntoBlock(css, found.openBrace, found.blockEnd, token, newValue);
+    }
+  }
+
+  // Token not found anywhere — append to the hinted selector block (or throw if
+  // the selector itself doesn't exist).
+  if (!hinted) {
+    throw new Error(`Selector "${selector}" not found in CSS file`);
+  }
+  return writeTokenIntoBlock(css, hinted.openBrace, hinted.blockEnd, token, newValue);
 }

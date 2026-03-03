@@ -23,7 +23,7 @@ export function StatCard({ label, value, change, progress }: StatCardProps) {
         <CardDescription>{label}</CardDescription>
         <CardTitle className="text-3xl">{value}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-2 justify-start items-start">
         <Badge variant={isPositive ? "default" : "destructive"}>
           {change}
         </Badge>

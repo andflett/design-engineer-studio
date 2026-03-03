@@ -71,7 +71,7 @@ export function TokenEditor({
   const widthBorders = borderData?.borders?.filter((b: any) => b.kind === "width") || [];
 
   const stylingType = styling?.type || "";
-  const selector = stylingType === "tailwind-v4" ? "@theme" : (theme === "dark" ? ".dark" : ":root");
+  const selector = theme === "dark" ? ".dark" : (stylingType === "tailwind-v4" ? "@theme" : ":root");
 
   return (
     <div className="">
@@ -373,7 +373,7 @@ function SpacingScale({
   const otherTokens = spacingDefs.filter((s: any) => !s.isBase);
   const baseVal = baseToken?.value || null;
   const parsed = baseVal ? parseSpacingBase(baseVal) : null;
-  const selector = stylingType === "tailwind-v4" ? "@theme" : (theme === "dark" ? ".dark" : ":root");
+  const selector = theme === "dark" ? ".dark" : (stylingType === "tailwind-v4" ? "@theme" : ":root");
 
   // Show a subset of the scale that's useful (skip the very large ones to keep it compact)
   const visibleSteps = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96];
@@ -633,7 +633,7 @@ function RadiiSection({
     return <EmptyState message="No radius tokens found." />;
   }
 
-  const selector = stylingType === "tailwind-v4" ? "@theme" : (theme === "dark" ? ".dark" : ":root");
+  const selector = theme === "dark" ? ".dark" : (stylingType === "tailwind-v4" ? "@theme" : ":root");
 
   const handleSave = async (border: any, newValue: string) => {
     const variableName = border.cssVariable || `--${border.name}`;
@@ -685,7 +685,7 @@ function BordersSection({
     return <EmptyState message="No border tokens found." />;
   }
 
-  const selector = stylingType === "tailwind-v4" ? "@theme" : (theme === "dark" ? ".dark" : ":root");
+  const selector = theme === "dark" ? ".dark" : (stylingType === "tailwind-v4" ? "@theme" : ":root");
 
   const handleSave = async (border: any, newValue: string) => {
     const variableName = border.cssVariable || `--${border.name}`;
