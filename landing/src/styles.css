@@ -238,7 +238,7 @@ body {
 .glitch::after {
   left: 2px;
   text-shadow: -1px 0 rgba(239, 68, 68, 0.7);
-  animation: glitch-2 4s 2 linear forwards;
+  animation: glitch-2 4s infinite linear;
 }
 
 @keyframes glitch-2 {

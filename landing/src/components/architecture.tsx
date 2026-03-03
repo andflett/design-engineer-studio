@@ -10,7 +10,7 @@ export function Architecture() {
         <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
           Architecture
         </p>
-        <h2 className="text-[clamp(1.75rem,3.5vw,2.5rem)] font-semibold tracking-[-0.03em] leading-tight mb-3">
+        <h2 className="text-[clamp(1.9rem,3.5vw,2.5rem)] font-semibold tracking-[-0.03em] leading-tight mb-3">
           Minimal protocol
         </h2>
         <p className="text-base text-ink2 max-w-[480px] leading-relaxed mb-14">

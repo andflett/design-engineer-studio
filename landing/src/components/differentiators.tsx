@@ -41,7 +41,7 @@ export function Differentiators() {
                 <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
                   Why codesurface
                 </p>
-                <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-3" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
+                <h2 className="text-[clamp(1.9rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-3" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
                   A layer on your app, not a replacement
                 </h2>
                 <p className="text-base text-ink2 leading-relaxed mb-10">

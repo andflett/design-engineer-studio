@@ -33,7 +33,7 @@ export function DemoWindow() {
               />
               {!playing && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center transition-transform hover:scale-110 ">
+                  <div className="scale-60 md:scale-100 w-24 h-24 rounded-full bg-white flex items-center justify-center transition-transform hover:scale-110">
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="97.533 44.972 12.805 14.02" width="32" height="32" className="relative left-[2px]">
   <rect x="-108.1" y="-50.992" width="2.857" height="2" transform="matrix(-1, 0, 0, -1, 0, 0)" fill="black" />
   <rect x="-108.1" y="-54.992" width="2.857" height="2" transform="matrix(-1, 0, 0, -1, 0, 0)" fill="black" />

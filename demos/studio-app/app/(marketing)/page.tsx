@@ -31,7 +31,7 @@ export default function HomePage() {
         <Button variant="destructive" size="sm" className="text-3xl">Deploy</Button>
       </PageHeader>
       <SearchBar placeholder="Search members, projects…" action="Go" />
-      <Alert variant="warning" size="sm">
+      <Alert variant="warning" size="sm" border="thick">
         <AlertTitle>API usage at 91%</AlertTitle>
         <AlertDescription className="text-xl font-medium leading-tight tracking-tight">Consider upgrading before Friday.</AlertDescription>
       </Alert>

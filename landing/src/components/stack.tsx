@@ -37,7 +37,7 @@ export function Stack() {
 
         <Reveal delay={0.05}>
           <h2
-            className="text-[clamp(1.75rem,4vw,3rem)] font-normal leading-[1.1] tracking-[-0.025em] mb-5"
+            className="text-[clamp(1.9rem,4vw,3rem)] font-normal leading-[1.1] tracking-[-0.025em] mb-5"
             style={{ fontFamily: "'Jersey 25', sans-serif" }}
           >
             Feeling adventurous?

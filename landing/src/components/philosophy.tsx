@@ -34,7 +34,7 @@ export function Philosophy() {
             <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
               Philosophy
             </p>
-            <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1]" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
+            <h2 className="text-[clamp(1.9rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1]" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
               Your code, your rules
             </h2>
           </div>

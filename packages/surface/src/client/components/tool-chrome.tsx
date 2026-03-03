@@ -102,7 +102,7 @@ export function ToolChrome({
     <div className="flex flex-col h-screen">
       {/* Toolbar */}
       <div
-        className="flex items-center h-11 px-4 gap-3 border-b shrink-0"
+        className="flex items-center h-11 pl-3 pr-4 gap-3 border-b shrink-0"
         style={{
           background: "var(--studio-surface)",
           borderColor: "var(--studio-border)",
@@ -154,32 +154,44 @@ export function ToolChrome({
         {/* Right: tools */}
         <div className="studio-toolbar-group shrink-0">
           {showSelectionMode && (
-            <Tooltip content={selectionMode ? "Selection mode on" : "Selection mode off"} side="bottom">
+            <Tooltip
+              content={
+                selectionMode ? "Selection mode on" : "Selection mode off"
+              }
+              side="bottom"
+            >
               <button
                 onClick={onToggleSelectionMode}
-                className={`studio-toolbar-btn ${selectionMode ? "active" : ""}`}
+                className={`studio-toolbar-btn p-2 ${selectionMode ? "active" : ""}`}
               >
-                <CursorArrowIcon />
+                <CursorArrowIcon height={15} width={15} />
               </button>
             </Tooltip>
           )}
 
-          <Tooltip content="Re-scan tokens, components, and styles from source files" side="bottom">
+          <Tooltip
+            content="Re-scan tokens, components, and styles from source files"
+            side="bottom"
+          >
             <button
               onClick={handleRescan}
-              className="studio-toolbar-btn"
+              className="studio-toolbar-btn p-2"
               disabled={rescanning}
             >
-              <ReloadIcon />
+              <ReloadIcon height={15} width={15} />
             </button>
           </Tooltip>
 
-          <Tooltip content={`Switch to ${theme === "light" ? "dark" : "light"} mode`} side="bottom">
-            <button
-              onClick={onToggleTheme}
-              className="studio-toolbar-btn"
-            >
-              {theme === "light" ? <SunIcon /> : <MoonIcon />}
+          <Tooltip
+            content={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            side="bottom"
+          >
+            <button onClick={onToggleTheme} className="p-2 studio-toolbar-btn">
+              {theme === "light" ? (
+                <SunIcon height={15} width={15} />
+              ) : (
+                <MoonIcon height={15} width={15} />
+              )}
             </button>
           </Tooltip>
         </div>

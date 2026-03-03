@@ -845,7 +845,7 @@ function ComponentVariantSection({
 // --- No-selection placeholder ---
 
 function SelectionPlaceholder() {
-  const color = "var(--studio-accent)";
+  const color = "color-mix(in srgb, var(--studio-accent) 10%, transparent)";
   const handleSize = 8;
   const h = handleSize / 2.5;
 
@@ -874,13 +874,17 @@ function SelectionPlaceholder() {
         {/* Border */}
         <div
           className="absolute inset-0"
-          style={{ border: `1.5px solid ${color}`, background: "color-mix(in srgb, var(--studio-accent) 10%, transparent)" }}
+          style={{
+            border: `1.5px solid ${color}`,
+            background:
+              "color-mix(in srgb, var(--studio-accent) 10%, transparent)",
+          }}
         />
         {/* Text inside */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span
             className="text-[12px] text-center select-none leading-snug"
-            style={{ color: "var(--studio-text-muted)", opacity: 1 }}
+            style={{ color: "var(--studio-accent)", opacity: 0.8 }}
           >
             Select an element to edit
           </span>
@@ -896,13 +900,22 @@ function SelectionPlaceholder() {
           style={{
             bottom: 10,
             right: 10,
-            color,
+            color: "var(--studio-accent)",
             opacity: 0.8,
             animation: "cursor-drift 3s ease-in-out infinite",
           }}
         >
-          <svg width="22" height="22" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 2L2 10.5L4.5 8L6.5 12L8 11.5L6 7.5L9.5 7L2 2Z" fill="currentColor" />
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 14 14"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2 2L2 10.5L4.5 8L6.5 12L8 11.5L6 7.5L9.5 7L2 2Z"
+              fill="currentColor"
+            />
           </svg>
         </div>
       </div>

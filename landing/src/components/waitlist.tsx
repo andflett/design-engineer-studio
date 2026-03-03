@@ -95,8 +95,8 @@ export function Waitlist() {
           <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
             Open source
           </p>
-          <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-4" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
-            Get notified when we're stable
+          <h2 className="text-[clamp(1.9rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-4" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
+            We'll let you know when it's ready
           </h2>
           <p className="text-ink2 max-w-[420px] mx-auto mb-8 text-[15px] leading-relaxed">
             It's open source, so no hard sell, but we'll let you know when it's safe to use.

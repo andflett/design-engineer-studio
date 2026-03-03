@@ -1,4 +1,16 @@
 import { Reveal } from "./reveal.js";
+// @ts-ignore
+import tokensSrc from "../assets/tokens.png?format=webp&quality=80";
+// @ts-ignore
+import componentsSrc from "../assets/components.png?format=webp";
+// @ts-ignore
+import instanceSrc from "../assets/instance.png?format=webp";
+// @ts-ignore
+import isolateSrc from "../assets/isolate.png?format=webp";
+// @ts-ignore
+import usageSrc from "../assets/usage3.png?format=webp&quality=100";
+// @ts-ignore
+import explorerSrc from "../assets/explorer.png?format=webp";
 
 const tiers = [
   {
@@ -6,42 +18,42 @@ const tiers = [
     title: "Tokens",
     description:
       "Edit design tokens visually — colors, spacing, typography. Changes write to CSS custom properties with live preview and contrast checking.",
-    screenshotHint: "screenshot: token-editor.png",
+    screenshot: tokensSrc,
   },
   {
     number: "02",
     title: "Components",
     description:
       "Adjust variant definitions and Tailwind classes at the component level. Changes propagate to every instance.",
-    screenshotHint: "screenshot: component-editor.png",
+    screenshot: componentsSrc,
   },
   {
     number: "03",
     title: "Instances",
     description:
       "Override specific component usages. Swap variants, add class overrides, or adjust props in place.",
-    screenshotHint: "screenshot: instance-editor.png",
+    screenshot: instanceSrc,
   },
   {
     number: "04",
     title: "Isolate",
     description:
       "Preview every variant combination of a component in a single view. Pin or expand dimensions to focus on exactly the states you care about — all updating live as you edit.",
-    screenshotHint: "screenshot: isolation-view.png",
+    screenshot: isolateSrc,
   },
   {
     number: "05",
     title: "Usage",
     description:
       "See every page that uses a component, organized as a route tree. Click any route to navigate there instantly and see how your changes look across the app.",
-    screenshotHint: "screenshot: usage-panel.png",
+    screenshot: usageSrc,
   },
   {
     number: "06",
     title: "Explorer",
     description:
       "A refined layers panel showing only the components you authored — or toggle to the full DOM. Next.js apps get Layout and Page sections separated automatically.",
-    screenshotHint: "screenshot: explorer-tree.png",
+    screenshot: explorerSrc,
   },
 ];
 
@@ -55,7 +67,7 @@ export function ThreeTiers() {
         <p className="text-xs font-medium text-ink3 uppercase tracking-widest mb-3 font-mono">
           Systems, not screens
         </p>
-        <h2 className="text-[clamp(1.75rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-3" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
+        <h2 className="text-[clamp(1.9rem,4vw,3rem)] font-normal tracking-[-0.025em] leading-[1.1] mb-3" style={{ fontFamily: "'Jersey 25', sans-serif" }}>
           Every level of your design system
         </h2>
         <p className="text-base text-ink2 max-w-[480px] leading-relaxed mb-14">
@@ -63,13 +75,21 @@ export function ThreeTiers() {
           usage, and navigate your tree. All writing back to source.
         </p>
 
-        <div className="grid grid-cols-3 max-md:grid-cols-1 gap-4">
+        <div className="grid grid-cols-3 max-md:grid-cols-1 gap-6">
           {tiers.map((tier, i) => (
             <Reveal key={tier.number} delay={i * 0.08}>
-              <div className="rounded-xl border border-edge bg-page h-full flex flex-col overflow-hidden hover:border-edge/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all">
+              <div className="rounded-lg border border-edge bg-page h-full flex flex-col overflow-hidden hover:border-edge/80 hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all">
                 {/* Screenshot slot */}
-                <div className="screenshot-slot aspect-[4/3]">
-                  <span>{tier.screenshotHint}</span>
+                <div className="screenshot-slot h-[240px] overflow-hidden">
+                  {tier.screenshot && (
+                    <img
+                      src={tier.screenshot}
+                      alt={tier.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover object-top"
+                    />
+                  )}
                 </div>
 
                 <div className="p-6 pt-5 flex flex-col flex-1 border-t border-edge-subtle">
