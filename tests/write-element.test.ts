@@ -209,6 +209,107 @@ describe("POST /api/write-element — cssProperty", () => {
   });
 });
 
+describe("POST /api/write-element — scoped styles (.astro)", () => {
+  it("writes CSS property to scoped <style> block in .astro file", async () => {
+    const app = createApp({ stylingType: "plain-css", cssFiles: [] });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "cssProperty",
+        source: { file: "scoped.astro", line: 4, col: 1 },
+        changes: [{ property: "padding", value: "2rem" }],
+      });
+
+    expect(res.status).toBe(200);
+    const content = await fs.readFile(path.join(FIXTURE_DIR, "scoped.astro"), "utf-8");
+    expect(content).toContain("padding: 2rem;");
+    // Frontmatter and template preserved
+    expect(content).toContain('const title = "Hello";');
+    expect(content).toContain('<div class="card">');
+    // Other rules untouched
+    expect(content).toContain("font-size: 2rem;");
+  });
+
+  it("prefers project stylesheet over scoped style when both match", async () => {
+    // Add a .card rule to styles.css so it matches first
+    const stylesPath = path.join(FIXTURE_DIR, "styles.css");
+    const originalCss = await fs.readFile(stylesPath, "utf-8");
+    await fs.writeFile(stylesPath, originalCss + "\n.card {\n  padding: 1rem;\n}\n", "utf-8");
+
+    const app = createApp({ stylingType: "plain-css", cssFiles: ["styles.css"] });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "cssProperty",
+        source: { file: "scoped.astro", line: 4, col: 1 },
+        changes: [{ property: "padding", value: "3rem" }],
+      });
+
+    expect(res.status).toBe(200);
+    // Should have written to styles.css (step 2), not the scoped block (step 2.5)
+    const css = await fs.readFile(stylesPath, "utf-8");
+    expect(css).toContain("padding: 3rem;");
+    // Scoped block should be untouched
+    const astro = await fs.readFile(path.join(FIXTURE_DIR, "scoped.astro"), "utf-8");
+    expect(astro).toContain("padding: 1rem;");
+  });
+});
+
+describe("POST /api/write-element — scoped styles (.svelte)", () => {
+  it("writes CSS property to scoped <style> block in .svelte file", async () => {
+    const app = createApp({ stylingType: "plain-css", cssFiles: [] });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "cssProperty",
+        source: { file: "scoped.svelte", line: 5, col: 1 },
+        changes: [{ property: "padding", value: "2rem" }],
+      });
+
+    expect(res.status).toBe(200);
+    const content = await fs.readFile(path.join(FIXTURE_DIR, "scoped.svelte"), "utf-8");
+    expect(content).toContain("padding: 2rem;");
+    expect(content).toContain('let title = "Hello";');
+    expect(content).toContain('<div class="card">');
+    expect(content).toContain("font-size: 2rem;");
+  });
+});
+
+describe("POST /api/write-element — replaceClass/addClass (.svelte)", () => {
+  it("replaces a class in a .svelte file", async () => {
+    const app = createApp({ stylingType: "tailwind-v4" });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "replaceClass",
+        source: { file: "scoped.svelte", line: 5, col: 1 },
+        oldClass: "card",
+        newClass: "card-lg",
+      });
+
+    expect(res.status).toBe(200);
+    const content = await fs.readFile(path.join(FIXTURE_DIR, "scoped.svelte"), "utf-8");
+    expect(content).toContain('class="card-lg"');
+    expect(content).not.toMatch(/class="card"/);
+  });
+
+  it("adds a class to a .svelte file", async () => {
+    const app = createApp({ stylingType: "tailwind-v4" });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "addClass",
+        source: { file: "scoped.svelte", line: 5, col: 1 },
+        newClass: "mt-4",
+      });
+
+    expect(res.status).toBe(200);
+    const content = await fs.readFile(path.join(FIXTURE_DIR, "scoped.svelte"), "utf-8");
+    expect(content).toContain("mt-4");
+    expect(content).toContain("card"); // original class preserved
+  });
+});
+
 describe("POST /api/write-element — validation", () => {
   it("returns 400 for missing source", async () => {
     const app = createApp();

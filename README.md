@@ -16,6 +16,7 @@ Pick your framework and follow the setup below. Each one takes under a minute.
 - [Vite + React](#vite--react)
 - [Remix](#remix)
 - [Astro](#astro)
+- [SvelteKit](#sveltekit)
 
 ### Prerequisites
 
@@ -132,6 +133,31 @@ npx @designtools/surface
 
 ---
 
+### SvelteKit
+
+```bash
+npm install -D @designtools/svelte-plugin
+```
+
+```ts
+// vite.config.ts
+import { sveltekit } from "@sveltejs/kit/vite";
+import designtools from "@designtools/svelte-plugin";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [sveltekit(), designtools()],
+});
+```
+
+```bash
+npx @designtools/surface
+```
+
+> **Demo:** `demos/svelte-app` — SvelteKit + Tailwind v4
+
+---
+
 ## Styling systems
 
 Surface auto-detects your styling approach and writes changes in your project's native format.
@@ -178,19 +204,23 @@ Key design decisions:
 | [`@designtools/next-plugin`](packages/next-plugin) | Next.js config wrapper — `data-source` Babel transform + `<Surface />` mount |
 | [`@designtools/vite-plugin`](packages/vite-plugin) | Vite plugin — `data-source` transform + `<Surface />` auto-mount |
 | [`@designtools/astro-plugin`](packages/astro-plugin) | Astro integration — `.astro` template transform + `<Surface />` auto-mount |
+| [`@designtools/svelte-plugin`](packages/svelte-plugin) | SvelteKit plugin — `.svelte` template transform + `<Surface />` auto-mount |
 
 ## Demo apps
 
 | Demo | Framework | Styling | Run command |
 |------|-----------|---------|-------------|
-| `demos/studio-app` | Next.js | Tailwind CSS v4, CVA, OKLch tokens | `npm run surface` |
-| `demos/vite-app` | Vite + React | Tailwind CSS v4 | `npm run surface:vite` |
-| `demos/remix-app` | Remix | Tailwind CSS v4 | `npm run surface:remix` |
-| `demos/astro-app` | Astro | Tailwind CSS v4 + React islands | `npm run surface:astro` |
-| `demos/tailwind-v3-app` | Vite + React | Tailwind CSS v3 custom theme | `npm run surface:tw3` |
-| `demos/css-app` | Vite + React | Plain CSS + CSS Variables | `npm run surface:css` |
-| `demos/css-modules-app` | Vite + React | CSS Modules (.module.css) | `npm run surface:css-modules` |
-| `demos/design-system` | Next.js | Design tokens | `npm run surface:design-system` |
+| `demos/studio-app` | Next.js | Tailwind CSS v4, CVA, OKLch tokens | `npm run demo:studio` |
+| `demos/vite-app` | Vite + React | Tailwind CSS v4 | `npm run demo:vite` |
+| `demos/remix-app` | Remix | Tailwind CSS v4 | `npm run demo:remix` |
+| `demos/astro-app` | Astro | Tailwind CSS v4 + React islands | `npm run demo:astro` |
+| `demos/svelte-app` | SvelteKit | Tailwind CSS v4 | `npm run demo:svelte` |
+| `demos/svelte-css-app` | SvelteKit | Scoped styles + CSS Variables | `npm run demo:svelte-css` |
+| `demos/tailwind-v3-app` | Vite + React | Tailwind CSS v3 custom theme | `npm run demo:tailwind-v3` |
+| `demos/css-app` | Vite + React | Plain CSS + CSS Variables | `npm run demo:css` |
+| `demos/css-modules-app` | Vite + React | CSS Modules (.module.css) | `npm run demo:css-modules` |
+| `demos/design-system` | Next.js | Design tokens | `npm run demo:design-system` |
+| `demos/screenshot-app` | Next.js | Tailwind CSS v4 | `npm run demo:screenshot` |
 
 ```bash
 # Clone and build
@@ -206,7 +236,7 @@ cd demos/studio-app && npm install && cd ../..
 cd demos/studio-app && npm run dev
 
 # Terminal 2
-npm run surface
+npm run demo:studio
 ```
 
 The editor opens at [http://localhost:4400](http://localhost:4400).
@@ -221,12 +251,15 @@ designtools/
 │   ├── surface/       Hybrid visual editor
 │   ├── next-plugin/   Next.js config wrapper + data-source transform
 │   ├── vite-plugin/   Vite plugin + data-source transform
-│   └── astro-plugin/  Astro integration + .astro template transform
+│   ├── astro-plugin/  Astro integration + .astro template transform
+│   └── svelte-plugin/ SvelteKit plugin + .svelte template transform
 ├── demos/
 │   ├── studio-app/         Next.js + Tailwind v4 + CVA
 │   ├── vite-app/           Vite + React + Tailwind v4
 │   ├── remix-app/          Remix + Tailwind v4
 │   ├── astro-app/          Astro + React islands
+│   ├── svelte-app/         SvelteKit + Tailwind v4
+│   ├── svelte-css-app/     SvelteKit + scoped styles + CSS vars
 │   ├── tailwind-v3-app/    Vite + Tailwind v3 custom theme
 │   ├── css-app/            Plain CSS + CSS Variables
 │   ├── css-modules-app/    CSS Modules
@@ -258,6 +291,10 @@ cd /path/to/your-app && npm link @designtools/vite-plugin
 # Astro
 cd packages/astro-plugin && npm link
 cd /path/to/your-app && npm link @designtools/astro-plugin
+
+# SvelteKit
+cd packages/svelte-plugin && npm link
+cd /path/to/your-app && npm link @designtools/svelte-plugin
 ```
 
 ### 3. Run surface from source

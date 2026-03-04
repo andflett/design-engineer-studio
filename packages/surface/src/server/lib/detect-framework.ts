@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 
 export interface FrameworkInfo {
-  name: "nextjs" | "vite" | "remix" | "astro" | "unknown";
+  name: "nextjs" | "vite" | "remix" | "astro" | "svelte" | "unknown";
   appDir: string;
   appDirExists: boolean;
   componentDir: string;
@@ -40,6 +40,10 @@ export async function detectFramework(
     name = "astro";
     appDirCandidates = ["src/pages", "src/content"];
     componentDirCandidates = ["src/components", "src/components/ui"];
+  } else if (deps["@sveltejs/kit"] || deps["@sveltejs/vite-plugin-svelte"]) {
+    name = "svelte";
+    appDirCandidates = ["src/routes", "src/pages"];
+    componentDirCandidates = ["src/lib/components", "src/lib/components/ui", "src/components", "src/components/ui"];
   } else if (deps.next) {
     name = "nextjs";
     appDirCandidates = ["app", "src/app"];
@@ -121,7 +125,7 @@ async function countComponentFiles(root: string, dir: string): Promise<number> {
   const full = path.join(root, dir);
   try {
     const entries = await fs.readdir(full);
-    return entries.filter((e) => e.endsWith(".tsx") || e.endsWith(".jsx")).length;
+    return entries.filter((e) => e.endsWith(".tsx") || e.endsWith(".jsx") || e.endsWith(".svelte")).length;
   } catch {
     return 0;
   }
@@ -138,6 +142,8 @@ async function findCssFiles(projectRoot: string): Promise<string[]> {
     "styles/globals.css",
     "src/styles/global.css",
     "src/styles/globals.css",
+    "public/styles/global.css",
+    "public/styles/globals.css",
     "app/app.css",
     "app/root.css",
   ];
@@ -223,7 +229,7 @@ async function countDataSlotFiles(dirPath: string): Promise<number> {
   try {
     const files = await fs.readdir(dirPath);
     for (const file of files) {
-      if (!file.endsWith(".tsx") && !file.endsWith(".jsx")) continue;
+      if (!file.endsWith(".tsx") && !file.endsWith(".jsx") && !file.endsWith(".svelte")) continue;
       try {
         const content = await fs.readFile(path.join(dirPath, file), "utf-8");
         if (content.includes("data-slot")) {
@@ -243,7 +249,10 @@ const CSS_SCAN_DIRS = [
   "app",
   "src/app",
   "src",
+  "src/styles",
   "styles",
+  "public/styles",
+  "public/css",
   "assets",
   "theme",
   "css",

@@ -1,6 +1,6 @@
 {
   "name": "@designtools/surface",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Visual editing CLI — hybrid architecture with selection overlays in the target app and editor UI served separately",
   "type": "module",
   "license": "CC-BY-NC-4.0",

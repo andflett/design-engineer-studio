@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformAstroSource } from "./astro-source-transform.js";
+import { transformAstroSource, createAstroSourcePlugin } from "./astro-source-transform.js";
 
 describe("transformAstroSource", () => {
   it("adds data-source to native HTML elements", async () => {
@@ -115,5 +115,46 @@ describe("transformAstroSource", () => {
       "src/components/Card.astro"
     );
     expect(result).toContain("src/components/Card.astro:");
+  });
+});
+
+describe("createAstroSourcePlugin", () => {
+  function getPlugin() {
+    const plugin = createAstroSourcePlugin();
+    // Simulate configResolved
+    (plugin as any).configResolved({ root: "/project" });
+    return plugin;
+  }
+
+  it("has enforce: pre and uses load hook", () => {
+    const plugin = createAstroSourcePlugin();
+    expect(plugin.enforce).toBe("pre");
+    expect(plugin.load).toBeDefined();
+    expect(plugin.transform).toBeUndefined();
+  });
+
+  it("skips non-.astro files", async () => {
+    const plugin = getPlugin();
+    const load = (plugin as any).load.bind(plugin);
+    expect(await load("/project/src/App.tsx")).toBeUndefined();
+    expect(await load("/project/src/style.css")).toBeUndefined();
+  });
+
+  it("skips node_modules", async () => {
+    const plugin = getPlugin();
+    const load = (plugin as any).load.bind(plugin);
+    expect(await load("/project/node_modules/pkg/Component.astro")).toBeUndefined();
+  });
+
+  it("skips query-parameterized IDs (Astro virtual modules)", async () => {
+    const plugin = getPlugin();
+    const load = (plugin as any).load.bind(plugin);
+    expect(await load("/project/src/Page.astro?astro&type=style&index=0")).toBeUndefined();
+    expect(await load("/project/src/Page.astro?astro")).toBeUndefined();
+  });
+
+  it("has the correct plugin name", () => {
+    const plugin = createAstroSourcePlugin();
+    expect(plugin.name).toBe("designtools-astro-source");
   });
 });

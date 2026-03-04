@@ -17,6 +17,7 @@ const frameworkLabels: Record<FrameworkInfo["name"], string> = {
   vite: "Vite",
   remix: "Remix",
   astro: "Astro",
+  svelte: "SvelteKit",
   unknown: "Unknown",
 };
 

@@ -294,11 +294,15 @@ async function main() {
   const frameworkLabel =
     framework.name === "nextjs"
       ? "Next.js"
-      : framework.name === "remix"
-        ? "Remix"
-        : framework.name === "vite"
-          ? "Vite"
-          : "Unknown";
+      : framework.name === "astro"
+        ? "Astro"
+        : framework.name === "svelte"
+          ? "SvelteKit"
+          : framework.name === "remix"
+            ? "Remix"
+            : framework.name === "vite"
+              ? "Vite"
+              : "Unknown";
 
   console.log(`  ${green("✓")} Framework      ${frameworkLabel}`);
 

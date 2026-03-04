@@ -1,7 +1,7 @@
 /**
  * Vite plugin that annotates .astro template elements with data-source attributes.
- * Runs enforce: "pre" (before Astro's own compiler) so we can inject attributes
- * into the raw .astro source via string splicing at known offsets.
+ * Uses a `load` hook (not `transform`) so it reads raw .astro source from disk
+ * BEFORE Astro's own Vite plugin compiles the file into JavaScript.
  *
  * Uses @astrojs/compiler's parse() + walk() to find element positions,
  * then splices attributes without reformatting (preserves exact user formatting).
@@ -10,6 +10,7 @@
 import type { Plugin } from "vite";
 import { parse } from "@astrojs/compiler";
 import { is } from "@astrojs/compiler/utils";
+import fs from "fs/promises";
 import path from "path";
 
 /** Tags that should not receive data-source annotations. */
@@ -111,15 +112,21 @@ export function createAstroSourcePlugin(): Plugin {
       root = config.root;
     },
 
-    async transform(code: string, id: string) {
+    // Use load() instead of transform() to read raw .astro source from disk
+    // BEFORE Astro's own Vite plugin compiles it into JavaScript.
+    // Astro's load hook only handles ?astro query IDs, so bare .astro files
+    // fall through to us (or the default filesystem loader).
+    async load(id: string) {
       if (!id.endsWith(".astro")) return;
+      if (id.includes("?")) return; // skip Astro virtual modules (?astro&type=style etc.)
       if (id.includes("node_modules")) return;
 
+      const code = await fs.readFile(id, "utf-8");
       const relativePath = path.relative(root, id);
       const modified = await transformAstroSource(code, relativePath);
 
       if (modified === null) return;
-      return { code: modified, map: null };
+      return { code: modified };
     },
   };
 }

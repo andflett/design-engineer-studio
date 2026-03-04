@@ -64,6 +64,7 @@ The Vite plugin works with any Vite-based React project:
 
 For **Next.js**, use [`@designtools/next-plugin`](../next-plugin) instead.
 For **Astro**, use [`@designtools/astro-plugin`](../astro-plugin) instead.
+For **SvelteKit**, use [`@designtools/svelte-plugin`](../svelte-plugin) instead.
 
 ## Supported styling systems
 

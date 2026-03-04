@@ -105,9 +105,9 @@ function discoverComponentFiles(
       const files = fs.readdirSync(fullDir);
       return files
         .filter(
-          (f) => f.endsWith(".tsx") || f.endsWith(".ts") || f.endsWith(".jsx")
+          (f) => f.endsWith(".tsx") || f.endsWith(".ts") || f.endsWith(".jsx") || f.endsWith(".svelte")
         )
-        .map((f) => `${dir}/${f.replace(/\.(tsx|ts|jsx|js)$/, "")}`);
+        .map((f) => `${dir}/${f.replace(/\.(tsx|ts|jsx|js|svelte)$/, "")}`);
     }
   }
   return [];

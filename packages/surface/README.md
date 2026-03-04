@@ -10,6 +10,7 @@ Pick your framework and follow the setup below. Each one takes under a minute.
 - [Vite + React](#vite--react)
 - [Remix](#remix)
 - [Astro](#astro)
+- [SvelteKit](#sveltekit)
 
 ### Prerequisites
 
@@ -121,6 +122,29 @@ npx @designtools/surface
 
 ---
 
+### SvelteKit
+
+```bash
+npm install -D @designtools/svelte-plugin
+```
+
+```ts
+// vite.config.ts
+import { sveltekit } from "@sveltejs/kit/vite";
+import designtools from "@designtools/svelte-plugin";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [sveltekit(), designtools()],
+});
+```
+
+```bash
+npx @designtools/surface
+```
+
+---
+
 ## What the plugins do
 
 In development, each framework plugin:
@@ -190,6 +214,7 @@ For CSS/CSS Modules/CSS Variables projects, writes go directly to the relevant C
 | Next.js (App Router) | `@designtools/next-plugin` | Stable |
 | Vite + React | `@designtools/vite-plugin` | Stable |
 | Astro | `@designtools/astro-plugin` | Stable |
+| SvelteKit | `@designtools/svelte-plugin` | Stable |
 | Remix | `@designtools/vite-plugin` | Beta |
 
 ### Styling systems

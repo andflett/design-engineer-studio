@@ -22,6 +22,7 @@ import { computedToTailwindClass } from "../../shared/tailwind-map.js";
 import type { ResolvedTailwindTheme } from "../../shared/tailwind-theme.js";
 import { parseClasses } from "../../shared/tailwind-parser.js";
 import { writeCssPropertyWithCleanup, findCssRule, findCssModuleImports, resolveModuleClassNames } from "../lib/write-css-rule.js";
+import { writeScopedStyleProperty } from "../lib/scoped-style.js";
 
 interface WriteElementConfig {
   projectRoot: string;
@@ -303,8 +304,31 @@ export function createWriteElementRouter(config: WriteElementConfig) {
       // Handle replaceClass / addClass request types
       if (body.type === "replaceClass" || body.type === "addClass") {
         const fullPath = safePath(config.projectRoot, body.source.file);
-        const parser = await getParser();
         const source = await fs.readFile(fullPath, "utf-8");
+
+        // SFC files (.astro, .svelte) use class="..." — handle with string manipulation
+        const isSFC = body.source.file.endsWith(".astro") || body.source.file.endsWith(".svelte");
+        if (isSFC) {
+          const result = sfcReplaceOrAddClass(
+            source,
+            body.source.line,
+            body.type,
+            body.oldClass,
+            body.newClass,
+          );
+          if (result) {
+            await fs.writeFile(fullPath, result, "utf-8");
+            res.json({ ok: true });
+          } else {
+            res.status(404).json({
+              error: `Could not find class attribute near ${body.source.file}:${body.source.line}`,
+            });
+          }
+          return;
+        }
+
+        // JSX files — use AST
+        const parser = await getParser();
         const ast = parseSource(source, parser);
         const elementPath = findElementAtSource(ast, body.source.line, body.source.col);
 
@@ -378,9 +402,21 @@ export function createWriteElementRouter(config: WriteElementConfig) {
             }
           }
 
-          // 2. Try project stylesheets — search cssFiles for matching class rules
-          if (!written && config.cssFiles.length > 0) {
-            // Extract class names from the element's className attribute
+          // Extract class names from the element — used by steps 2, 2.5
+          // Use regex for .astro/.svelte, AST for JSX
+          let classes: string[] = [];
+          const isSFC = body.source.file.endsWith(".astro") || body.source.file.endsWith(".svelte");
+
+          if (isSFC) {
+            // .astro/.svelte files use class="..." (HTML syntax), extract from source near the element
+            const lines = source.split("\n");
+            const startIdx = body.source.line - 1;
+            const snippet = lines.slice(startIdx, startIdx + 5).join(" ");
+            const classMatch = snippet.match(/\bclass\s*=\s*"([^"]*)"/);
+            if (classMatch) {
+              classes = classMatch[1].split(/\s+/).filter(Boolean);
+            }
+          } else {
             const parser = await getParser();
             const ast = parseSource(source, parser);
             const elementPath = findElementAtSource(ast, body.source.line, body.source.col);
@@ -388,30 +424,46 @@ export function createWriteElementRouter(config: WriteElementConfig) {
               const classAttr = findAttr(elementPath.node, "className");
               const classNameStr = classAttr?.value?.value as string | undefined;
               if (classNameStr) {
-                const classes = classNameStr.split(/\s+/).filter(Boolean);
-                for (const cls of classes) {
-                  for (const cssFile of config.cssFiles) {
-                    const cssPath = safePath(config.projectRoot, cssFile);
-                    try {
-                      let css = await fs.readFile(cssPath, "utf-8");
-                      if (findCssRule(css, `.${cls}`)) {
-                        const result = writeCssPropertyWithCleanup(css, `.${cls}`, cssProp, cssValue);
-                        if (result) {
-                          await fs.writeFile(cssPath, result, "utf-8");
-                          written = true;
-                          break;
-                        }
-                      }
-                    } catch { /* file not found — try next */ }
-                  }
-                  if (written) break;
-                }
+                classes = classNameStr.split(/\s+/).filter(Boolean);
               }
             }
           }
 
-          // 3. Fallback: write inline style on the JSX element
-          if (!written) {
+          // 2. Try project stylesheets — search cssFiles for matching class rules
+          if (!written && config.cssFiles.length > 0) {
+            for (const cls of classes) {
+              for (const cssFile of config.cssFiles) {
+                const cssPath = safePath(config.projectRoot, cssFile);
+                try {
+                  let css = await fs.readFile(cssPath, "utf-8");
+                  if (findCssRule(css, `.${cls}`)) {
+                    const result = writeCssPropertyWithCleanup(css, `.${cls}`, cssProp, cssValue);
+                    if (result) {
+                      await fs.writeFile(cssPath, result, "utf-8");
+                      written = true;
+                      break;
+                    }
+                  }
+                } catch { /* file not found — try next */ }
+              }
+              if (written) break;
+            }
+          }
+
+          // 2.5. Try scoped <style> blocks in .astro / .svelte single-file components
+          if (!written && isSFC) {
+            for (const cls of classes) {
+              const result = writeScopedStyleProperty(source, `.${cls}`, cssProp, cssValue);
+              if (result) {
+                await fs.writeFile(fullPath, result, "utf-8");
+                written = true;
+                break;
+              }
+            }
+          }
+
+          // 3. Fallback: write inline style on the JSX element (not supported for .astro / .svelte files)
+          if (!written && !body.source.file.endsWith(".astro") && !body.source.file.endsWith(".svelte")) {
             const parser = await getParser();
             const ast = parseSource(source, parser);
             const elementPath = findElementAtSource(ast, body.source.line, body.source.col);
@@ -601,4 +653,80 @@ function setInlineStyleProperty(openingElement: any, cssProp: string, cssValue: 
       )
     );
   }
+}
+
+/**
+ * Replace or add a class in an SFC file (.astro/.svelte) using string manipulation.
+ * Finds class="..." near the element's source line and modifies it.
+ */
+function sfcReplaceOrAddClass(
+  source: string,
+  line: number,
+  type: "replaceClass" | "addClass",
+  oldClass?: string,
+  newClass?: string,
+): string | null {
+  if (!newClass) return null;
+
+  const lines = source.split("\n");
+  const startIdx = line - 1;
+
+  // Search a window of lines around the element for the class attribute
+  const searchStart = Math.max(0, startIdx);
+  const searchEnd = Math.min(lines.length, startIdx + 5);
+  const snippet = lines.slice(searchStart, searchEnd).join("\n");
+
+  // Calculate byte offset of the snippet within the source
+  const snippetOffset = lines.slice(0, searchStart).join("\n").length + (searchStart > 0 ? 1 : 0);
+
+  // Find class="..." in the snippet
+  const classMatch = snippet.match(/\bclass\s*=\s*"([^"]*)"/);
+
+  if (!classMatch || classMatch.index == null) {
+    if (type === "addClass") {
+      // No class attr found — insert class="newClass" after the tag name
+      const tagLine = lines[startIdx];
+      const tagMatch = tagLine.match(/<(\w[\w-]*)/);
+      if (tagMatch && tagMatch.index != null) {
+        const insertPos = tagMatch.index + tagMatch[0].length;
+        lines[startIdx] =
+          tagLine.slice(0, insertPos) +
+          ` class="${newClass}"` +
+          tagLine.slice(insertPos);
+        return lines.join("\n");
+      }
+    }
+    return null;
+  }
+
+  const currentClasses = classMatch[1];
+  const classAttrStart = snippetOffset + classMatch.index;
+  const fullMatch = classMatch[0];
+
+  if (type === "replaceClass" && oldClass) {
+    const classTokens = currentClasses.split(/\s+/).filter(Boolean);
+    const idx = classTokens.indexOf(oldClass);
+    if (idx === -1) return null;
+    classTokens[idx] = newClass;
+    const replacement = `class="${classTokens.join(" ")}"`;
+    return (
+      source.slice(0, classAttrStart) +
+      replacement +
+      source.slice(classAttrStart + fullMatch.length)
+    );
+  }
+
+  if (type === "addClass") {
+    const newClassStr = currentClasses
+      ? `${currentClasses} ${newClass}`
+      : newClass;
+    const replacement = `class="${newClassStr}"`;
+    return (
+      source.slice(0, classAttrStart) +
+      replacement +
+      source.slice(classAttrStart + fullMatch.length)
+    );
+  }
+
+  return null;
 }

@@ -38,11 +38,12 @@ export default function designtools(
           "page",
           `
 import { Surface } from "@designtools/vite-plugin/surface";
+import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 const el = document.createElement("div");
 el.id = "__designtools_surface";
 document.body.appendChild(el);
-createRoot(el).render(Surface());
+createRoot(el).render(createElement(Surface));
 `
         );
       },
