@@ -78,7 +78,8 @@ export class SurfacePage {
   /** Change an instance prop dimension via its StudioSelect dropdown. */
   async selectInstanceProp(dimName: string, value: string): Promise<void> {
     await this.page.locator(`[data-testid="instance-prop-${dimName}"]`).click();
-    await this.page.locator('[role="option"]').getByText(value, { exact: true }).click();
+    // StudioSelect uses Radix Popover with data-combobox-item buttons
+    await this.page.locator('[data-combobox-item]').getByText(value, { exact: true }).click();
   }
 
   /** Expand a ComponentVariantSection by its dimension name. Clicks once — toggles open if collapsed. */
@@ -97,6 +98,11 @@ export class SurfacePage {
       .filter({ hasText: new RegExp(`^${optionLabel}`) })
       .locator(".studio-section-hdr")
       .click();
+  }
+
+  /** Expand a collapsed property section by its label (e.g. "BORDER", "SPACING"). */
+  async expandSection(label: string): Promise<void> {
+    await this.page.locator(".studio-section-hdr", { hasText: label }).click();
   }
 
   /** Wait for the "Saved" indicator, then an extra 600ms for HMR to settle. */

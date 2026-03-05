@@ -350,18 +350,10 @@ async function main() {
   const stylingLabels: Record<StylingSystem["type"], string> = {
     "tailwind-v4": "Tailwind CSS v4",
     "tailwind-v3": "Tailwind CSS v3",
-    "bootstrap": "Bootstrap",
-    "css-variables": "CSS Custom Properties",
-    "plain-css": "Plain CSS",
-    "unknown": "Unknown",
+    "css": "CSS",
   };
   const stylingLabel = stylingLabels[styling.type];
-
-  if (styling.type !== "unknown") {
-    console.log(`  ${green("✓")} Styling        ${stylingLabel}`);
-  } else {
-    console.log(`  ${yellow("⚠")} Styling        ${dim("no styling system detected")}`);
-  }
+  console.log(`  ${green("✓")} Styling        ${stylingLabel}`);
 
   console.log("");
 

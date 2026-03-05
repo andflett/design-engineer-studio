@@ -8,10 +8,6 @@ import {
   TAILWIND_BORDER_WIDTH_PRESETS,
   type BorderPreset,
 } from "./presets/tailwind.js";
-import {
-  BOOTSTRAP_RADIUS_PRESETS,
-  BOOTSTRAP_BORDER_WIDTH_PRESETS,
-} from "./presets/bootstrap.js";
 
 export interface BorderDefinition {
   /** Display name: "radius-md", "--border-radius-lg", etc. */
@@ -53,9 +49,6 @@ export async function scanBorders(
   if (styling.type === "tailwind-v4" || styling.type === "tailwind-v3") {
     addPresets(borders, TAILWIND_RADIUS_PRESETS, overriddenNames);
     addPresets(borders, TAILWIND_BORDER_WIDTH_PRESETS, overriddenNames);
-  } else if (styling.type === "bootstrap") {
-    addPresets(borders, BOOTSTRAP_RADIUS_PRESETS, overriddenNames);
-    addPresets(borders, BOOTSTRAP_BORDER_WIDTH_PRESETS, overriddenNames);
   }
 
   // 3. Add custom borders (these override presets)

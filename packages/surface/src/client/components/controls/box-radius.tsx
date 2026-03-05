@@ -26,6 +26,7 @@ export function BoxRadiusControl({
   computedStyles,
   onPreviewInlineStyle,
   onCommitClass,
+  onCommitStyle,
   radiusScale,
 }: {
   activeProps: UnifiedProperty[];
@@ -33,6 +34,7 @@ export function BoxRadiusControl({
   computedStyles: Record<string, string>;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  onCommitStyle?: (cssProp: string, cssValue: string) => void;
   radiusScale?: readonly string[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -70,6 +72,7 @@ export function BoxRadiusControl({
           cssProp="border-radius"
           onPreview={(v) => onPreviewInlineStyle("border-radius", v)}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle ? (v) => onCommitStyle("border-radius", v) : undefined}
         />
       ) : (
         <div className="grid grid-cols-2 gap-1.5">
@@ -89,6 +92,7 @@ export function BoxRadiusControl({
                 cssProp={cssProp}
                 onPreview={(v) => onPreviewInlineStyle(cssProp, v)}
                 onCommitClass={onCommitClass}
+                onCommitStyle={onCommitStyle ? (v) => onCommitStyle(cssProp, v) : undefined}
               />
             );
           })}

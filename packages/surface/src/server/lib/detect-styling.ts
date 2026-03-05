@@ -3,13 +3,11 @@ import path from "path";
 import type { FrameworkInfo } from "./detect-framework.js";
 
 export interface StylingSystem {
-  type: "tailwind-v4" | "tailwind-v3" | "bootstrap" | "css-variables" | "plain-css" | "unknown";
+  type: "tailwind-v4" | "tailwind-v3" | "css";
   /** Tailwind config path (v3 only) */
   configPath?: string;
   /** CSS files containing global styles/variables */
   cssFiles: string[];
-  /** Sass/SCSS files containing variables (Bootstrap) */
-  scssFiles: string[];
   /** Whether dark mode is detected */
   hasDarkMode: boolean;
 }
@@ -36,7 +34,6 @@ export async function detectStylingSystem(
       return {
         type: "tailwind-v4",
         cssFiles: framework.cssFiles,
-        scssFiles: [],
         hasDarkMode,
       };
     }
@@ -62,40 +59,15 @@ export async function detectStylingSystem(
       type: "tailwind-v3",
       configPath,
       cssFiles: framework.cssFiles,
-      scssFiles: [],
       hasDarkMode,
     };
   }
 
-  // Check for Bootstrap
-  if (deps.bootstrap) {
-    const hasDarkMode = await checkDarkMode(projectRoot, framework.cssFiles);
-    const scssFiles = await findBootstrapScssFiles(projectRoot);
-    return {
-      type: "bootstrap",
-      cssFiles: framework.cssFiles,
-      scssFiles,
-      hasDarkMode,
-    };
-  }
-
-  // Check for CSS custom properties
+  // Non-Tailwind — all use the same CSS write path
   const hasDarkMode = await checkDarkMode(projectRoot, framework.cssFiles);
-  const hasCustomProps = await checkCustomProperties(projectRoot, framework.cssFiles);
-
-  if (hasCustomProps) {
-    return {
-      type: "css-variables",
-      cssFiles: framework.cssFiles,
-      scssFiles: [],
-      hasDarkMode,
-    };
-  }
-
   return {
-    type: framework.cssFiles.length > 0 ? "plain-css" : "unknown",
+    type: "css",
     cssFiles: framework.cssFiles,
-    scssFiles: [],
     hasDarkMode,
   };
 }
@@ -112,36 +84,3 @@ async function checkDarkMode(projectRoot: string, cssFiles: string[]): Promise<b
   return false;
 }
 
-async function checkCustomProperties(projectRoot: string, cssFiles: string[]): Promise<boolean> {
-  for (const file of cssFiles) {
-    try {
-      const css = await fs.readFile(path.join(projectRoot, file), "utf-8");
-      if (/--[\w-]+\s*:/.test(css)) {
-        return true;
-      }
-    } catch {}
-  }
-  return false;
-}
-
-async function findBootstrapScssFiles(projectRoot: string): Promise<string[]> {
-  const candidates = [
-    "src/scss/_variables.scss",
-    "src/scss/_custom.scss",
-    "src/scss/custom.scss",
-    "src/styles/_variables.scss",
-    "src/styles/variables.scss",
-    "assets/scss/_variables.scss",
-    "scss/_variables.scss",
-    "styles/_variables.scss",
-  ];
-
-  const found: string[] = [];
-  for (const candidate of candidates) {
-    try {
-      await fs.access(path.join(projectRoot, candidate));
-      found.push(candidate);
-    } catch {}
-  }
-  return found;
-}

@@ -5,6 +5,7 @@
  */
 
 import path from "path";
+import fs from "fs";
 
 interface LoaderContext {
   resourcePath: string;
@@ -38,6 +39,19 @@ export default function designtoolsLoader(this: LoaderContext, source: string): 
 
     const isTsx = this.resourcePath.endsWith(".tsx");
 
+    // Detect line offset from prior loaders (e.g. surface-mount-loader prepends imports).
+    // Compare the source we received vs the original file to find how many lines were added.
+    let lineOffset = 0;
+    try {
+      const originalSource = fs.readFileSync(this.resourcePath, "utf-8");
+      const originalFirstLine = originalSource.split("\n")[0];
+      const receivedLines = source.split("\n");
+      const matchIdx = receivedLines.findIndex((l) => l === originalFirstLine);
+      if (matchIdx > 0) {
+        lineOffset = matchIdx;
+      }
+    } catch {}
+
     const result = babel.transformSync(source, {
       filename: this.resourcePath,
       // No presets — we only want to parse and run our visitor, not compile
@@ -60,7 +74,8 @@ export default function designtoolsLoader(this: LoaderContext, source: string): 
                 const loc = nodePath.node.loc;
                 if (!loc) return;
 
-                const value = `${relativePath}:${loc.start.line}:${loc.start.column}`;
+                // Subtract lineOffset to get original file positions
+                const value = `${relativePath}:${loc.start.line - lineOffset}:${loc.start.column}`;
 
                 // Detect component elements (uppercase first letter or member expression like Foo.Bar)
                 const isComponent =

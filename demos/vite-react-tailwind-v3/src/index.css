@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #6366f1;
+  --color-border: #e2e8f0;
+  --color-bg: #f8fafc;
+  --color-text: #0f172a;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}

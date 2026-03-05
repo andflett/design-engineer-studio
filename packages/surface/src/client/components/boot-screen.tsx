@@ -45,9 +45,7 @@ function useBootSequence() {
         const labels: Record<string, string> = {
           "tailwind-v4": "Tailwind CSS v4",
           "tailwind-v3": "Tailwind CSS v3",
-          bootstrap: "Bootstrap 5",
-          "css-variables": "CSS Custom Properties",
-          "plain-css": "Plain CSS",
+          css: "CSS",
         };
         return `→ ${labels[t] || t}`;
       }

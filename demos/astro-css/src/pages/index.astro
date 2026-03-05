@@ -1,0 +1,28 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Card from "../components/Card.astro";
+import Counter from "../components/Counter";
+---
+
+<Layout title="Astro Demo">
+  <section class="hero">
+    <h1 class="surface-hero-h1-429a3">Astro + Designtools</h1>
+    <p>Visual editing for Astro templates and React islands.</p>
+  </section>
+
+  <section class="cards">
+    <Card title="Astro Templates" description="Native .astro files get data-source annotations automatically." />
+    <Card title="React Islands" description="Interactive components get source annotations via Babel transform." />
+    <Card title="Visual Editing" description="Click any element to inspect and edit styles in Surface." />
+  </section>
+
+  <section class="interactive">
+    <h2>React Island</h2>
+    <Counter client:load />
+  </section>
+</Layout>
+<style>
+.surface-hero-h1-429a3 {
+  font-size: 3rem;
+}
+</style>

@@ -133,15 +133,12 @@ function ShadowRow({
           value: newValue,
         });
       } else {
-        const variableName = shadow.sassVariable || shadow.cssVariable || `--${shadow.name}`;
+        const variableName = shadow.cssVariable || `--${shadow.name}`;
         let selector: string;
         let filePath = cssFilePath;
 
         if (stylingType === "tailwind-v4") {
           selector = "@theme";
-        } else if (stylingType === "bootstrap" && shadow.sassVariable) {
-          selector = "scss";
-          filePath = shadow.filePath || cssFilePath;
         } else {
           selector = ":root";
         }

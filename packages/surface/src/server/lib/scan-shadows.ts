@@ -5,11 +5,6 @@ import type { StylingSystem } from "./detect-styling.js";
 import { parseBlock } from "./scan-tokens.js";
 import { TAILWIND_SHADOW_PRESETS, type ShadowPreset } from "./presets/tailwind.js";
 import {
-  BOOTSTRAP_SHADOW_PRESETS,
-  scanBootstrapScssOverrides,
-  scanBootstrapCssOverrides,
-} from "./presets/bootstrap.js";
-import {
   scanDesignTokenShadows,
   findDesignTokenFiles,
 } from "./presets/w3c-design-tokens.js";
@@ -36,8 +31,6 @@ export interface ShadowDefinition {
   layers: ShadowLayer[];
   /** The CSS variable name if applicable (e.g. "--shadow-md") */
   cssVariable?: string;
-  /** Sass variable name for Bootstrap (e.g. "$box-shadow-sm") */
-  sassVariable?: string;
   /** W3C Design Token path for token-sourced shadows */
   tokenPath?: string;
   /** Source file path for design tokens */
@@ -60,9 +53,9 @@ export async function scanShadows(
   styling: StylingSystem
 ): Promise<ShadowMap> {
   const shadows: ShadowDefinition[] = [];
-  // Prefer framework.cssFiles, fall back to styling.cssFiles, then styling.scssFiles
+  // Prefer framework.cssFiles, fall back to styling.cssFiles
   const allCssFiles = framework.cssFiles.length > 0 ? framework.cssFiles : styling.cssFiles;
-  const cssFilePath = allCssFiles[0] || styling.scssFiles?.[0] || "";
+  const cssFilePath = allCssFiles[0] || "";
 
   // 1. Scan CSS files for custom shadow variables/values
   const customShadows = await scanCustomShadows(projectRoot, allCssFiles);
@@ -73,8 +66,6 @@ export async function scanShadows(
   // 2. Add framework presets based on detected styling system
   if (styling.type === "tailwind-v4" || styling.type === "tailwind-v3") {
     addPresets(shadows, TAILWIND_SHADOW_PRESETS, overriddenNames);
-  } else if (styling.type === "bootstrap") {
-    await addBootstrapShadows(shadows, projectRoot, styling, overriddenNames);
   }
 
   // 3. Scan for W3C Design Token files (regardless of framework)
@@ -158,50 +149,6 @@ function addPresets(
         isOverridden: false,
         layers: parseShadowValue(preset.value),
         cssVariable: `--${preset.name}`,
-      });
-    }
-  }
-}
-
-async function addBootstrapShadows(
-  shadows: ShadowDefinition[],
-  projectRoot: string,
-  styling: StylingSystem,
-  overriddenNames: Set<string>
-): Promise<void> {
-  const scssOverrides = await scanBootstrapScssOverrides(projectRoot, styling.scssFiles);
-  const scssOverrideMap = new Map(scssOverrides.map(o => [o.name, o]));
-
-  const cssOverrides = await scanBootstrapCssOverrides(projectRoot, styling.cssFiles);
-  const cssOverrideMap = new Map(cssOverrides.map(o => [o.name, o]));
-
-  for (const preset of BOOTSTRAP_SHADOW_PRESETS) {
-    if (overriddenNames.has(preset.name)) continue;
-
-    const scssOverride = scssOverrideMap.get(preset.name);
-    const cssOverride = cssOverrideMap.get(preset.name);
-
-    const override = cssOverride || scssOverride;
-
-    if (override) {
-      shadows.push({
-        name: preset.name,
-        value: override.value,
-        source: "framework-preset",
-        isOverridden: true,
-        layers: parseShadowValue(override.value),
-        cssVariable: override.cssVariable,
-        sassVariable: override.sassVariable,
-      });
-    } else {
-      shadows.push({
-        name: preset.name,
-        value: preset.value,
-        source: "framework-preset",
-        isOverridden: false,
-        layers: parseShadowValue(preset.value),
-        cssVariable: `--bs-${preset.name}`,
-        sassVariable: `$${preset.name}`,
       });
     }
   }

@@ -210,17 +210,14 @@ Key design decisions:
 
 | Demo | Framework | Styling | Run command |
 |------|-----------|---------|-------------|
-| `demos/studio-app` | Next.js | Tailwind CSS v4, CVA, OKLch tokens | `npm run demo:studio` |
-| `demos/vite-app` | Vite + React | Tailwind CSS v4 | `npm run demo:vite` |
-| `demos/remix-app` | Remix | Tailwind CSS v4 | `npm run demo:remix` |
-| `demos/astro-app` | Astro | Tailwind CSS v4 + React islands | `npm run demo:astro` |
-| `demos/svelte-app` | SvelteKit | Tailwind CSS v4 | `npm run demo:svelte` |
-| `demos/svelte-css-app` | SvelteKit | Scoped styles + CSS Variables | `npm run demo:svelte-css` |
-| `demos/tailwind-v3-app` | Vite + React | Tailwind CSS v3 custom theme | `npm run demo:tailwind-v3` |
-| `demos/css-app` | Vite + React | Plain CSS + CSS Variables | `npm run demo:css` |
-| `demos/css-modules-app` | Vite + React | CSS Modules (.module.css) | `npm run demo:css-modules` |
-| `demos/design-system` | Next.js | Design tokens | `npm run demo:design-system` |
-| `demos/screenshot-app` | Next.js | Tailwind CSS v4 | `npm run demo:screenshot` |
+| `demos/next-react-tailwind` | Next.js | Tailwind CSS v4, CVA, OKLch tokens | `npm run demo:next-react-tailwind` |
+| `demos/vite-react-tailwind` | Vite + React | Tailwind CSS v4 | `npm run demo:vite-react-tailwind` |
+| `demos/remix-react-tailwind` | Remix | Tailwind CSS v4 | `npm run demo:remix-react-tailwind` |
+| `demos/vite-react-tailwind-v3` | Vite + React | Tailwind CSS v3 custom theme | `npm run demo:vite-react-tailwind-v3` |
+| `demos/vite-react-css` | Vite + React | Plain CSS + CSS Variables + CSS Modules | `npm run demo:vite-react-css` |
+| `demos/astro-css` | Astro | Plain CSS + scoped styles | `npm run demo:astro-css` |
+| `demos/svelte-css` | SvelteKit | Scoped styles + CSS Variables | `npm run demo:svelte-css` |
+| `demos/svelte-tailwind` | SvelteKit | Tailwind CSS v4 | `npm run demo:svelte-tailwind` |
 
 ```bash
 # Clone and build
@@ -230,13 +227,13 @@ npm install
 npm run build
 
 # Install a demo and run
-cd demos/studio-app && npm install && cd ../..
+cd demos/next-react-tailwind && npm install && cd ../..
 
 # Terminal 1
-cd demos/studio-app && npm run dev
+cd demos/next-react-tailwind && npm run dev
 
 # Terminal 2
-npm run demo:studio
+npm run demo:next-react-tailwind
 ```
 
 The editor opens at [http://localhost:4400](http://localhost:4400).
@@ -254,16 +251,17 @@ designtools/
 │   ├── astro-plugin/  Astro integration + .astro template transform
 │   └── svelte-plugin/ SvelteKit plugin + .svelte template transform
 ├── demos/
-│   ├── studio-app/         Next.js + Tailwind v4 + CVA
-│   ├── vite-app/           Vite + React + Tailwind v4
-│   ├── remix-app/          Remix + Tailwind v4
-│   ├── astro-app/          Astro + React islands
-│   ├── svelte-app/         SvelteKit + Tailwind v4
-│   ├── svelte-css-app/     SvelteKit + scoped styles + CSS vars
-│   ├── tailwind-v3-app/    Vite + Tailwind v3 custom theme
-│   ├── css-app/            Plain CSS + CSS Variables
-│   ├── css-modules-app/    CSS Modules
-│   └── design-system/      Design tokens demo
+│   ├── next-react-tailwind/      Next.js + Tailwind v4 + CVA
+│   ├── vite-react-tailwind/      Vite + React + Tailwind v4
+│   ├── remix-react-tailwind/     Remix + Tailwind v4
+│   ├── vite-react-tailwind-v3/   Vite + Tailwind v3 custom theme
+│   ├── vite-react-css/           Plain CSS + CSS Variables + CSS Modules
+│   ├── astro-css/                Astro + plain CSS + scoped styles
+│   ├── svelte-css/               SvelteKit + scoped styles + CSS vars
+│   └── svelte-tailwind/          SvelteKit + Tailwind v4
+├── tests/
+│   ├── e2e/           Playwright E2E tests (per-project directories)
+│   └── fixtures/      Test fixture projects (integration tests)
 ```
 
 ## Testing with a local project
@@ -331,46 +329,39 @@ npm run test:watch    # watch mode
 
 ### E2E tests (Playwright)
 
-E2E tests require the demo app servers to be running. You can either start them manually or let Playwright handle it.
+Playwright starts the required demo servers automatically via `webServer` config.
 
 ```bash
-# Run all E2E tests (starts servers automatically)
+# Run all E2E tests
 npm run test:e2e
 
 # Run with Playwright UI
 npm run test:e2e:ui
 
 # Run a single project
-npx playwright test --project=studio
-npx playwright test --project=vite
-npx playwright test --project=css
-npx playwright test --project=css-modules
-npx playwright test --project=design-system
+npx playwright test --project=next-react-tailwind
+npx playwright test --project=vite-react-tailwind
+npx playwright test --project=vite-react-css
+npx playwright test --project=astro-css
+npx playwright test --project=svelte-css
+npx playwright test --project=svelte-tailwind
+npx playwright test --project=remix-react-tailwind
+npx playwright test --project=vite-react-tailwind-v3
 
 # Run a single spec file
-npx playwright test --project=css tests/e2e/css-app/token-add-delete.spec.ts
+npx playwright test --project=vite-react-css tests/e2e/vite-react-css/element-css-modules.spec.ts
 ```
 
 | Project | Demo | What it tests |
 |---------|------|---------------|
-| `studio` | studio-app | Tailwind v4 classes, CVA component/instance editing |
-| `vite` | vite-app | Tailwind v4 class editing (Vite) |
-| `css` | css-app | Plain CSS, CSS variables, token add/delete |
-| `css-modules` | css-modules-app | CSS Modules editing |
-| `design-system` | design-system | Design token color editing |
-
-To start servers manually (useful for debugging):
-
-```bash
-# Build first
-npm run build
-
-# Start the demo (builds plugin + starts app + surface)
-npm run demo:css          # or demo:studio, demo:vite, etc.
-
-# Then run tests against the running servers
-npx playwright test --project=css
-```
+| `next-react-tailwind` | next-react-tailwind | Tailwind v4 classes, CVA component/instance editing, selection, color tokens |
+| `vite-react-tailwind` | vite-react-tailwind | Tailwind v4 class editing, token CRUD (`@theme` block) |
+| `vite-react-css` | vite-react-css | Plain CSS properties, CSS Modules, token add/delete (`:root`) |
+| `astro-css` | astro-css | Scoped styles, CSS variables |
+| `svelte-css` | svelte-css | Scoped styles, CSS variables |
+| `svelte-tailwind` | svelte-tailwind | Tailwind v4 classes on `.svelte` files, token editing |
+| `remix-react-tailwind` | remix-react-tailwind | Tailwind v4 class editing (Remix) |
+| `vite-react-tailwind-v3` | vite-react-tailwind-v3 | Tailwind v3 class editing |
 
 ## License
 

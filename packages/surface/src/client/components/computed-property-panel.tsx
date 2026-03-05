@@ -1097,6 +1097,7 @@ function BorderSection({
           computedStyles={computedStyles}
           onPreviewInlineStyle={onPreviewInlineStyle}
           onCommitClass={onCommitClass}
+          onCommitStyle={onCommitStyle}
           radiusScale={twScales?.borderRadius}
         />
       )}

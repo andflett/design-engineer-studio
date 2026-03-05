@@ -24,10 +24,7 @@ const frameworkLabels: Record<FrameworkInfo["name"], string> = {
 const stylingLabels: Record<StylingSystem["type"], string> = {
   "tailwind-v4": "Tailwind v4",
   "tailwind-v3": "Tailwind v3",
-  bootstrap: "Bootstrap",
-  "css-variables": "CSS Variables",
-  "plain-css": "Plain CSS",
-  unknown: "CSS",
+  css: "CSS",
 };
 
 // ---------------------------------------------------------------------------
