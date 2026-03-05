@@ -442,7 +442,7 @@ function TreeNodeItem({
         )}
 
         {/* Name */}
-        <span className="truncate">{node.name}</span>
+        <span className="shrink-0">{node.name}</span>
 
         {/* Package badge for npm components */}
         {node.source && node.source.includes("node_modules") && (

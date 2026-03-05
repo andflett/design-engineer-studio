@@ -123,8 +123,8 @@ describe("POST /api/write-element — changes (Tailwind auto-map)", () => {
 
     expect(res.status).toBe(200);
     const updated = await fs.readFile(path.join(FIXTURE_DIR, "page.tsx"), "utf-8");
-    // padding-top 32px = pt-8, should be appended since p-4 is "padding" not "paddingTop"
-    expect(updated).toContain("pt-8");
+    // Without a resolved theme, padding-top 32px falls back to arbitrary value
+    expect(updated).toContain("pt-[32px]");
   });
 
   it("uses hint.tailwindClass when provided", async () => {
@@ -252,6 +252,50 @@ describe("POST /api/write-element — scoped styles (.astro)", () => {
     // Scoped block should be untouched
     const astro = await fs.readFile(path.join(FIXTURE_DIR, "scoped.astro"), "utf-8");
     expect(astro).toContain("padding: 1rem;");
+  });
+});
+
+describe("POST /api/write-element — descendant selectors (.astro)", () => {
+  it("writes CSS property via descendant selector for classless element", async () => {
+    const app = createApp({ stylingType: "plain-css", cssFiles: [] });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "cssProperty",
+        source: { file: "descendant.astro", line: 5, col: 1 },
+        changes: [{ property: "color", value: "red" }],
+      });
+
+    expect(res.status).toBe(200);
+    const content = await fs.readFile(path.join(FIXTURE_DIR, "descendant.astro"), "utf-8");
+    // Should write to ".card h3" rule, not ".card"
+    expect(content).toContain("color: red;");
+    // ".card h3" block should be modified, .card block should be untouched
+    expect(content).toContain(".card h3");
+    expect(content).toContain("padding: 1rem;"); // .card rule preserved
+  });
+
+  it("prefers project stylesheet descendant selector over scoped style", async () => {
+    // Add a .card h3 rule to styles.css
+    const stylesPath = path.join(FIXTURE_DIR, "styles.css");
+    const originalCss = await fs.readFile(stylesPath, "utf-8");
+    await fs.writeFile(stylesPath, originalCss + "\n.card h3 {\n  color: navy;\n}\n", "utf-8");
+
+    const app = createApp({ stylingType: "plain-css", cssFiles: ["styles.css"] });
+    const res = await request(app)
+      .post("/api/write-element")
+      .send({
+        type: "cssProperty",
+        source: { file: "descendant.astro", line: 5, col: 1 },
+        changes: [{ property: "color", value: "green" }],
+      });
+
+    expect(res.status).toBe(200);
+    const css = await fs.readFile(stylesPath, "utf-8");
+    expect(css).toContain("color: green;");
+    // Scoped block should be untouched
+    const astro = await fs.readFile(path.join(FIXTURE_DIR, "descendant.astro"), "utf-8");
+    expect(astro).toContain("color: navy;");
   });
 });
 

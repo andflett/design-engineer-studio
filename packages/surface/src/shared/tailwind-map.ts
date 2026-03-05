@@ -11,58 +11,11 @@
 
 import type { ResolvedTailwindTheme, ScaleEntry } from "./tailwind-theme.js";
 
-/** Reverse lookup: CSS property → { computed value → Tailwind class } */
+/** Reverse lookup: CSS property → { computed value → Tailwind class }
+ * Only contains keyword mappings (non-numeric, non-scale properties).
+ * Scale properties (font-size, font-weight, line-height, letter-spacing, opacity)
+ * are resolved from the project's theme — no hardcoded fallbacks. */
 const REVERSE_MAP: Record<string, Record<string, string>> = {
-  // Font size
-  "font-size": {
-    "12px": "text-xs", "0.75rem": "text-xs",
-    "14px": "text-sm", "0.875rem": "text-sm",
-    "16px": "text-base", "1rem": "text-base",
-    "18px": "text-lg", "1.125rem": "text-lg",
-    "20px": "text-xl", "1.25rem": "text-xl",
-    "24px": "text-2xl", "1.5rem": "text-2xl",
-    "30px": "text-3xl", "1.875rem": "text-3xl",
-    "36px": "text-4xl", "2.25rem": "text-4xl",
-    "48px": "text-5xl", "3rem": "text-5xl",
-    "60px": "text-6xl", "3.75rem": "text-6xl",
-    "72px": "text-7xl", "4.5rem": "text-7xl",
-    "96px": "text-8xl", "6rem": "text-8xl",
-    "128px": "text-9xl", "8rem": "text-9xl",
-  },
-
-  // Font weight
-  "font-weight": {
-    "100": "font-thin",
-    "200": "font-extralight",
-    "300": "font-light",
-    "400": "font-normal",
-    "500": "font-medium",
-    "600": "font-semibold",
-    "700": "font-bold",
-    "800": "font-extrabold",
-    "900": "font-black",
-  },
-
-  // Line height
-  "line-height": {
-    "1": "leading-none",
-    "1.25": "leading-tight",
-    "1.375": "leading-snug",
-    "1.5": "leading-normal",
-    "1.625": "leading-relaxed",
-    "2": "leading-loose",
-  },
-
-  // Letter spacing
-  "letter-spacing": {
-    "-0.05em": "tracking-tighter",
-    "-0.025em": "tracking-tight",
-    "0em": "tracking-normal", "0px": "tracking-normal",
-    "0.025em": "tracking-wide",
-    "0.05em": "tracking-wider",
-    "0.1em": "tracking-widest",
-  },
-
   // Text align
   "text-align": {
     "left": "text-left", "start": "text-left",
@@ -151,83 +104,8 @@ const REVERSE_MAP: Record<string, Record<string, string>> = {
     "auto": "overflow-auto",
   },
 
-  // Opacity
-  "opacity": {
-    "0": "opacity-0",
-    "0.05": "opacity-5",
-    "0.1": "opacity-10",
-    "0.15": "opacity-15",
-    "0.2": "opacity-20",
-    "0.25": "opacity-25",
-    "0.3": "opacity-30",
-    "0.35": "opacity-35",
-    "0.4": "opacity-40",
-    "0.45": "opacity-45",
-    "0.5": "opacity-50",
-    "0.55": "opacity-55",
-    "0.6": "opacity-60",
-    "0.65": "opacity-65",
-    "0.7": "opacity-70",
-    "0.75": "opacity-75",
-    "0.8": "opacity-80",
-    "0.85": "opacity-85",
-    "0.9": "opacity-90",
-    "0.95": "opacity-95",
-    "1": "opacity-100",
-  },
 };
 
-/** Spacing reverse lookup: maps computed px values to Tailwind spacing scale numbers. */
-const SPACING_PX_MAP: Record<string, string> = {
-  "0px": "0",
-  "1px": "px",
-  "2px": "0.5",
-  "4px": "1",
-  "6px": "1.5",
-  "8px": "2",
-  "10px": "2.5",
-  "12px": "3",
-  "14px": "3.5",
-  "16px": "4",
-  "20px": "5",
-  "24px": "6",
-  "28px": "7",
-  "32px": "8",
-  "36px": "9",
-  "40px": "10",
-  "44px": "11",
-  "48px": "12",
-  "56px": "14",
-  "64px": "16",
-  "80px": "20",
-  "96px": "24",
-  "112px": "28",
-  "128px": "32",
-  "144px": "36",
-  "160px": "40",
-  "176px": "44",
-  "192px": "48",
-  "208px": "52",
-  "224px": "56",
-  "240px": "60",
-  "256px": "64",
-  "288px": "72",
-  "320px": "80",
-  "384px": "96",
-};
-
-/** Border radius reverse lookup */
-const RADIUS_MAP: Record<string, string> = {
-  "0px": "rounded-none",
-  "2px": "rounded-sm", "0.125rem": "rounded-sm",
-  "4px": "rounded", "0.25rem": "rounded",
-  "6px": "rounded-md", "0.375rem": "rounded-md",
-  "8px": "rounded-lg", "0.5rem": "rounded-lg",
-  "12px": "rounded-xl", "0.75rem": "rounded-xl",
-  "16px": "rounded-2xl", "1rem": "rounded-2xl",
-  "24px": "rounded-3xl", "1.5rem": "rounded-3xl",
-  "9999px": "rounded-full",
-};
 
 /** Maps CSS property name to the Tailwind prefix for that property. */
 const CSS_TO_TW_PREFIX: Record<string, string> = {
@@ -377,10 +255,8 @@ export function computedToTailwindClass(
   }
 
   if (SPACING_PROPS.has(cssProp)) {
-    const spacingMap = themeMaps?.spacingPx
-      ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
-      : SPACING_PX_MAP;
-    const scaleVal = spacingMap[computedValue];
+    const spacingMap = themeMaps?.spacingPx;
+    const scaleVal = spacingMap?.[computedValue];
     const prefix = CSS_TO_TW_PREFIX[cssProp];
     if (scaleVal && prefix) {
       return { tailwindClass: `${prefix}-${scaleVal}`, exact: true };
@@ -392,8 +268,7 @@ export function computedToTailwindClass(
   }
 
   if (RADIUS_PROPS.has(cssProp)) {
-    const rMap = themeMaps?.radiusMap || RADIUS_MAP;
-    const radiusClass = rMap[computedValue];
+    const radiusClass = themeMaps?.radiusMap?.[computedValue];
     if (radiusClass) {
       const prefix = CSS_TO_TW_PREFIX[cssProp];
       if (prefix) {
@@ -425,10 +300,7 @@ export function uniformBoxToTailwind(
 ): TailwindMatch | null {
   const prefix = type === "padding" ? "p" : "m";
   const themeMaps = getThemeMaps(theme);
-  const spacingMap = themeMaps?.spacingPx
-    ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
-    : SPACING_PX_MAP;
-  const scaleVal = spacingMap[value];
+  const scaleVal = themeMaps?.spacingPx?.[value];
   if (scaleVal) {
     return { tailwindClass: `${prefix}-${scaleVal}`, exact: true };
   }
@@ -448,11 +320,8 @@ export function axisBoxToTailwind(
   const yPrefix = type === "padding" ? "py" : "my";
 
   const themeMaps = getThemeMaps(theme);
-  const spacingMap = themeMaps?.spacingPx
-    ? { ...SPACING_PX_MAP, ...themeMaps.spacingPx }
-    : SPACING_PX_MAP;
-  const xScale = spacingMap[x];
-  const yScale = spacingMap[y];
+  const xScale = themeMaps?.spacingPx?.[x];
+  const yScale = themeMaps?.spacingPx?.[y];
 
   return {
     xClass: xScale
@@ -469,8 +338,7 @@ export function uniformRadiusToTailwind(
   theme?: ResolvedTailwindTheme | null,
 ): TailwindMatch | null {
   const themeMaps = getThemeMaps(theme);
-  const rMap = themeMaps?.radiusMap || RADIUS_MAP;
-  const cls = rMap[value];
+  const cls = themeMaps?.radiusMap?.[value];
   if (cls) return { tailwindClass: cls, exact: true };
   if (value !== "0px") return { tailwindClass: `rounded-[${value}]`, exact: false };
   return null;

@@ -8,9 +8,9 @@ export interface ScaleEntry {
   value: string;  // "1rem", "700", "1.25rem"
 }
 
-/** The 8 theme scale names */
+/** The 9 theme scale names */
 export type ThemeScaleKey = "spacing" | "fontSize" | "fontWeight" | "lineHeight"
-  | "letterSpacing" | "borderRadius" | "borderWidth" | "opacity";
+  | "letterSpacing" | "borderRadius" | "borderWidth" | "opacity" | "boxShadow";
 
 export interface ResolvedTailwindTheme {
   spacing: ScaleEntry[];
@@ -21,6 +21,7 @@ export interface ResolvedTailwindTheme {
   borderRadius: ScaleEntry[];
   borderWidth: ScaleEntry[];
   opacity: ScaleEntry[];
+  boxShadow: ScaleEntry[];
   /** Source CSS variable prefixes per scale (only for CSS-variable-derived themes).
    *  E.g. { spacing: "--space", fontSize: "--text" } */
   varPrefixes?: Partial<Record<string, string>>;

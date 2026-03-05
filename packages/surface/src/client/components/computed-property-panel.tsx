@@ -100,6 +100,18 @@ function extractVarTokenKey(
   return null;
 }
 
+/**
+ * Extract the variable name from an authored `var(--foo)` reference.
+ * Returns the name without the `--` prefix.
+ * E.g. `extractVarName("var(--color-primary)")` → `"color-primary"`.
+ */
+function extractVarName(authoredValue: string | null | undefined): string | null {
+  if (!authoredValue) return null;
+  const match = authoredValue.match(/var\(\s*(--[\w-]+)\s*[,)]/);
+  if (!match) return null;
+  return match[1].replace(/^--/, "");
+}
+
 interface ComputedPropertyPanelProps {
   tag: string;
   className: string;
@@ -374,6 +386,7 @@ function UnifiedSection({
               onRevertInlineStyles={onRevertInlineStyles}
               onCommitClass={onCommitClass}
               onCommitStyle={onCommitStyle}
+              twScales={twScales}
             />
           ) : (
             activeProps.map((prop) => (
@@ -1182,6 +1195,7 @@ function EffectsSection({
   onRevertInlineStyles,
   onCommitClass,
   onCommitStyle,
+  twScales,
 }: {
   properties: UnifiedProperty[];
   tokenGroups: Record<string, any[]>;
@@ -1192,6 +1206,7 @@ function EffectsSection({
   onRevertInlineStyles: () => void;
   onCommitClass: (c: string, oldClass?: string) => void;
   onCommitStyle?: (cssProp: string, cssValue: string) => void;
+  twScales?: TwScales;
 }) {
   const opacityProp = properties.find((p) => p.cssProperty === "opacity");
   const shadowProp = properties.find((p) => p.cssProperty === "box-shadow");
@@ -1209,8 +1224,10 @@ function EffectsSection({
           <PropLabel label={opacityProp.label} inherited={opacityProp.inherited} />
           <OpacitySlider
             value={opacityProp.computedValue}
+            scale={twScales?.opacity || []}
             onPreview={(v) => onPreviewInlineStyle("opacity", v)}
             onCommitClass={onCommitClass}
+            onCommitStyle={onCommitStyle ? (v) => onCommitStyle("opacity", v) : undefined}
           />
         </div>
       )}
@@ -1222,9 +1239,11 @@ function EffectsSection({
           <ShadowPicker
             prop={shadowProp}
             shadows={shadows}
+            scale={twScales?.boxShadow || []}
             elementClassName={elementClassName}
             onPreviewInlineStyle={onPreviewInlineStyle}
             onCommitClass={onCommitClass}
+            onCommitStyle={onCommitStyle ? (v) => onCommitStyle("box-shadow", v) : undefined}
           />
         </div>
       )}
@@ -1436,7 +1455,12 @@ function UnifiedControl({
       : "border";
 
     const hasToken = !!prop.tokenMatch;
-    const displayLabel = hasToken ? prop.tokenMatch!.tokenName : (prop.tailwindValue || prop.computedValue);
+    const authoredVarName = extractVarName(prop.authoredValue);
+    const displayLabel = hasToken
+      ? prop.tokenMatch!.tokenName
+      : authoredVarName
+        ? authoredVarName
+        : (prop.tailwindValue || prop.computedValue);
 
     return (
       <div>
@@ -1541,6 +1565,7 @@ function UnifiedControl({
         <PropLabel label={prop.label} inherited={prop.inherited} />
         <OpacitySlider
           value={prop.computedValue}
+          scale={twScales?.opacity || []}
           onPreview={(v) => onPreviewInlineStyle("opacity", v)}
           onCommitClass={onCommitClass}
         />

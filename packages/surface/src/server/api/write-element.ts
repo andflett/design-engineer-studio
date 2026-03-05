@@ -429,15 +429,60 @@ export function createWriteElementRouter(config: WriteElementConfig) {
             }
           }
 
-          // 2. Try project stylesheets — search cssFiles for matching class rules
+          // For classless SFC elements, build descendant selectors (e.g. ".card h3")
+          // by finding the tag name and walking up to parent elements with classes
+          let tagSelectors: string[] = [];
+          if (isSFC && classes.length === 0) {
+            const lines = source.split("\n");
+            const lineIdx = body.source.line - 1;
+            const tagMatch = lines[lineIdx]?.match(/<([\w-]+)[\s>\/]/);
+            const tagName = tagMatch?.[1];
+            if (tagName) {
+              // Walk backward to find nearest parent element with classes
+              // Track nesting depth: closing tags on their own line increase depth
+              let depth = 0;
+              for (let i = lineIdx - 1; i >= 0; i--) {
+                const ln = lines[i];
+                // Count standalone closing tags (siblings that closed before us)
+                const selfContained = (ln.match(/<[\w-]+[^>]*>.*<\/[\w-]+>/g) || []).length;
+                const closes = (ln.match(/<\/[\w-]+\s*>/g) || []).length - selfContained;
+                const opens = (ln.match(/<([\w-]+)[\s>]/g) || []).length - selfContained;
+                depth += closes;
+                if (opens > 0 && depth > 0) {
+                  depth -= opens;
+                  continue;
+                }
+                if (opens > 0) {
+                  const parentClassMatch = ln.match(/class\s*=\s*"([^"]*)"/);
+                  if (parentClassMatch) {
+                    const parentClasses = parentClassMatch[1].split(/\s+/).filter(Boolean);
+                    for (const cls of parentClasses) {
+                      tagSelectors.push(`.${cls} ${tagName}`);
+                    }
+                  }
+                  break;
+                }
+              }
+              // Bare tag name as last resort
+              tagSelectors.push(tagName);
+            }
+          }
+
+          // Build the list of selectors to try: class-based first, then tag-based
+          const selectorsToTry: string[] = [
+            ...classes.map(cls => `.${cls}`),
+            ...tagSelectors,
+          ];
+
+          // 2. Try project stylesheets — search cssFiles for matching rules
           if (!written && config.cssFiles.length > 0) {
-            for (const cls of classes) {
+            for (const selector of selectorsToTry) {
               for (const cssFile of config.cssFiles) {
                 const cssPath = safePath(config.projectRoot, cssFile);
                 try {
                   let css = await fs.readFile(cssPath, "utf-8");
-                  if (findCssRule(css, `.${cls}`)) {
-                    const result = writeCssPropertyWithCleanup(css, `.${cls}`, cssProp, cssValue);
+                  if (findCssRule(css, selector)) {
+                    const result = writeCssPropertyWithCleanup(css, selector, cssProp, cssValue);
                     if (result) {
                       await fs.writeFile(cssPath, result, "utf-8");
                       written = true;
@@ -452,8 +497,8 @@ export function createWriteElementRouter(config: WriteElementConfig) {
 
           // 2.5. Try scoped <style> blocks in .astro / .svelte single-file components
           if (!written && isSFC) {
-            for (const cls of classes) {
-              const result = writeScopedStyleProperty(source, `.${cls}`, cssProp, cssValue);
+            for (const selector of selectorsToTry) {
+              const result = writeScopedStyleProperty(source, selector, cssProp, cssValue);
               if (result) {
                 await fs.writeFile(fullPath, result, "utf-8");
                 written = true;

@@ -10,25 +10,7 @@ import {
 import type { ResolvedTailwindTheme } from "./tailwind-theme.js";
 
 describe("computedToTailwindClass", () => {
-  describe("direct lookups", () => {
-    it("maps font-size px to tailwind class", () => {
-      expect(computedToTailwindClass("font-size", "16px")).toEqual({ tailwindClass: "text-base", exact: true });
-      expect(computedToTailwindClass("font-size", "1rem")).toEqual({ tailwindClass: "text-base", exact: true });
-    });
-
-    it("maps font-weight to tailwind class", () => {
-      expect(computedToTailwindClass("font-weight", "700")).toEqual({ tailwindClass: "font-bold", exact: true });
-      expect(computedToTailwindClass("font-weight", "400")).toEqual({ tailwindClass: "font-normal", exact: true });
-    });
-
-    it("maps line-height to tailwind class", () => {
-      expect(computedToTailwindClass("line-height", "1.5")).toEqual({ tailwindClass: "leading-normal", exact: true });
-    });
-
-    it("maps letter-spacing to tailwind class", () => {
-      expect(computedToTailwindClass("letter-spacing", "-0.025em")).toEqual({ tailwindClass: "tracking-tight", exact: true });
-    });
-
+  describe("keyword lookups (no theme needed)", () => {
     it("maps display to tailwind class", () => {
       expect(computedToTailwindClass("display", "flex")).toEqual({ tailwindClass: "flex", exact: true });
       expect(computedToTailwindClass("display", "none")).toEqual({ tailwindClass: "hidden", exact: true });
@@ -47,36 +29,22 @@ describe("computedToTailwindClass", () => {
     });
   });
 
-  describe("spacing lookups", () => {
-    it("maps spacing px values to scale classes", () => {
-      expect(computedToTailwindClass("padding-top", "16px")).toEqual({ tailwindClass: "pt-4", exact: true });
-      expect(computedToTailwindClass("margin-left", "8px")).toEqual({ tailwindClass: "ml-2", exact: true });
-      expect(computedToTailwindClass("gap", "24px")).toEqual({ tailwindClass: "gap-6", exact: true });
+  describe("no-theme fallbacks to arbitrary", () => {
+    it("falls back to arbitrary for spacing without theme", () => {
+      expect(computedToTailwindClass("padding-top", "16px")).toEqual({ tailwindClass: "pt-[16px]", exact: false });
     });
 
-    it("falls back to arbitrary for non-scale spacing values", () => {
-      expect(computedToTailwindClass("padding-top", "13px")).toEqual({ tailwindClass: "pt-[13px]", exact: false });
+    it("falls back to arbitrary for font-size without theme", () => {
+      expect(computedToTailwindClass("font-size", "16px")).toEqual({ tailwindClass: "text-[16px]", exact: false });
+    });
+
+    it("falls back to arbitrary for radius without theme", () => {
+      expect(computedToTailwindClass("border-top-left-radius", "8px")).toEqual({ tailwindClass: "rounded-tl-[8px]", exact: false });
     });
 
     it("falls back to arbitrary for auto spacing", () => {
       const result = computedToTailwindClass("margin-top", "auto");
       expect(result).toEqual({ tailwindClass: "mt-[auto]", exact: false });
-    });
-  });
-
-  describe("radius lookups", () => {
-    it("maps radius px to tailwind class", () => {
-      expect(computedToTailwindClass("border-top-left-radius", "8px")).toEqual({ tailwindClass: "rounded-tl-lg", exact: true });
-    });
-
-    it("falls back to arbitrary for non-scale radius", () => {
-      expect(computedToTailwindClass("border-top-left-radius", "5px")).toEqual({ tailwindClass: "rounded-tl-[5px]", exact: false });
-    });
-  });
-
-  describe("generic arbitrary fallback", () => {
-    it("uses arbitrary for known property with unknown value", () => {
-      expect(computedToTailwindClass("font-size", "15px")).toEqual({ tailwindClass: "text-[15px]", exact: false });
     });
 
     it("returns null for completely unknown property", () => {
@@ -108,48 +76,40 @@ describe("computedToTailwindClass", () => {
 });
 
 describe("uniformBoxToTailwind", () => {
-  it("maps scale value for padding", () => {
-    expect(uniformBoxToTailwind("padding", "16px")).toEqual({ tailwindClass: "p-4", exact: true });
+  it("falls back to arbitrary without theme", () => {
+    expect(uniformBoxToTailwind("padding", "16px")).toEqual({ tailwindClass: "p-[16px]", exact: false });
   });
 
-  it("maps scale value for margin", () => {
-    expect(uniformBoxToTailwind("margin", "8px")).toEqual({ tailwindClass: "m-2", exact: true });
+  it("returns null for 0px without theme", () => {
+    expect(uniformBoxToTailwind("padding", "0px")).toBeNull();
   });
 
-  it("falls back to arbitrary", () => {
+  it("falls back to arbitrary for non-scale value", () => {
     expect(uniformBoxToTailwind("padding", "13px")).toEqual({ tailwindClass: "p-[13px]", exact: false });
-  });
-
-  it("maps 0px to scale class", () => {
-    expect(uniformBoxToTailwind("padding", "0px")).toEqual({ tailwindClass: "p-0", exact: true });
   });
 });
 
 describe("axisBoxToTailwind", () => {
-  it("maps both axes for padding", () => {
+  it("falls back to arbitrary without theme", () => {
     const result = axisBoxToTailwind("padding", "16px", "8px");
-    expect(result.xClass).toEqual({ tailwindClass: "px-4", exact: true });
-    expect(result.yClass).toEqual({ tailwindClass: "py-2", exact: true });
+    expect(result.xClass).toEqual({ tailwindClass: "px-[16px]", exact: false });
+    expect(result.yClass).toEqual({ tailwindClass: "py-[8px]", exact: false });
   });
 
-  it("maps 0px axis to scale class", () => {
+  it("returns null for 0px axis without theme", () => {
     const result = axisBoxToTailwind("margin", "0px", "16px");
-    expect(result.xClass).toEqual({ tailwindClass: "mx-0", exact: true });
-    expect(result.yClass).toEqual({ tailwindClass: "my-4", exact: true });
+    expect(result.xClass).toBeNull();
+    expect(result.yClass).toEqual({ tailwindClass: "my-[16px]", exact: false });
   });
 });
 
 describe("uniformRadiusToTailwind", () => {
-  it("maps scale radius value", () => {
-    expect(uniformRadiusToTailwind("8px")).toEqual({ tailwindClass: "rounded-lg", exact: true });
+  it("falls back to arbitrary without theme", () => {
+    expect(uniformRadiusToTailwind("8px")).toEqual({ tailwindClass: "rounded-[8px]", exact: false });
   });
 
-  it("falls back to arbitrary", () => {
-    expect(uniformRadiusToTailwind("5px")).toEqual({ tailwindClass: "rounded-[5px]", exact: false });
-  });
-
-  it("maps 0px to rounded-none", () => {
-    expect(uniformRadiusToTailwind("0px")).toEqual({ tailwindClass: "rounded-none", exact: true });
+  it("returns null for 0px without theme", () => {
+    expect(uniformRadiusToTailwind("0px")).toBeNull();
   });
 });
 
@@ -252,6 +212,7 @@ const customTheme: ResolvedTailwindTheme = {
   ],
   borderWidth: [],
   opacity: [],
+  boxShadow: [],
 };
 
 describe("computedToTailwindClass with custom theme", () => {
@@ -264,15 +225,14 @@ describe("computedToTailwindClass with custom theme", () => {
     });
   });
 
-  it("uses default scale for spacing not in custom theme", () => {
-    // 24px is in the default scale but NOT in our custom theme — merge means defaults still available
+  it("falls back to arbitrary for spacing not in custom theme", () => {
+    // 24px is NOT in our custom theme — arbitrary
     expect(computedToTailwindClass("padding-top", "24px", customTheme)).toEqual({
-      tailwindClass: "pt-6", exact: true,
+      tailwindClass: "pt-[24px]", exact: false,
     });
   });
 
-  it("theme tokens win over defaults on collision", () => {
-    // 8px maps to "2" in defaults but "md" in custom theme — theme wins
+  it("maps custom spacing scale", () => {
     expect(computedToTailwindClass("padding-top", "8px", customTheme)).toEqual({
       tailwindClass: "pt-md", exact: true,
     });
@@ -326,12 +286,12 @@ describe("computedToTailwindClass with custom theme", () => {
     });
   });
 
-  it("uses default maps when theme is null", () => {
+  it("falls back to arbitrary when theme is null for scale properties", () => {
     expect(computedToTailwindClass("font-size", "16px", null)).toEqual({
-      tailwindClass: "text-base", exact: true,
+      tailwindClass: "text-[16px]", exact: false,
     });
     expect(computedToTailwindClass("padding-top", "16px", null)).toEqual({
-      tailwindClass: "pt-4", exact: true,
+      tailwindClass: "pt-[16px]", exact: false,
     });
   });
 });
@@ -349,16 +309,15 @@ describe("uniformBoxToTailwind with custom theme", () => {
     });
   });
 
-  it("uses default scale for non-custom-scale value", () => {
-    // 12px maps to "3" in defaults — merge means defaults still available
+  it("falls back to arbitrary for non-custom-scale value", () => {
     expect(uniformBoxToTailwind("padding", "12px", customTheme)).toEqual({
-      tailwindClass: "p-3", exact: true,
+      tailwindClass: "p-[12px]", exact: false,
     });
   });
 
-  it("uses default when theme is null", () => {
+  it("falls back to arbitrary when theme is null", () => {
     expect(uniformBoxToTailwind("padding", "16px", null)).toEqual({
-      tailwindClass: "p-4", exact: true,
+      tailwindClass: "p-[16px]", exact: false,
     });
   });
 });
@@ -370,10 +329,10 @@ describe("axisBoxToTailwind with custom theme", () => {
     expect(result.yClass).toEqual({ tailwindClass: "py-lg", exact: true });
   });
 
-  it("uses default when theme is null", () => {
+  it("falls back to arbitrary when theme is null", () => {
     const result = axisBoxToTailwind("padding", "16px", "8px", null);
-    expect(result.xClass).toEqual({ tailwindClass: "px-4", exact: true });
-    expect(result.yClass).toEqual({ tailwindClass: "py-2", exact: true });
+    expect(result.xClass).toEqual({ tailwindClass: "px-[16px]", exact: false });
+    expect(result.yClass).toEqual({ tailwindClass: "py-[8px]", exact: false });
   });
 });
 
@@ -400,9 +359,9 @@ describe("uniformRadiusToTailwind with custom theme", () => {
     });
   });
 
-  it("uses default when theme is null", () => {
+  it("falls back to arbitrary when theme is null", () => {
     expect(uniformRadiusToTailwind("8px", null)).toEqual({
-      tailwindClass: "rounded-lg", exact: true,
+      tailwindClass: "rounded-[8px]", exact: false,
     });
   });
 });

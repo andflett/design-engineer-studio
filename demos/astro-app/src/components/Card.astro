@@ -7,7 +7,7 @@ interface Props {
 const { title, description } = Astro.props;
 ---
 
-<article class="card">
+<article class="card" data-slot="Card">
   <h3>{title}</h3>
   <p>{description}</p>
 </article>

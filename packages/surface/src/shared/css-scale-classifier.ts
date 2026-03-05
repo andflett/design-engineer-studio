@@ -22,6 +22,7 @@ const PREFIX_TO_SCALE: Record<string, ThemeScaleKey> = {
   "--border-width": "borderWidth",
   "--border": "borderWidth",
   "--opacity": "opacity",
+  "--shadow": "boxShadow",
 };
 
 /** Sorted prefixes (longest first) for matching */
@@ -78,6 +79,7 @@ export function classifyCssProperties(
     borderRadius: [],
     borderWidth: [],
     opacity: [],
+    boxShadow: [],
   };
 
   const prefixes: Record<string, string> = {};
@@ -106,6 +108,7 @@ export function classifyCssProperties(
     borderRadius: [],
     borderWidth: [],
     opacity: [],
+    boxShadow: [],
   };
 
   const varPrefixes: Record<string, string> = {};

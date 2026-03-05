@@ -361,6 +361,23 @@ describe("resolveTailwindV4Theme", () => {
     expect(zero!.value).toBe("0rem");
   });
 
+  it("parses shadow variables from @theme", async () => {
+    await writeCss("globals.css", `
+      @theme {
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+      }
+    `);
+    const result = await resolveTailwindV4Theme(tmpDir, ["globals.css"]);
+    expect(result).not.toBeNull();
+    expect(result!.boxShadow).toEqual([
+      { key: "sm", value: "0 1px 2px rgba(0,0,0,0.05)" },
+      { key: "md", value: "0 4px 6px rgba(0,0,0,0.1)" },
+      { key: "lg", value: "0 10px 15px rgba(0,0,0,0.1)" },
+    ]);
+  });
+
   it("prefers explicit spacing entries over base unit generation", async () => {
     await writeCss("globals.css", `
       @theme {

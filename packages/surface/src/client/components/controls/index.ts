@@ -16,7 +16,7 @@ export { ColorInput, ColorInputSwatch, type ColorInputProps } from "./color-inpu
 export { PropLabel, PropLabelWithToggle, SubSectionLabel } from "./prop-label.js";
 export { getPropertyIcon } from "./property-icons.js";
 export { KeywordControl, getKeywordOptions } from "./keyword-control.js";
-export { ShadowPicker, SHADOW_SCALE, type ShadowItem } from "./shadow-picker.js";
+export { ShadowPicker, type ShadowItem } from "./shadow-picker.js";
 export { GradientPicker, type GradientItem } from "./gradient-picker.js";
 export { ScaleInput } from "./scale-input.js";
 export { OpacitySlider } from "./opacity-slider.js";

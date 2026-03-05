@@ -195,6 +195,19 @@ describe("classifyCssProperties", () => {
     ]);
   });
 
+  it("classifies --shadow-* into boxShadow", () => {
+    const result = classifyCssProperties([
+      { name: "--shadow-sm", value: "0 1px 2px rgba(0,0,0,0.05)" },
+      { name: "--shadow-md", value: "0 4px 6px rgba(0,0,0,0.1)" },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.boxShadow).toEqual([
+      { key: "sm", value: "0 1px 2px rgba(0,0,0,0.05)" },
+      { key: "md", value: "0 4px 6px rgba(0,0,0,0.1)" },
+    ]);
+    expect(result!.varPrefixes?.boxShadow).toBe("--shadow");
+  });
+
   it("classifies --opacity-* into opacity", () => {
     const result = classifyCssProperties([
       { name: "--opacity-dim", value: "0.3" },

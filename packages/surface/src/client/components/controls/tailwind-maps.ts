@@ -46,6 +46,7 @@ export interface TwScales {
   borderRadius: readonly string[];
   borderWidth: readonly string[];
   opacity: readonly string[];
+  boxShadow: readonly string[];
   /** CSS property → { scale keys, TW prefix, optional CSS var prefix } */
   propToScale: Record<string, { scale: readonly string[]; prefix: string; varPrefix?: string }>;
 }
@@ -59,6 +60,7 @@ export function getTwScales(theme: ResolvedTailwindTheme | null | undefined): Tw
   const borderRadius = theme?.borderRadius?.length ? theme.borderRadius.map((e) => e.key) : [];
   const borderWidth = theme?.borderWidth?.length ? theme.borderWidth.map((e) => e.key) : [];
   const opacity = theme?.opacity?.length ? theme.opacity.map((e) => e.key) : [];
+  const boxShadow = theme?.boxShadow?.length ? theme.boxShadow.map((e) => e.key) : [];
 
   // CSS variable prefixes from classified theme (only for CSS-var-derived themes)
   const vp = theme?.varPrefixes;
@@ -92,5 +94,5 @@ export function getTwScales(theme: ResolvedTailwindTheme | null | undefined): Tw
     "max-height": { scale: spacing, prefix: "max-h", varPrefix: spacingVarPrefix },
   };
 
-  return { spacing, fontSize, fontWeight, lineHeight, letterSpacing, borderRadius, borderWidth, opacity, propToScale };
+  return { spacing, fontSize, fontWeight, lineHeight, letterSpacing, borderRadius, borderWidth, opacity, boxShadow, propToScale };
 }

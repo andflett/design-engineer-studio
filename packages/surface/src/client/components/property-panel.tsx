@@ -40,17 +40,11 @@ import {
   isArbitraryValue,
   unwrapArbitrary,
   wrapArbitrary,
-  SPACING_SCALE,
-  RADIUS_SCALE,
-  FONT_SIZE_SCALE,
-  FONT_WEIGHT_SCALE,
-  LINE_HEIGHT_SCALE,
-  LETTER_SPACING_SCALE,
   type ParsedProperty,
   type PropertyCategory,
 } from "../../shared/tailwind-parser.js";
 import type { ResolvedTailwindTheme } from "../../shared/tailwind-theme.js";
-import { getTwScales } from "./controls/tailwind-maps.js";
+import { getTwScales, type TwScales } from "./controls/tailwind-maps.js";
 
 // ---------------------------------------------------------------------------
 // Tailwind property → CSS longhand expansion (mirrors TW_PROP_TO_CSS)
@@ -164,11 +158,12 @@ function synthesizeBoxProps(
 }
 
 /** Icon + scale config for single-row properties */
-function getPropertyControl(prop: ParsedProperty, spacingScale: readonly string[] = SPACING_SCALE): {
+function getPropertyControl(prop: ParsedProperty, twScales?: TwScales): {
   icon?: React.ComponentType<{ style?: React.CSSProperties }>;
   scale: readonly string[];
   label: string;
 } {
+  const spacingScale = twScales?.spacing || [];
   const SizeIcon = function SizeIcon({ style }: { style?: React.CSSProperties }) {
     return <Maximize style={style} strokeWidth={1} size={15} />;
   };
@@ -194,13 +189,13 @@ function getPropertyControl(prop: ParsedProperty, spacingScale: readonly string[
     case "spaceX": case "spaceY":
       return { icon: ColumnSpacingIcon, scale: spacingScale, label: prop.label };
     // Typography
-    case "fontSize": return { icon: FontSizeIcon, scale: FONT_SIZE_SCALE, label: "Size" };
-    case "fontWeight": return { icon: FontBoldIcon, scale: FONT_WEIGHT_SCALE, label: "Weight" };
-    case "lineHeight": return { icon: undefined, scale: LINE_HEIGHT_SCALE, label: "Leading" };
-    case "letterSpacing": return { icon: undefined, scale: LETTER_SPACING_SCALE, label: "Tracking" };
+    case "fontSize": return { icon: FontSizeIcon, scale: twScales?.fontSize || [], label: "Size" };
+    case "fontWeight": return { icon: FontBoldIcon, scale: twScales?.fontWeight || [], label: "Weight" };
+    case "lineHeight": return { icon: undefined, scale: twScales?.lineHeight || [], label: "Leading" };
+    case "letterSpacing": return { icon: undefined, scale: twScales?.letterSpacing || [], label: "Tracking" };
     // Shape
-    case "borderRadius": return { icon: CornersIcon, scale: RADIUS_SCALE, label: "Radius" };
-    case "borderWidth": return { icon: undefined, scale: ["0", "1", "2", "4", "8"], label: "Border" };
+    case "borderRadius": return { icon: CornersIcon, scale: twScales?.borderRadius || [], label: "Radius" };
+    case "borderWidth": return { icon: undefined, scale: twScales?.borderWidth || [], label: "Border" };
     default: return { icon: undefined, scale: [], label: prop.label };
   }
 }
@@ -224,7 +219,7 @@ export function PropertyPanel({
   tailwindTheme,
   flat = false,
 }: PropertyPanelProps) {
-  const spacingScale = getTwScales(tailwindTheme).spacing;
+  const twScales = getTwScales(tailwindTheme);
   const parsed = parseClasses(classes);
 
   const categories: { key: PropertyCategory; label: string }[] = [
@@ -261,7 +256,7 @@ export function PropertyPanel({
             properties={parsed[cat.key]}
             onClassChange={onClassChange}
             tokenGroups={tokenGroups}
-            spacingScale={spacingScale}
+            twScales={twScales}
             flat
           />
         ))}
@@ -279,7 +274,7 @@ export function PropertyPanel({
           properties={parsed[cat.key]}
           onClassChange={onClassChange}
           tokenGroups={tokenGroups}
-          spacingScale={spacingScale}
+          twScales={twScales}
         />
       ))}
 
@@ -318,14 +313,14 @@ function CategoryContent({
   properties,
   onClassChange,
   tokenGroups,
-  spacingScale,
+  twScales,
   flat,
 }: {
   category: PropertyCategory;
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups?: Record<string, any[]>;
-  spacingScale?: readonly string[];
+  twScales?: TwScales;
   flat?: boolean;
 }) {
   if (category === "layout") {
@@ -341,13 +336,13 @@ function CategoryContent({
     );
   }
   if (category === "spacing") {
-    return <SpacingRows properties={properties} onClassChange={onClassChange} spacingScale={spacingScale} />;
+    return <SpacingRows properties={properties} onClassChange={onClassChange} twScales={twScales} />;
   }
   if (category === "shape") {
     return <ShapeRows properties={properties} onClassChange={onClassChange} />;
   }
   // size, typography, etc.
-  return <SmartRows properties={properties} onClassChange={onClassChange} spacingScale={spacingScale} flat={flat} />;
+  return <SmartRows properties={properties} onClassChange={onClassChange} twScales={twScales} flat={flat} />;
 }
 
 function CategorySection({
@@ -356,14 +351,14 @@ function CategorySection({
   properties,
   onClassChange,
   tokenGroups,
-  spacingScale,
+  twScales,
 }: {
   category: PropertyCategory;
   label: string;
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
-  spacingScale?: readonly string[];
+  twScales?: TwScales;
 }) {
   const [collapsed, setCollapsed] = useState(true);
 
@@ -385,7 +380,7 @@ function CategorySection({
             properties={properties}
             onClassChange={onClassChange}
             tokenGroups={tokenGroups}
-            spacingScale={spacingScale}
+            twScales={twScales}
           />
         </div>
       )}
@@ -400,11 +395,11 @@ function CategorySection({
 function SpacingRows({
   properties,
   onClassChange,
-  spacingScale,
+  twScales,
 }: {
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
-  spacingScale?: readonly string[];
+  twScales?: TwScales;
 }) {
   const paddingProps = properties.filter((p) =>
     p.property.startsWith("padding")
@@ -425,7 +420,7 @@ function SpacingRows({
         <ClassBoxSpacing box="margin" properties={marginProps} onClassChange={onClassChange} />
       )}
       {gapProps.map((prop) => (
-        <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} spacingScale={spacingScale} />
+        <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} twScales={twScales} />
       ))}
     </>
   );
@@ -704,12 +699,12 @@ function ColorRows({
 function SmartRows({
   properties,
   onClassChange,
-  spacingScale,
+  twScales,
   flat,
 }: {
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
-  spacingScale?: readonly string[];
+  twScales?: TwScales;
   flat?: boolean;
 }) {
   // In flat mode (Component tab tree), render all rows full-width — no pairing
@@ -717,7 +712,7 @@ function SmartRows({
     return (
       <>
         {properties.map((prop) => (
-          <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} spacingScale={spacingScale} />
+          <PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} twScales={twScales} />
         ))}
       </>
     );
@@ -739,8 +734,8 @@ function SmartRows({
     if (propA || propB) {
       rows.push(
         <div key={`${a}-${b}`} className="grid grid-cols-2 gap-1.5">
-          {propA && <PropertyRow prop={propA} onClassChange={onClassChange} spacingScale={spacingScale} />}
-          {propB && <PropertyRow prop={propB} onClassChange={onClassChange} spacingScale={spacingScale} />}
+          {propA && <PropertyRow prop={propA} onClassChange={onClassChange} twScales={twScales} />}
+          {propB && <PropertyRow prop={propB} onClassChange={onClassChange} twScales={twScales} />}
         </div>
       );
       if (propA) rendered.add(propA);
@@ -750,7 +745,7 @@ function SmartRows({
 
   for (const prop of properties) {
     if (rendered.has(prop)) continue;
-    rows.push(<PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} spacingScale={spacingScale} />);
+    rows.push(<PropertyRow key={prop.fullClass} prop={prop} onClassChange={onClassChange} twScales={twScales} />);
   }
 
   return <>{rows}</>;
@@ -763,13 +758,13 @@ function SmartRows({
 function PropertyRow({
   prop,
   onClassChange,
-  spacingScale,
+  twScales,
 }: {
   prop: ParsedProperty;
   onClassChange: (oldClass: string, newClass: string) => void;
-  spacingScale?: readonly string[];
+  twScales?: TwScales;
 }) {
-  const ctrl = getPropertyControl(prop, spacingScale);
+  const ctrl = getPropertyControl(prop, twScales);
   const twPrefix = prop.fullClass.replace(/-[\w[\].]+$/, "");
 
   if (ctrl.scale.length > 0) {

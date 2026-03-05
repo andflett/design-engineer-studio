@@ -8,23 +8,31 @@ export interface ShadowItem {
   cssVariable?: string;
 }
 
-export const SHADOW_SCALE = ["none", "2xs", "xs", "sm", "", "md", "lg", "xl", "2xl"];
-
 export function ShadowPicker({
   prop,
   shadows,
+  scale,
   elementClassName,
   onPreviewInlineStyle,
   onCommitClass,
+  onCommitStyle,
 }: {
   prop: UnifiedProperty;
   shadows?: ShadowItem[];
+  /** Theme-derived shadow scale keys (e.g. ["sm", "md", "lg"]). Empty = no scale group. */
+  scale: readonly string[];
   elementClassName: string;
   onPreviewInlineStyle: (p: string, v: string) => void;
   onCommitClass: (c: string, oldClass?: string) => void;
+  /** CSS mode: commit raw CSS value instead of Tailwind classes */
+  onCommitStyle?: (cssValue: string) => void;
 }) {
+  const isCssMode = !!onCommitStyle;
   const currentValue = prop.computedValue;
   const isNone = !currentValue || currentValue === "none";
+
+  // Build full scale set (including "none" and empty-string default) for matching
+  const scaleSet = new Set(scale);
 
   // Resolve current shadow name from the element's className
   const resolvedFromClass = (() => {
@@ -40,11 +48,13 @@ export function ShadowPicker({
         const shadowDef = shadows?.find((s) => s.cssVariable === varName);
         if (shadowDef) return { name: shadowDef.name, cls };
       }
-      // Match standard shadow scale: shadow, shadow-sm, shadow-md, etc.
-      const scaleMatch = cls.match(/^shadow(?:-(2xs|xs|sm|md|lg|xl|2xl|none))?$/);
+      // Match standard shadow scale: shadow, shadow-<key>, shadow-none
+      const scaleMatch = cls.match(/^shadow(?:-([\w]+))?$/);
       if (scaleMatch) {
         const scaleName = scaleMatch[1] || "";
-        return { name: scaleName, cls };
+        if (scaleName === "none" || scaleName === "" || scaleSet.has(scaleName)) {
+          return { name: scaleName, cls };
+        }
       }
     }
     return null;
@@ -56,12 +66,16 @@ export function ShadowPicker({
     const oldClass = currentShadowClass || prop.fullClass || undefined;
     if (shadowName === "none") {
       onPreviewInlineStyle("box-shadow", "none");
-      onCommitClass("shadow-none", oldClass);
+      if (onCommitStyle) {
+        onCommitStyle("none");
+      } else {
+        onCommitClass("shadow-none", oldClass);
+      }
       return;
     }
 
-    // Check if it's a standard Tailwind shadow scale value
-    if (SHADOW_SCALE.includes(shadowName)) {
+    // Check if it's a theme-derived scale value
+    if (!isCssMode && scaleSet.has(shadowName)) {
       const cls = shadowName === "" ? "shadow" : `shadow-${shadowName}`;
       const shadowDef = shadows?.find((s) => s.name === `shadow-${shadowName}` || s.name === shadowName);
       if (shadowDef) {
@@ -75,7 +89,10 @@ export function ShadowPicker({
     const shadowDef = shadows?.find((s) => s.name === shadowName);
     if (shadowDef) {
       onPreviewInlineStyle("box-shadow", shadowDef.value);
-      if (shadowDef.cssVariable) {
+      if (onCommitStyle) {
+        // CSS mode: write the raw value or var() reference
+        onCommitStyle(shadowDef.cssVariable ? `var(${shadowDef.cssVariable})` : shadowDef.value);
+      } else if (shadowDef.cssVariable) {
         onCommitClass(`shadow-[var(${shadowDef.cssVariable})]`, oldClass);
       } else {
         const cls = shadowName.startsWith("shadow-") ? shadowName : `shadow-${shadowName}`;
@@ -95,17 +112,18 @@ export function ShadowPicker({
         { value: "none" },
       ]}
       groups={[
-        {
+        // Only show scale group when theme provides shadow scale entries
+        ...(scale.length > 0 && !isCssMode ? [{
           label: "Scale",
-          options: SHADOW_SCALE.filter(s => s !== "none").map((s) => ({
+          options: scale.filter(s => s !== "none").map((s) => ({
             value: s || "__default__",
             label: s === "" ? "shadow (default)" : s,
           })),
-        },
+        }] : []),
         ...(shadows && shadows.length > 0 ? [{
           label: "Project Shadows",
           options: shadows
-            .filter((s) => !SHADOW_SCALE.includes(s.name.replace(/^shadow-?/, "")))
+            .filter((s) => !isCssMode ? !scaleSet.has(s.name.replace(/^shadow-?/, "")) : true)
             .map((s) => ({ value: s.name })),
         }] : []),
       ]}

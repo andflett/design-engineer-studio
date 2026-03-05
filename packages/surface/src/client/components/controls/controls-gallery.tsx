@@ -301,6 +301,7 @@ export function ControlsGallery() {
         <Row label="opacity">
           <OpacitySlider
             value="0.75"
+            scale={["0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100"]}
             onPreview={noop}
             onCommitClass={noop}
           />
@@ -385,6 +386,7 @@ export function ControlsGallery() {
             shadows={[
               { name: "drop-glow", value: "0 0 12px rgba(59,130,246,0.5)", cssVariable: "--shadow-glow" },
             ]}
+            scale={["2xs", "xs", "sm", "", "md", "lg", "xl", "2xl"]}
             elementClassName="shadow-md rounded-lg"
             onPreviewInlineStyle={noop}
             onCommitClass={noop}
@@ -400,6 +402,7 @@ export function ControlsGallery() {
               fullClass: null,
               controlType: "text",
             })}
+            scale={["2xs", "xs", "sm", "", "md", "lg", "xl", "2xl"]}
             elementClassName=""
             onPreviewInlineStyle={noop}
             onCommitClass={noop}

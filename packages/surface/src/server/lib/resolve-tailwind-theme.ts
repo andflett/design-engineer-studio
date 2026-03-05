@@ -26,6 +26,7 @@ const V4_PREFIX_MAP: Record<string, ThemeScaleKey> = {
   "--radius": "borderRadius",
   "--border": "borderWidth",
   "--opacity": "opacity",
+  "--shadow": "boxShadow",
 };
 
 /**
@@ -147,6 +148,7 @@ async function resolveTailwindV4ViaAPI(
       borderRadius: [],
       borderWidth: [],
       opacity: [],
+      boxShadow: [],
     };
 
     let spacingBase: string | null = null;
@@ -249,6 +251,7 @@ async function resolveTailwindV4ViaParser(
       borderRadius: [],
       borderWidth: [],
       opacity: [],
+      boxShadow: [],
     };
 
     let spacingBase: string | null = null;
@@ -297,6 +300,7 @@ const V3_SCALE_KEYS: Record<string, ThemeScaleKey> = {
   borderRadius: "borderRadius",
   borderWidth: "borderWidth",
   opacity: "opacity",
+  boxShadow: "boxShadow",
 };
 
 export async function resolveTailwindV3Theme(
@@ -355,6 +359,7 @@ export async function resolveTailwindV3Theme(
       borderRadius: [],
       borderWidth: [],
       opacity: [],
+      boxShadow: [],
     };
 
     for (const [themeKey, scaleKey] of Object.entries(V3_SCALE_KEYS)) {
