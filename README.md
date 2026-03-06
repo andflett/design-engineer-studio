@@ -27,9 +27,13 @@ Pick your framework and follow the setup below. Each one takes under a minute.
 
 ### Next.js
 
+#### Install the plugin
+
 ```bash
 npm install -D @designtools/next-plugin
 ```
+
+#### Wrap your config — this adds source mapping to every element
 
 ```ts
 // next.config.ts
@@ -39,6 +43,8 @@ export default withDesigntools({
   /* your existing config */
 });
 ```
+
+#### Run both servers — your app and the visual editor side by side
 
 ```bash
 # Terminal 1 — start your app
@@ -54,9 +60,13 @@ npx @designtools/surface
 
 ### Vite + React
 
+#### Install the plugin
+
 ```bash
 npm install -D @designtools/vite-plugin
 ```
+
+#### Add to your Vite config — must come before the React plugin
 
 ```ts
 // vite.config.ts
@@ -68,6 +78,8 @@ export default defineConfig({
   plugins: [designtools(), react()],
 });
 ```
+
+#### Run both servers — your app and the visual editor side by side
 
 ```bash
 # Terminal 1 — start your app
@@ -85,9 +97,13 @@ npx @designtools/surface
 
 Remix uses Vite under the hood, so the setup is the same as Vite + React.
 
+#### Install the plugin
+
 ```bash
 npm install -D @designtools/vite-plugin
 ```
+
+#### Add to your Vite config — must come before the React Router plugin
 
 ```ts
 // vite.config.ts
@@ -100,6 +116,8 @@ export default defineConfig({
 });
 ```
 
+#### Start the editor — your app's dev server should already be running
+
 ```bash
 npx @designtools/surface
 ```
@@ -110,9 +128,13 @@ npx @designtools/surface
 
 ### Astro
 
+#### Install the plugin
+
 ```bash
 npm install -D @designtools/astro-plugin
 ```
+
+#### Add the integration — works alongside other Astro integrations
 
 ```js
 // astro.config.mjs
@@ -125,6 +147,8 @@ export default defineConfig({
 });
 ```
 
+#### Start the editor — your app's dev server should already be running
+
 ```bash
 npx @designtools/surface
 ```
@@ -135,9 +159,13 @@ npx @designtools/surface
 
 ### SvelteKit
 
+#### Install the plugin
+
 ```bash
 npm install -D @designtools/svelte-plugin
 ```
+
+#### Add to your Vite config — works alongside the SvelteKit plugin
 
 ```ts
 // vite.config.ts
@@ -149,6 +177,8 @@ export default defineConfig({
   plugins: [sveltekit(), designtools()],
 });
 ```
+
+#### Start the editor — your app's dev server should already be running
 
 ```bash
 npx @designtools/surface
