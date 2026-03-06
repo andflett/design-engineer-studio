@@ -72,23 +72,24 @@ The instruction builder is how Surface constructs prompts for AI writes. It's a 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Layer 1 — App Framework (built-in)             │
+│  Layer 1 — App Framework (built-in default)     │
 │  How to make precise edits to source files.     │
-│  Shipped with Surface, not user-editable.       │
+│  Ships with Surface. Viewable + editable in UI. │
 ├─────────────────────────────────────────────────┤
 │  Layer 2 — Styling System (auto-detected)       │
 │  How to write for this project's styling        │
-│  system. Surface detects the stack and loads     │
-│  the matching instruction set.                  │
+│  system. Auto-loaded, editable in UI.           │
 ├─────────────────────────────────────────────────┤
 │  Layer 3 — Project (user-authored)              │
 │  Your team's patterns: helpers, token files,    │
 │  naming conventions, what to never touch.       │
-│  Lives in the repo, checked into git.           │
+│  Created and edited through Surface UI.         │
 └─────────────────────────────────────────────────┘
 ```
 
-**Layer 1 — App Framework** (built-in, shipped with Surface)
+All three layers are **visible and editable through the Surface UI**. Layers 1 and 2 ship with sensible defaults. Layer 3 starts empty. The user can customise any layer to match their project.
+
+**Layer 1 — App Framework** (built-in default)
 
 Teaches the model the mechanics of making precise source edits:
 - Make only the change requested
@@ -96,9 +97,9 @@ Teaches the model the mechanics of making precise source edits:
 - Preserve existing patterns and whitespace
 - Handle JSX, SFC (Astro/Svelte), and standard HTML
 
-This is baked into Surface. The user never sees or edits it. It's the baseline that makes AI writes surgical rather than sloppy.
+Ships with Surface as the default. Most users never need to touch it, but it's visible in the UI and editable if a project has unusual needs (e.g. a non-standard file format or a monorepo with generated code that needs special handling).
 
-**Layer 2 — Styling System** (auto-detected, customisable)
+**Layer 2 — Styling System** (auto-detected, editable)
 
 Surface already detects the project's styling system (Tailwind v3/v4, CSS) during startup. In AI mode, this detection loads the matching instruction set:
 
@@ -111,9 +112,9 @@ Prefer design system tokens over arbitrary values like p-[23px].
 For responsive changes, use breakpoint prefixes: md:, lg:, xl:.
 ```
 
-Surface ships defaults for supported styling systems. Teams can override or extend these per project.
+Surface ships defaults for supported styling systems. The UI shows which one was auto-detected and lets users edit it — useful for projects that use Tailwind with custom conventions, or a styling system Surface doesn't have a built-in default for.
 
-**Layer 3 — Project** (user-authored, checked into repo)
+**Layer 3 — Project** (user-authored via UI)
 
 The project's own conventions. This is where teams encode decisions that are specific to their codebase:
 
@@ -126,7 +127,34 @@ Don't touch variant definitions unless explicitly asked.
 Components live in src/components/, kebab-case filenames.
 ```
 
-This lives in the repo (as a section of `CLAUDE.md`, or a dedicated file — TBD). It's the layer that makes AI writes feel like they were written by someone on the team, not a generic model.
+Created and edited through the Surface UI. This is the layer that makes AI writes feel like they were written by someone on the team, not a generic model.
+
+### Managing instructions through the UI
+
+The instruction builder UI lives in the Surface editor panel (visible when AI mode is active). It shows all three layers as an expandable stack:
+
+```
+┌─────────────────────────────────────────────┐
+│  AI Write Instructions                      │
+│                                             │
+│  ▸ Layer 1 — App Framework          built-in│
+│  ▾ Layer 2 — Tailwind v4       auto-detected│
+│  ┌─────────────────────────────────────────┐│
+│  │ Edit className props using Tailwind ... ││
+│  │ Use scale values: p-4 is 16px, ...     ││
+│  │ [Reset to default]                      ││
+│  └─────────────────────────────────────────┘│
+│  ▸ Layer 3 — Project               editable │
+│                                             │
+│  [+ Add instruction]                        │
+└─────────────────────────────────────────────┘
+```
+
+- **Expand/collapse** each layer to view and edit its content
+- **Reset to default** on layers 1 and 2 restores the shipped version
+- **Layer 3** starts with a placeholder that guides the user on what to add
+- Edits are saved to a `.surface/instructions.json` file in the project root (or similar), checked into the repo so the whole team shares them
+- The prompt preview (Phase 2) shows the fully assembled prompt from all layers, so users can see exactly what the model will receive
 
 ### How the layers compose into a prompt
 
@@ -173,13 +201,12 @@ Every visual control exists to eliminate ambiguity in the change description:
 
 The prompt is surgical because the visual editor built it — not because the user typed it.
 
-### Where instructions live
+### Where instructions are stored
 
-Layer 1 and Layer 2 defaults ship inside the `surface` package. Layer 3 is authored by the team.
-
-For Layer 3, the simplest path is a section in the project's `CLAUDE.md` (which teams may already have for Claude Code). Surface reads it at startup and includes the relevant sections in every AI write prompt. This means the same file that guides interactive Claude Code sessions also guides Surface's visual AI writes — one source of truth for project conventions.
-
-If `CLAUDE.md` doesn't exist, Surface works fine — Layer 1 and 2 still produce good results for common stacks. Layer 3 is what takes it from "good for any project" to "good for *this* project."
+- **Defaults** (Layer 1, Layer 2) ship inside the `surface` package as markdown files
+- **User edits** (all layers) are saved to a project-local config file (e.g. `.surface/instructions.json`), checked into git so the whole team shares them
+- If a project also has a `CLAUDE.md`, Surface can optionally read from it to seed Layer 3 — but the UI is the primary editing interface, not hand-editing markdown files
+- If no config exists, Surface works fine with just the built-in defaults. Layer 3 is what takes it from "good for any project" to "good for *this* project."
 
 ---
 
@@ -357,7 +384,7 @@ This is collapsed by default — most users won't need it. Power users and debug
 | Latency | < 50ms | Seconds |
 | Cross-file edits | Hard — explicit code per pattern | Natural — model sees all context |
 | Novel patterns | Falls back / fails | Handles gracefully |
-| Project conventions | Hard-coded detection heuristics | CLAUDE.md — written once |
+| Project conventions | Hard-coded detection heuristics | Instruction layers — configured in UI |
 | Offline / air-gapped | Fully local | Needs local model in container |
 | Auditability | Obvious git diff | Still git diff |
 | Editor complexity | Complex — owns the write | Simple — just builds prompts |
@@ -369,23 +396,23 @@ This is collapsed by default — most users won't need it. Power users and debug
 
 ### Phase 1 — Instruction builder + mode toggle + write path
 
-1. **Instruction layers** — author Layer 1 (app framework) and Layer 2 defaults (Tailwind v4, CSS) as markdown files shipped inside the `surface` package. Wire up Layer 3 reading from project `CLAUDE.md` at server startup.
+1. **Instruction layers** — author Layer 1 (app framework) and Layer 2 defaults (Tailwind v4, CSS) as markdown files shipped inside the `surface` package. Wire up config loading (`.surface/instructions.json`) for user overrides and Layer 3 content.
 2. **Instruction builder** — server-side module that composes all three layers + the change block into a single prompt string. This is the core of AI writes — everything else feeds into or consumes the output of this module.
-3. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar, model selector (Sonnet/Opus) visible when AI is active.
-4. **Batch pending changes** — when AI mode is active, visual edits accumulate as a list of change intents (live-previewed in iframe as today). "Apply" serialises them into the `[CHANGE]` block for the instruction builder.
-5. **Wire up `claude -p --model <model>`** — editor server passes the assembled prompt to Claude CLI as a subprocess. Captures stdout for the change summary. Works identically local or in a Sprite — always a local subprocess call.
-6. **Loading overlay** — covers the iframe while Claude is working. Shows model name and a spinner.
-7. **HMR pickup** — after Claude exits, dev server HMR reloads the iframe. Editor re-scans `data-source` attributes.
-8. **Change summary** — parse Claude's stdout summary, verify against actual file diff, display in a summary bar with Undo and View Diff actions.
+3. **Instruction management UI** — expandable panel in the editor showing all three layers. Users can view, edit, and reset layers 1-2 to defaults. Layer 3 has a guided empty state. Edits save to `.surface/instructions.json` in the project root.
+4. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar, model selector (Sonnet/Opus) visible when AI is active.
+5. **Batch pending changes** — when AI mode is active, visual edits accumulate as a list of change intents (live-previewed in iframe as today). "Apply" serialises them into the `[CHANGE]` block for the instruction builder.
+6. **Wire up `claude -p --model <model>`** — editor server passes the assembled prompt to Claude CLI as a subprocess. Captures stdout for the change summary. Works identically local or in a Sprite — always a local subprocess call.
+7. **Loading overlay** — covers the iframe while Claude is working. Shows model name and a spinner.
+8. **HMR pickup** — after Claude exits, dev server HMR reloads the iframe. Editor re-scans `data-source` attributes.
+9. **Change summary** — parse Claude's stdout summary, verify against actual file diff, display in a summary bar with Undo and View Diff actions.
 
 Deterministic mode is completely unchanged. The toggle just determines which code path runs when the user commits. No separate "container integration" phase — the editor server already runs next to the files and Claude CLI in both local and Sprite environments.
 
 ### Phase 2 — Polish
 
-9. **Undo button** — one-click revert for AI writes (`git checkout -- <files>`)
-10. **Write log** — session-level history of all writes (mode, model, prompt, files changed, timestamp) for multi-step undo
-11. **Prompt preview panel** — expandable, collapsed by default. Shows the assembled prompt from all three instruction layers + change block, context files, model. For debugging and power users.
-12. **CLAUDE.md scaffolding** — helper to generate an initial Layer 3 section from detected project stack and conventions
+10. **Undo button** — one-click revert for AI writes (`git checkout -- <files>`)
+11. **Write log** — session-level history of all writes (mode, model, prompt, files changed, timestamp) for multi-step undo
+12. **Prompt preview panel** — expandable, collapsed by default. Shows the assembled prompt from all three instruction layers + change block, context files, model. For debugging and power users.
 13. **Prompt tuning** — iterate on instruction layer content based on real-world accuracy across stacks
 
 ---
