@@ -64,9 +64,103 @@ The selection is passed to Claude CLI via `--model` flag: `claude -p --model son
 
 ---
 
-## What the editor contributes to the prompt
+## The instruction builder
 
-The visual editor's value in AI mode is **prompt precision**. Every visual control exists to eliminate ambiguity:
+The instruction builder is how Surface constructs prompts for AI writes. It's a three-layer system that stacks context from general to specific, so the model always gets the right instructions for the project without the user writing prompts by hand.
+
+### The three layers
+
+```
+┌─────────────────────────────────────────────────┐
+│  Layer 1 — App Framework (built-in)             │
+│  How to make precise edits to source files.     │
+│  Shipped with Surface, not user-editable.       │
+├─────────────────────────────────────────────────┤
+│  Layer 2 — Styling System (auto-detected)       │
+│  How to write for this project's styling        │
+│  system. Surface detects the stack and loads     │
+│  the matching instruction set.                  │
+├─────────────────────────────────────────────────┤
+│  Layer 3 — Project (user-authored)              │
+│  Your team's patterns: helpers, token files,    │
+│  naming conventions, what to never touch.       │
+│  Lives in the repo, checked into git.           │
+└─────────────────────────────────────────────────┘
+```
+
+**Layer 1 — App Framework** (built-in, shipped with Surface)
+
+Teaches the model the mechanics of making precise source edits:
+- Make only the change requested
+- Never reformat surrounding code
+- Preserve existing patterns and whitespace
+- Handle JSX, SFC (Astro/Svelte), and standard HTML
+
+This is baked into Surface. The user never sees or edits it. It's the baseline that makes AI writes surgical rather than sloppy.
+
+**Layer 2 — Styling System** (auto-detected, customisable)
+
+Surface already detects the project's styling system (Tailwind v3/v4, CSS) during startup. In AI mode, this detection loads the matching instruction set:
+
+```markdown
+# Tailwind v4
+
+Edit className props using Tailwind utility classes.
+Use scale values from the design system: p-4 is 16px, p-6 is 24px.
+Prefer design system tokens over arbitrary values like p-[23px].
+For responsive changes, use breakpoint prefixes: md:, lg:, xl:.
+```
+
+Surface ships defaults for supported styling systems. Teams can override or extend these per project.
+
+**Layer 3 — Project** (user-authored, checked into repo)
+
+The project's own conventions. This is where teams encode decisions that are specific to their codebase:
+
+```markdown
+# Project conventions
+
+Use cn() from @/lib/utils for class composition.
+Color tokens live in globals.css — prefer those over raw values.
+Don't touch variant definitions unless explicitly asked.
+Components live in src/components/, kebab-case filenames.
+```
+
+This lives in the repo (as a section of `CLAUDE.md`, or a dedicated file — TBD). It's the layer that makes AI writes feel like they were written by someone on the team, not a generic model.
+
+### How the layers compose into a prompt
+
+At write time, the instruction builder stacks all three layers together with the visual edit context from the editor:
+
+```
+[LAYER 1 — App Framework]
+Make only the change requested.
+Never reformat surrounding code.
+Preserve existing patterns and whitespace.
+
+[LAYER 2 — Styling System — Tailwind v4]
+Edit className props using Tailwind utility classes.
+Use scale values: p-4 is 16px, p-6 is 24px.
+Prefer design system tokens over arbitrary values.
+
+[LAYER 3 — Project]
+Use cn() from @/lib/utils for class composition.
+Color tokens live in globals.css, prefer those.
+Don't touch variant definitions unless asked.
+
+[CHANGE]
+File: src/components/page-header.tsx
+Element at line 23 col 4 (data-source="src/components/page-header.tsx:23:4")
+
+Current className: "flex items-center gap-4 px-6 py-3"
+Change: padding-top and padding-bottom to 24px
+```
+
+The `[CHANGE]` block is what the visual editor builds from user interactions — the same UI controls that exist today, but serialised as structured intent rather than passed to a write adapter.
+
+### What the editor contributes to the change block
+
+Every visual control exists to eliminate ambiguity in the change description:
 
 | Visual control | Prompt contribution |
 |---|---|
@@ -77,48 +171,15 @@ The visual editor's value in AI mode is **prompt precision**. Every visual contr
 | Color picker | Exact token name, not hex |
 | Cross-file awareness | Includes relevant files (parent layout, token defs) as context |
 
-### Assembled prompt example
+The prompt is surgical because the visual editor built it — not because the user typed it.
 
-```
-File: src/components/page-header.tsx
-Element: line 23, col 4 (data-source="src/components/page-header.tsx:23:4")
+### Where instructions live
 
-Current className: "flex items-center gap-4 px-6 py-3"
-Change: padding-top and padding-bottom from 12px to 24px
+Layer 1 and Layer 2 defaults ship inside the `surface` package. Layer 3 is authored by the team.
 
-Project uses Tailwind v4. Use utility classes from the design system scale.
-Use cn() from @/lib/utils for class composition.
-```
+For Layer 3, the simplest path is a section in the project's `CLAUDE.md` (which teams may already have for Claude Code). Surface reads it at startup and includes the relevant sections in every AI write prompt. This means the same file that guides interactive Claude Code sessions also guides Surface's visual AI writes — one source of truth for project conventions.
 
-Claude CLI gets this and makes a single, precise edit. The prompt is surgical because the visual editor built it — not because the user typed it.
-
----
-
-## CLAUDE.md as the convention layer
-
-The original ai-writes proposal had three "skill" tiers. In this model, two of those collapse into what Claude CLI already reads:
-
-| Original skill tier | AI Writes equivalent |
-|---|---|
-| Base skill (make minimal edits, don't reformat) | Built into Claude — it already does this |
-| Styling system skill (Tailwind scales, utilities) | Section in project `CLAUDE.md` |
-| Project skill (helpers, tokens, conventions) | Section in project `CLAUDE.md` |
-
-No custom skill format. No skill file registry. Teams write a `CLAUDE.md` in their repo root (which they may already have) and it guides AI writes automatically.
-
-```markdown
-# CLAUDE.md (example)
-
-## Styling
-Tailwind v4. Prefer design system tokens over arbitrary values.
-Spacing: p-1=4px, p-2=8px, p-3=12px, p-4=16px, p-6=24px, p-8=32px.
-
-## Conventions
-- Use cn() from @/lib/utils for class merging
-- Color tokens defined in globals.css — use those, don't invent new ones
-- Never modify variant definitions unless explicitly asked
-- Components in src/components/, kebab-case filenames
-```
+If `CLAUDE.md` doesn't exist, Surface works fine — Layer 1 and 2 still produce good results for common stacks. Layer 3 is what takes it from "good for any project" to "good for *this* project."
 
 ---
 
@@ -272,9 +333,9 @@ The "View diff" button shows a git diff panel (or opens the container's terminal
 ### Prompt preview (before write)
 
 Before the user hits "Apply", an expandable panel shows:
-- The assembled prompt (what Claude will be asked to do)
+- The assembled prompt from all three instruction layers + change block
 - Which files are included as context
-- Which CLAUDE.md sections apply
+- Which Layer 3 sections (from CLAUDE.md) apply
 - The selected model
 
 This is collapsed by default — most users won't need it. Power users and debugging sessions benefit from seeing exactly what's being sent.
@@ -306,25 +367,26 @@ This is collapsed by default — most users won't need it. Power users and debug
 
 ## Implementation sequence
 
-### Phase 1 — Mode toggle + prompt builder + write path
+### Phase 1 — Instruction builder + mode toggle + write path
 
-1. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar, model selector (Sonnet/Opus) visible when AI is active
-2. **Batch pending changes** — when AI mode is active, visual edits accumulate as a list of change intents (live-previewed in iframe as today). "Apply" batches them into one prompt.
-3. **Prompt builder** — assembles the structured prompt from batched changes, `data-source` locations, current values, target values, and CLAUDE.md context
-4. **Wire up `claude -p --model <model>`** — editor server spawns Claude CLI with the prompt as a subprocess. Captures stdout for the change summary. This works identically whether the server runs locally or inside a Sprite — it's always a local subprocess call.
-5. **Loading overlay** — covers the iframe while Claude is working. Shows model name and a spinner.
-6. **HMR pickup** — after Claude exits, dev server HMR reloads the iframe. Editor re-scans `data-source` attributes.
-7. **Change summary** — parse Claude's stdout summary, verify against actual file diff, display in a summary bar with Undo and View Diff actions.
+1. **Instruction layers** — author Layer 1 (app framework) and Layer 2 defaults (Tailwind v4, CSS) as markdown files shipped inside the `surface` package. Wire up Layer 3 reading from project `CLAUDE.md` at server startup.
+2. **Instruction builder** — server-side module that composes all three layers + the change block into a single prompt string. This is the core of AI writes — everything else feeds into or consumes the output of this module.
+3. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar, model selector (Sonnet/Opus) visible when AI is active.
+4. **Batch pending changes** — when AI mode is active, visual edits accumulate as a list of change intents (live-previewed in iframe as today). "Apply" serialises them into the `[CHANGE]` block for the instruction builder.
+5. **Wire up `claude -p --model <model>`** — editor server passes the assembled prompt to Claude CLI as a subprocess. Captures stdout for the change summary. Works identically local or in a Sprite — always a local subprocess call.
+6. **Loading overlay** — covers the iframe while Claude is working. Shows model name and a spinner.
+7. **HMR pickup** — after Claude exits, dev server HMR reloads the iframe. Editor re-scans `data-source` attributes.
+8. **Change summary** — parse Claude's stdout summary, verify against actual file diff, display in a summary bar with Undo and View Diff actions.
 
 Deterministic mode is completely unchanged. The toggle just determines which code path runs when the user commits. No separate "container integration" phase — the editor server already runs next to the files and Claude CLI in both local and Sprite environments.
 
 ### Phase 2 — Polish
 
-8. **Undo button** — one-click revert for AI writes (`git checkout -- <files>`)
-9. **Write log** — session-level history of all writes (mode, model, prompt, files changed, timestamp) for multi-step undo
-10. **Prompt preview panel** — expandable, collapsed by default. Shows assembled prompt, context files, CLAUDE.md sections, model. For debugging and power users.
-11. **CLAUDE.md scaffolding** — helper to generate an initial CLAUDE.md from detected project stack
-12. **Prompt tuning** — iterate on prompt structure based on real-world accuracy across stacks
+9. **Undo button** — one-click revert for AI writes (`git checkout -- <files>`)
+10. **Write log** — session-level history of all writes (mode, model, prompt, files changed, timestamp) for multi-step undo
+11. **Prompt preview panel** — expandable, collapsed by default. Shows the assembled prompt from all three instruction layers + change block, context files, model. For debugging and power users.
+12. **CLAUDE.md scaffolding** — helper to generate an initial Layer 3 section from detected project stack and conventions
+13. **Prompt tuning** — iterate on instruction layer content based on real-world accuracy across stacks
 
 ---
 
