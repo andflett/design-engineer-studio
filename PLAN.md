@@ -237,18 +237,20 @@ Surface owns Layers 1-2 and the `[CHANGE]` block. `CLAUDE.md` provides the ambie
 
 ### The topology
 
-Everything runs inside the Sprite. The local machine is just a browser.
+Everything runs inside the Sprite. The local machine connects via `sprite proxy`, which proxies multiple local ports to the Sprite's ports in a single command.
 
 ```
 ┌── Your laptop ────────────────────────────────┐
 │                                               │
+│  sprite proxy -s SPRITE 4400 3000             │
+│                                               │
 │  Browser                                      │
-│    └── https://<sprite>:4400  (editor UI)     │
+│    └── http://localhost:4400  (editor UI)     │
 │          └── iframes :3000   (dev server)     │
 │                                               │
 └───────────────────────────────────────────────┘
         │
-        │  ooda port forwarding / Sprites public URLs
+        │  sprite proxy (multi-port)
         │
 ┌── Sprite (cloud container) ───────────────────┐
 │                                               │
@@ -279,19 +281,22 @@ Everything runs inside the Sprite. The local machine is just a browser.
 - **No network hops for writes.** `claude -p` is a subprocess on the same machine as the files. The editor server spawns it, waits for exit, reads stdout.
 - **No auth for the write path.** Claude CLI is already authenticated in the Sprite (ooda handles this via `ANTHROPIC_API_KEY` or OAuth). The Surface server doesn't need its own auth layer — it's all localhost inside the container.
 - **Coexists with interactive Claude.** ooda gives you a TTY session to Claude Code for conversational use. Surface spawns separate `claude -p` calls (stateless, prompt-in → edit-out). These are independent processes that just read/write files — no conflict.
-- **Port forwarding is the only requirement.** Sprites already expose ports via public URLs. The user needs :3000 (dev server, iframed) and :4400 (editor UI, opened in browser). ooda or Sprites handles this.
+- **`sprite proxy` handles multi-port access.** `sprite proxy -s SPRITE 4400 3000` proxies both ports to localhost in a single command. Supports `local:remote` syntax if local ports need to differ. No public URLs required — everything stays local.
 
 ### Setup inside a Sprite
 
 ```bash
-# Terminal 1 (or background)
-npm run dev                    # starts on :3000
-
-# Terminal 2 (via ooda TTY or another session)
+# Inside the Sprite (via ooda TTY)
+npm run dev &                  # starts on :3000
 npx designsurface              # starts on :4400, iframes :3000
 ```
 
-Then open the Sprite's :4400 URL in your local browser. That's it.
+```bash
+# On your local machine
+sprite proxy -s SPRITE_NAME 4400 3000
+```
+
+Then open `http://localhost:4400` in your browser. That's it.
 
 For a single-command setup, a project could add a script:
 
