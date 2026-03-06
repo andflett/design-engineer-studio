@@ -53,6 +53,15 @@ The user chooses a write mode **before they start editing**. This is an explicit
 
 This is similar to how [Vercel AI Elements](https://vercel.com/changelog/introducing-ai-elements) treats AI as composable UI — the mode toggle is a first-class component in the editor chrome, not buried in settings.
 
+### Model selector (AI mode only)
+
+When AI mode is active, a secondary dropdown lets the user choose which model Claude CLI uses:
+
+- **Sonnet** (default) — fast, good for single-property changes
+- **Opus** — slower, better for complex multi-file or reasoning-heavy edits
+
+The selection is passed to Claude CLI via `--model` flag: `claude -p --model sonnet "..."`. Persists per session. The model name appears in the prompt preview and change summary so the user always knows what ran.
+
 ---
 
 ## What the editor contributes to the prompt
@@ -159,40 +168,101 @@ The Write API is thin:
 
 ```
 POST /write
-  body: { mode: "ai" | "deterministic", prompt?: string, ...adapterPayload? }
-  → returns: { status, filesChanged: string[] }
+  body: { mode: "ai" | "deterministic", model?: string, prompt?: string, ...adapterPayload? }
+  → returns: { status, filesChanged: string[], summary: string }
 
 GET  /files/:path
   → returns file content (for editor to re-read after write)
-
-WS   /write/stream
-  → streams Claude CLI output for progress indication
 ```
 
 **Port exposure:**
 - Container platform provides a tunnel URL (e.g. `https://<id>-<port>.ooda.computer`)
 - Write API requires token auth (generated at container start, passed to local editor)
-- Optional: WebSocket for streaming Claude's output during longer writes
 
 ---
 
-## Change visibility
+## Edit → batch → write cycle
 
-### Before the write (AI mode only)
-- **Prompt preview**: expandable panel showing the exact prompt that will be sent. User can see what Claude will be asked to do before it happens.
-- **Context list**: which files are included as context, which CLAUDE.md sections apply.
-- **Mode badge**: visible indicator — "AI Write" or "Deterministic" — so it's always clear what's about to happen.
+The user edits visually in the iframe as they do today. The editor live-previews changes as normal. The difference is what happens when they commit.
 
-### After the write (both modes)
-- Editor detects file change (fs watcher in-container, API poll for remote)
-- Visual preview updates to show the new state
-- Minimal change summary: `py-3 → py-6 in page-header.tsx`
-- Git diff available as ground truth for any write
+### The flow
+
+1. **User makes edits** — sliders, pickers, drag handles. The iframe live-previews each change as it happens (existing behavior, unchanged).
+2. **User hits "Apply"** — the editor batches all pending changes into a single structured prompt.
+3. **Loading overlay** — a loading state covers the iframe. The prompt is sent to Claude CLI.
+4. **Claude writes to disk** — files change on the filesystem. Claude CLI also returns a **change summary** (natural language description of what it did and which files it touched).
+5. **HMR / re-scan** — the dev server's HMR picks up the file changes, the iframe reloads. The editor re-scans `data-source` attributes and updates its model of the page.
+6. **Summary shown** — the editor displays Claude's change summary alongside the updated preview. For multi-file changes, this is how the user knows what happened beyond the visible iframe.
+
+```
+┌─────────────────────────────────────────────────┐
+│  User drags padding from 12px → 24px            │
+│  User changes color from gray-500 → gray-700    │
+│  (iframe live-previews both)                     │
+│                                                  │
+│  [Apply]                                         │
+├─────────────────────────────────────────────────┤
+│  ░░░░░░░░░░░ Loading ░░░░░░░░░░░░░░░░░░░░░░░░  │
+│  ░░░░ Sending to Claude CLI... ░░░░░░░░░░░░░░░  │
+├─────────────────────────────────────────────────┤
+│  ✓ Changed 2 properties in page-header.tsx      │
+│    · py-3 → py-6 (padding-y: 12px → 24px)      │
+│    · text-gray-500 → text-gray-700              │
+│                                                  │
+│  [Undo]  [View diff]                            │
+└─────────────────────────────────────────────────┘
+```
+
+### Getting the summary back from Claude CLI
+
+Claude CLI writes files directly, but we also need it to return a structured summary. Two approaches:
+
+**Approach A — Prompt instructs Claude to print a summary after editing**
+
+The prompt ends with:
+```
+After making the changes, print a JSON summary:
+{ "files": ["path", ...], "changes": ["description", ...] }
+```
+
+Claude CLI's stdout (`-p` mode) captures this. The editor parses the JSON from stdout after the process exits.
+
+**Approach B — Diff-based summary**
+
+Before invoking Claude, snapshot the relevant files (or their mtimes). After Claude exits, diff the before/after. Generate the summary from the diff itself — no need for Claude to describe what it did.
+
+Approach A is simpler and gives richer descriptions. Approach B is more reliable (can't hallucinate a summary). **Recommendation: use both.** Capture Claude's stdout summary for the human-readable description, but verify against the actual file diff for the file list and change locations.
+
+### Multi-file changes
+
+The prompt can reference multiple files when the editor detects cross-file relationships (e.g. a component and its token source). Claude naturally edits across files.
+
+The change summary is how the user learns about files they can't see in the iframe. The summary lists every file touched:
+
+```
+✓ Changed 2 files
+  · src/components/page-header.tsx — py-3 → py-6
+  · src/styles/tokens.css — added --spacing-header: 24px
+[View diff]
+```
+
+The "View diff" button shows a git diff panel (or opens the container's terminal / VS Code diff view).
+
+### Prompt preview (before write)
+
+Before the user hits "Apply", an expandable panel shows:
+- The assembled prompt (what Claude will be asked to do)
+- Which files are included as context
+- Which CLAUDE.md sections apply
+- The selected model
+
+This is collapsed by default — most users won't need it. Power users and debugging sessions benefit from seeing exactly what's being sent.
 
 ### Undo
-- AI writes: `git checkout -- <file>` reverts. Editor wraps this as a one-click "Undo" button.
-- Deterministic writes: existing undo mechanism stays as-is.
-- Future: maintain a write log (mode, prompt, files changed, timestamp) for session-level undo history.
+
+- **One-click undo**: `git checkout -- <files>` reverts all files from the last AI write. Editor wraps this as an "Undo" button in the change summary bar.
+- **Deterministic writes**: existing undo mechanism stays as-is.
+- **Write log**: session-level history of all writes (mode, prompt, files changed, timestamp) enables undo of any previous write, not just the last one.
 
 ---
 
@@ -217,34 +287,35 @@ WS   /write/stream
 
 ### Phase 1 — Mode toggle + prompt builder (editor side)
 
-1. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar
-2. **When AI mode is active**, the existing visual controls (sliders, pickers, etc.) build a structured prompt object instead of calling a write adapter
-3. **Prompt preview panel** — show the assembled prompt before sending
-4. **Wire up `claude -p`** — editor server spawns Claude CLI with the prompt, waits for completion
-5. **File re-read** — after Claude exits, re-read the changed file(s) and update the visual preview
+1. **Add write mode state** to the editor — `"deterministic" | "ai"` toggle in the toolbar, model selector (Sonnet/Opus) visible when AI is active
+2. **Batch pending changes** — when AI mode is active, visual edits accumulate as a list of change intents (live-previewed in iframe as today). "Apply" batches them into one prompt.
+3. **Prompt builder** — assembles the structured prompt from batched changes, `data-source` locations, current values, target values, and CLAUDE.md context
+4. **Wire up `claude -p --model <model>`** — editor server spawns Claude CLI with the prompt. Captures stdout for the change summary.
+5. **Loading overlay** — covers the iframe while Claude is working. Shows model name and a spinner.
+6. **HMR pickup** — after Claude exits, dev server HMR reloads the iframe. Editor re-scans `data-source` attributes.
+7. **Change summary** — parse Claude's stdout summary, verify against actual file diff, display in a summary bar with Undo and View Diff actions.
 
-Deterministic mode is completely unchanged. The toggle just determines which code path runs when the user commits a visual change.
+Deterministic mode is completely unchanged. The toggle just determines which code path runs when the user commits.
 
 ### Phase 2 — Container integration
 
-6. **Write API server** — thin HTTP layer that accepts write requests from a remote editor, dispatches to either mode
-7. **Auth** — token-based, generated at container start
-8. **Port exposure** — configure for ooda.computer tunnel
-9. **WebSocket streaming** — optional, for progress indication on AI writes
+8. **Write API server** — thin HTTP layer that accepts write requests (including model choice) from a remote editor, dispatches to either mode, returns change summary
+9. **Auth** — token-based, generated at container start
+10. **Port exposure** — configure for ooda.computer tunnel
 
 ### Phase 3 — Polish
 
-10. **Undo button** — one-click revert for AI writes (`git checkout`)
-11. **Write log** — session-level history of all writes (mode, prompt, files, timestamp)
-12. **CLAUDE.md scaffolding** — helper to generate an initial CLAUDE.md from detected project stack
-13. **Prompt tuning** — iterate on prompt structure based on real-world accuracy across stacks
+11. **Undo button** — one-click revert for AI writes (`git checkout -- <files>`)
+12. **Write log** — session-level history of all writes (mode, model, prompt, files changed, timestamp) for multi-step undo
+13. **Prompt preview panel** — expandable, collapsed by default. Shows assembled prompt, context files, CLAUDE.md sections, model. For debugging and power users.
+14. **CLAUDE.md scaffolding** — helper to generate an initial CLAUDE.md from detected project stack
+15. **Prompt tuning** — iterate on prompt structure based on real-world accuracy across stacks
 
 ---
 
 ## Open questions
 
-- **Streaming preview**: Should the editor show Claude's output as it streams (partial file content appearing), or wait for completion? Streaming feels more responsive but partial state could be confusing.
-- **Multi-file writes**: Some changes naturally span files (e.g. extracting a component). In AI mode Claude can handle this. How does the editor represent a multi-file prompt and multi-file result?
 - **Confidence threshold**: Should the editor warn when a prompt seems too vague or the change too large for a single AI write? Or just let Claude try and show the diff?
-- **Model selection**: Container has Claude CLI, but which model? Should the user be able to pick (Sonnet for speed, Opus for complex changes)? Or just use whatever's configured?
 - **Deterministic fallback in AI mode**: If the user is in AI mode but the change is trivially simple (one className value), should the editor suggest switching to deterministic? Or is that the kind of auto-routing we're explicitly avoiding?
+- **Summary format**: JSON from Claude's stdout is parseable but fragile. Should we use a more structured approach (e.g. tool_use output format) or is stdout + diff verification enough?
+- **Batching limits**: How many changes should be batchable in a single prompt? At some point the prompt gets too large or too ambiguous. Should there be a soft limit with a warning?
