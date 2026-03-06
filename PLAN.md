@@ -204,9 +204,23 @@ The prompt is surgical because the visual editor built it — not because the us
 ### Where instructions are stored
 
 - **Defaults** (Layer 1, Layer 2) ship inside the `surface` package as markdown files
-- **User edits** (all layers) are saved to a project-local config file (e.g. `.surface/instructions.json`), checked into git so the whole team shares them
-- If a project also has a `CLAUDE.md`, Surface can optionally read from it to seed Layer 3 — but the UI is the primary editing interface, not hand-editing markdown files
+- **User edits** (all layers) are saved to `.surface/instructions.json` in the project root, checked into git so the whole team shares them
 - If no config exists, Surface works fine with just the built-in defaults. Layer 3 is what takes it from "good for any project" to "good for *this* project."
+
+### Relationship to CLAUDE.md
+
+Surface **never reads or writes the project's `CLAUDE.md`**. That file belongs to the user and may already contain instructions for interactive Claude Code sessions, CI workflows, or other tooling. Overwriting or appending to it would be hostile in someone else's repo.
+
+Instead, Surface owns the entire prompt. The instruction builder reads `.surface/instructions.json`, composes all three layers, and passes the fully assembled prompt to `claude -p`. Claude CLI doesn't need to discover or read any files — it receives a complete prompt with all context already inlined.
+
+If users want their interactive Claude Code sessions to also be aware of Surface's instruction layers (e.g. so `claude` in the terminal follows the same conventions), they can add a reference in their own `CLAUDE.md`:
+
+```markdown
+## Design editing
+See .surface/instructions.json for visual editing conventions used by Surface.
+```
+
+But that's their choice, not something Surface does automatically.
 
 ---
 
