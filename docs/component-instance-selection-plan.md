@@ -1,6 +1,6 @@
-# Component vs Instance Selection: Plan
+# Selection & Editability: Plan
 
-Supplementary to the [direct manipulation plan](./direct-manipulation-plan.md). This work is independent — it doesn't depend on drag/drop, resize, or text editing, and can be built in parallel or before those features.
+Supplementary to the [direct manipulation plan](./direct-manipulation-plan.md). This work is independent of drag/drop, resize, and text editing mechanics — but it provides the **selection-level editability model** that all three features consume. Build this first or in parallel.
 
 ---
 
@@ -64,6 +64,138 @@ For **non-editable elements** (npm packages, elements without source):
 - Overlay shows a lock icon or package badge instead of the toggle
 - Panel shows "Inspect only" with the package name
 - Properties are visible but read-only (current behaviour, unchanged)
+
+---
+
+## Element Editability Classification
+
+This is the work currently scattered across the direct manipulation plan (reorder skipping expression containers, `classify-content.ts` for text editing, hover editability UX). It belongs here because it's fundamentally a **selection concern** — before any editing action is offered, we need to know what's authored and what's data-driven. The answer is the same whether you're trying to edit styles, reorder, resize, or change text.
+
+### The Core Question
+
+When you click on a rendered `<Card>` in the preview, the selection needs to determine:
+
+1. **Is this instance authored or data-driven?** — Is the `<Card>` written literally in JSX, or is it rendered inside a `.map()` / `{#each}` / loop over dynamic data?
+2. **What parts of this element are authored?** — Are its children static JSX, or are they expressions (`{item.title}`)? Are its props string literals or variable references?
+3. **What can you actually change from here?** — If this card is one of N rendered from an array, you can't meaningfully reorder *this instance* or edit *this instance's text*. But you can always edit the *component definition*.
+
+### Classification Model
+
+When an element is selected, the server classifies it:
+
+```typescript
+type ElementEditability = {
+  // Instance-level editability
+  instance: {
+    // Is this specific instance authored in the source?
+    // false if it's rendered from a loop/map/iterator over dynamic data
+    isAuthored: boolean;
+
+    // What produced this instance if not authored directly
+    dataSource?: {
+      type: "map" | "each" | "for" | "iterator";  // the loop construct
+      expression: string;                            // e.g. "products.map(...)", "{#each items}"
+      dataOrigin?: string;                           // if detectable: "props", "fetch", "state", etc.
+    };
+
+    // Styles: can you add/override classes on this instance?
+    // true if the instance JSX has (or can have) a className/class prop
+    canOverrideStyles: boolean;
+
+    // Children: classification of each child (text vs expression)
+    // Pulled from what was classify-content in the drag-and-drop plan
+    content: ContentClassification;
+
+    // Children: can you reorder siblings?
+    // false if children are expression containers (mapped data)
+    canReorderChildren: boolean;
+
+    // Props: which props are editable string literals vs expressions
+    props: PropClassification[];
+  };
+
+  // Component-level editability (always present if this is a component)
+  component?: {
+    canEditStyles: boolean;     // true if source file is local (not node_modules)
+    canEditContent: boolean;    // true if component has authored children/text
+    canEditVariants: boolean;   // true if component uses a variant system (CVA/tv/etc)
+    filePath: string;
+    exportName: string;
+  };
+};
+```
+
+### How It's Determined
+
+**Instance authored check (is this a `.map()` child?):**
+- Read the source file at the instance's `data-source` location
+- Walk up the AST from that element
+- If the nearest ancestor expression is a `.map()` callback, `Array.from()`, or similar iterator → `isAuthored: false`
+- For Svelte: check if element is inside `{#each ...}` block
+- For Astro: check if element is inside `{items.map(...)}` expression
+- If the element is a direct JSX child of a component/page → `isAuthored: true`
+
+**Content classification (was `classify-content.ts` in the drag-and-drop plan):**
+- Same logic, but runs as part of the selection classification, not as a separate endpoint
+- `JSXText` / `StringLiteral` → editable text
+- `JSXExpressionContainer` with non-literal → locked, show expression source
+- For Svelte: `Text` vs `MustacheTag`
+- For Astro: text vs `Expression`
+
+**Prop classification (was phase 3E in the drag-and-drop plan):**
+- For each attribute on the element, check if value is `StringLiteral` (editable) or expression (locked)
+- Return both the value and the expression source for locked props
+
+**Reorder check:**
+- Look at the parent element's children in the AST
+- If children are all authored JSXElements → reorderable
+- If children include expression containers (`.map()`, spread, etc.) → not reorderable
+- This replaces the `getReorderableChildren` check in the drag-and-drop plan — same logic, but evaluated once at selection time and cached
+
+### What This Replaces in the Direct Manipulation Plan
+
+| Original location | What it did | Now lives here as |
+|---|---|---|
+| Feature 1, Phase 1A: `getReorderableChildren` skips `JSXExpressionContainers` | Checked if children are reorderable | `instance.canReorderChildren` |
+| Feature 1: Hover & Editability UX | "If container is non-reorderable: no affordance" | Overlay reads `canReorderChildren` from classification |
+| Feature 3, Phase 3A: `POST /api/classify-content` | Classified children as text vs expression | `instance.content` (same `ContentClassification` type) |
+| Feature 3, Phase 3E: Prop classification | Classified props as editable vs expression | `instance.props` |
+| Feature 3: Hover & Editability UX | "Fully dynamic: shows tooltip with expression" | Overlay reads `instance.content.fullyDynamic` |
+
+The drag-and-drop plan's features still own their **action mechanics** (the actual reorder, resize, text edit). They just consume the editability classification from the selection layer rather than computing it themselves.
+
+### Endpoint
+
+**`GET /api/classify-element?file=...&line=...&col=...`**
+
+- Single endpoint, called once on selection (prefetched alongside `component-styles`)
+- Response cached by file + line:col + mtime (same cache strategy as component styles)
+- Returns `ElementEditability`
+- Consumed by:
+  - The component/instance toggle (determines if toggle appears and what modes are available)
+  - The overlay (what affordances to show: drag handles, text edit cursor, lock icons)
+  - The panel (what sections to render, what's editable, what shows "bound to `{expression}`")
+  - Each direct manipulation feature (reorder checks `canReorderChildren`, text edit checks `content.editable`, etc.)
+
+### UX Implications
+
+**Data-driven instance selected (`.map()` child):**
+- Overlay shows the element with a data-source badge: `"from products.map()"`
+- Instance mode is inspect-only for content and reordering (styles can still be overridden if the component accepts className)
+- Component mode is fully available — "Edit the component that renders these"
+- No drag handles on siblings (they're all data-driven)
+- No text edit cursor (text comes from data)
+- Panel shows: "This element is rendered from `products.map()`. Editing the content or order requires changing the data source. You can edit the component definition or override styles on this instance."
+
+**Authored instance selected (directly written in JSX):**
+- Full instance editing: styles, text (if static), reorder (if siblings are authored)
+- Component mode available for editing the underlying component
+- All affordances shown based on content classification
+
+**npm package component:**
+- Instance mode only, inspect + style override
+- No component mode (source not local)
+- Package badge on overlay
 
 ---
 
@@ -158,7 +290,27 @@ This diffing happens client-side in the editor — it already has both datasets.
 
 ## Implementation
 
-### Phase 1: Component Styles Endpoint
+### Phase 1: Element Classification Endpoint
+
+**File: `packages/surface/src/server/api/classify-element.ts` (new)**
+
+- `GET /api/classify-element?file=<path>&line=<n>&col=<n>`
+- Parse file, find element at source location
+- Walk up AST to check for `.map()` / `{#each}` / iterator ancestors → sets `instance.isAuthored`
+- Classify children (text vs expression) → `instance.content`
+- Classify props (string literal vs expression) → `instance.props`
+- Check parent's children for reorderability → `instance.canReorderChildren`
+- Return `ElementEditability`
+- Cache by file + line:col + mtime
+
+**File: `packages/surface/src/server/lib/ast-helpers.ts` (extend)**
+
+Add: `classifyElement(ast, line, col, source: string): ElementEditability`
+- Consolidates `classifyJSXChildren`, `getReorderableChildren`, and the loop-ancestor check
+- Framework variants for Svelte (`{#each}` blocks, `MustacheTag`) and Astro (expression nodes)
+- Dispatcher: `classifyElement(filePath, line, col)` — picks parser based on file extension
+
+### Phase 2: Component Styles Endpoint
 
 **File: `packages/surface/src/server/api/component-styles.ts` (new)**
 
@@ -182,7 +334,7 @@ Add: `extractElementStyles(ast, line, col, source: string)`:
 
 **Framework dispatch:** check file extension, route to JSX/Svelte/Astro parser (same pattern as existing transforms).
 
-### Phase 2: Selection Overlay Toggle
+### Phase 3: Selection Overlay Toggle
 
 **File: `packages/surface/src/client/components/selection-overlay.tsx` (new or extend existing)**
 
@@ -197,7 +349,7 @@ Add: `extractElementStyles(ast, line, col, source: string)`:
 
 No new iframe messages needed. The toggle is purely editor-side state. The iframe selection doesn't change — same DOM element stays selected.
 
-### Phase 3: Panel Data Switching
+### Phase 4: Panel Data Switching
 
 **File: `packages/surface/src/client/components/editor-panel.tsx` (modify)**
 
@@ -237,7 +389,7 @@ Switching to component mode triggers a server fetch (`GET /api/component-styles`
 
 **Remove:** The three-tab system (`token | component | instance`). Token editing moves to a separate access point (it's not element-selection-dependent).
 
-### Phase 4: Instance Attribution UI
+### Phase 5: Instance Attribution UI
 
 **File: `packages/surface/src/client/lib/style-attribution.ts` (new)**
 
@@ -268,7 +420,7 @@ function attributeStyles(
 - For `"overridden"` properties: render normally with a small indicator showing the component's original value (tooltip or inline chip)
 - For `"instance-added"` properties: render normally, no special indicator
 
-### Phase 5: Token Tab Relocation
+### Phase 6: Token Tab Relocation
 
 The token tab is currently part of the three-tab system being removed. Tokens aren't element-specific — they're global design system values.
 
@@ -285,19 +437,27 @@ This is a minor UI reorganisation, not a data architecture change.
 
 | Location | Change |
 |----------|--------|
-| **Selection overlay (canvas)** | Add component/instance toggle icons, top-right corner |
+| **Server** | New `GET /api/classify-element` endpoint (editability classification) |
+| **Server** | New `GET /api/component-styles` endpoint (authored styles from source) |
+| **AST helpers** | New `classifyElement()` and `extractElementStyles()` functions |
+| **Selection overlay (canvas)** | Add component/instance toggle, data-source badges, editability affordances |
 | **Panel header** | Mirror toggle, show correct file path per mode |
 | **Panel body** | Switch data source: server-provided component styles vs runtime instance styles |
-| **Server** | New `GET /api/component-styles` endpoint |
-| **AST helpers** | New `extractElementStyles()` function |
-| **Protocol** | No changes — toggle is editor-side only |
+| **Protocol** | No changes — toggle and classification are editor-side state |
 | **Iframe (surface.tsx)** | No changes — same element stays selected |
 | **Tab system** | Removed, replaced by overlay/header toggle |
+| **Direct manipulation plan** | Remove `classify-content.ts`, hover editability UX — consumed from here |
 
 ---
 
 ## Dependency on Other Work
 
-**Independent of drag-and-drop plan.** This can be built before, after, or in parallel with the three features in the direct manipulation plan. The component styles endpoint would also be useful for text editing (Feature 3) — knowing whether text content is authored in the component vs passed as a prop.
+**This plan provides infrastructure the direct manipulation plan consumes.** The `classify-element` endpoint and `ElementEditability` model replace scattered editability checks across all three drag-and-drop features. The direct manipulation plan's features still own their action mechanics — the reorder, resize, and text edit implementations — but they read editability from the selection layer rather than computing it per-feature.
 
-**Shared infrastructure:** The `extractElementStyles` function builds on the same AST helpers used by the write pipeline and would be used by the resize handles (Feature 2) to understand what sizing values the component authors vs what the instance overrides.
+Specifically, the direct manipulation plan should be updated to:
+- Remove `POST /api/classify-content` (Phase 3A) — replaced by `GET /api/classify-element`
+- Remove `getReorderableChildren`'s editability logic (Phase 1A) — reorder reads `canReorderChildren` from selection state
+- Remove the hover editability UX sections from Features 1 and 3 — the overlay reads classification from selection state
+- Keep all action endpoints: `POST /api/reorder-children`, `POST /api/write-text`, resize handles, etc.
+
+**Shared infrastructure:** The `extractElementStyles` function builds on the same AST helpers used by the write pipeline and would be used by the resize handles (Feature 2) to understand what sizing values the component authors vs what the instance overrides. The `classify-element` endpoint uses the same AST traversal patterns already in `find-element.ts` and `ast-helpers.ts`.
