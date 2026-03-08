@@ -67,6 +67,22 @@ export interface StyleChange {
   };
 }
 
+/** A single visual edit accumulated in AI write mode before sending to Claude. */
+export interface ChangeIntent {
+  type: "class" | "style" | "prop";
+  /** CSS property name, Tailwind class category, or prop name */
+  property: string;
+  /** Current value before the edit */
+  fromValue: string;
+  /** Desired new value */
+  toValue: string;
+  elementSource: SourceLocation;
+  currentClassName: string;
+}
+
+export type WriteMode = "deterministic" | "ai";
+export type AiModel = "sonnet" | "opus";
+
 // Messages from target app iframe -> editor
 export type IframeToEditor =
   | { type: "tool:injectedReady" }

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { SegmentedIcons, ScaleInput, BoxSpacingControl, BoxRadiusControl } from "./controls/index.js";
+import { LayoutGrid, Palette, Move, Maximize2, Type, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
-  ChevronRightIcon,
-  ChevronDownIcon,
   RowsIcon,
   GridIcon,
   ColumnsIcon,
@@ -223,13 +222,13 @@ export function PropertyPanel({
   const twScales = getTwScales(tailwindTheme);
   const parsed = parseClasses(classes);
 
-  const categories: { key: PropertyCategory; label: string }[] = [
-    { key: "layout", label: "Layout" },
-    { key: "color", label: "Color" },
-    { key: "spacing", label: "Spacing" },
-    { key: "size", label: "Size" },
-    { key: "typography", label: "Type" },
-    { key: "shape", label: "Shape" },
+  const categories: { key: PropertyCategory; label: string; icon: React.ReactNode }[] = [
+    { key: "layout",     label: "Layout",  icon: <LayoutGrid size={12} /> },
+    { key: "color",      label: "Color",   icon: <Palette size={12} /> },
+    { key: "spacing",    label: "Spacing", icon: <Move size={12} /> },
+    { key: "size",       label: "Size",    icon: <Maximize2 size={12} /> },
+    { key: "typography", label: "Type",    icon: <Type size={12} /> },
+    { key: "shape",      label: "Shape",   icon: <CornersIcon /> },
   ];
 
   const nonEmptyCategories = categories.filter(
@@ -272,6 +271,7 @@ export function PropertyPanel({
           key={cat.key}
           category={cat.key}
           label={cat.label}
+          icon={cat.icon}
           properties={parsed[cat.key]}
           onClassChange={onClassChange}
           tokenGroups={tokenGroups}
@@ -349,6 +349,7 @@ function CategoryContent({
 function CategorySection({
   category,
   label,
+  icon,
   properties,
   onClassChange,
   tokenGroups,
@@ -356,6 +357,7 @@ function CategorySection({
 }: {
   category: PropertyCategory;
   label: string;
+  icon?: React.ReactNode;
   properties: ParsedProperty[];
   onClassChange: (oldClass: string, newClass: string) => void;
   tokenGroups: Record<string, any[]>;
@@ -369,9 +371,12 @@ function CategorySection({
         onClick={() => setCollapsed(!collapsed)}
         className="studio-section-hdr"
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        {label}
+        {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
+        <span style={{ flex: 1 }}>{label}</span>
         <span className="count">{properties.length}</span>
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
+          {collapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
+        </span>
       </button>
 
       {!collapsed && (

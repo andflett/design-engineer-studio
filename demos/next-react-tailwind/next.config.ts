@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withDesigntools } from "../../packages/next-plugin/dist/index.mjs";
+import { withDesigntools } from "@designtools/next-plugin";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: __dirname,

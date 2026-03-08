@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Component1Icon } from "@radix-ui/react-icons";
-import { PanelLeft } from "lucide-react";
-import type { SelectedElementData, ComponentTreeNode, PreviewCombination } from "../shared/protocol.js";
+import { PanelLeft, Settings, RefreshCw, ChevronDown } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import type { SelectedElementData, ComponentTreeNode, PreviewCombination, WriteMode, AiModel } from "../shared/protocol.js";
 import type { ComponentEntry } from "../server/lib/scan-components.js";
 import type { ResolvedTailwindTheme } from "../shared/tailwind-theme.js";
 import { classifyCssProperties } from "../shared/css-scale-classifier.js";
@@ -15,7 +15,7 @@ import { useScanReady, useComponents } from "./lib/scan-hooks.js";
 import { UsagePanel } from "./components/usage-panel.js";
 import { PageExplorer } from "./components/page-explorer.js";
 import { IsolationView, generateCombinations } from "./components/isolation-view.js";
-import { ProjectInfo } from "./components/project-info.js";
+import { SettingsPage } from "./components/settings-page.js";
 
 /** Set to false to skip the boot screen (disable before publishing) */
 const SHOW_BOOT_SCREEN = false;
@@ -49,14 +49,27 @@ export function App() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   /** Tracks the last selected element's domPath so we can re-select after iframe reload */
   const selectedDomPathRef = useRef<string | null>(null);
+  const [projectName, setProjectName] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
   const [stylingType, setStylingType] = useState("");
-  const [projectName, setProjectName] = useState("");
   const [tailwindTheme, setTailwindTheme] = useState<ResolvedTailwindTheme | null>(null);
+  const [writeMode, setWriteMode] = useState<WriteMode>("deterministic");
+  const [aiModel, setAiModel] = useState<AiModel>("sonnet");
+  const [toolPort, setToolPort] = useState(4400);
+  const [projectRoot, setProjectRoot] = useState("");
+  const [instructions, setInstructions] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"info" | "instructions">("info");
   const [iframeCssTheme, setIframeCssTheme] = useState<ResolvedTailwindTheme | null>(null);
   const [selectedElement, setSelectedElement] = useState<SelectedElementData | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    // Sync initial editor chrome theme
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = prefersDark ? "dark" : "light";
+    document.documentElement.classList.toggle("light", initial === "light");
+    return initial;
+  });
   const [viewportWidth, setViewportWidth] = useState<number | "fill">("fill");
   const [zoom, setZoom] = useState(0.6);
   const [iframePath, setIframePath] = useState("/");
@@ -80,9 +93,21 @@ export function App() {
         setStylingType(config.stylingType || "");
         setTailwindTheme(config.tailwindTheme || null);
         if (config.projectRoot) {
+          setProjectRoot(config.projectRoot);
           setProjectName(config.projectRoot.split("/").filter(Boolean).pop() ?? "");
         }
+        if (config.toolPort) {
+          setToolPort(config.toolPort);
+        }
       })
+      .catch(console.error);
+  }, []);
+
+  // Fetch instructions
+  useEffect(() => {
+    fetch("/api/instructions")
+      .then((res) => res.json())
+      .then((data) => setInstructions(data.content ?? ""))
       .catch(console.error);
   }, []);
 
@@ -93,6 +118,36 @@ export function App() {
       .then((data: RawScanData) => {
         scanStore.setAll(data);
       })
+      .catch(console.error);
+  }, []);
+
+  const handleOpenSettings = useCallback((tab: "info" | "instructions" = "info") => {
+    setSettingsTab(tab);
+    setSettingsOpen(true);
+  }, []);
+
+  // Terminal session key — increment to force terminal reconnect
+  const [terminalKey, setTerminalKey] = useState(0);
+
+  const handleSaveInstructions = useCallback(async (content: string) => {
+    try {
+      await fetch("/api/instructions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      setInstructions(content);
+      // Reload the terminal so Claude CLI picks up the new instructions
+      setTerminalKey((k) => k + 1);
+    } catch (err) {
+      console.error("Failed to save instructions:", err);
+    }
+  }, []);
+
+  const handleRescan = useCallback(() => {
+    fetch("/scan/rescan", { method: "POST" })
+      .then((res) => res.json())
+      .then((data: RawScanData) => { scanStore.setAll(data); })
       .catch(console.error);
   }, []);
 
@@ -170,6 +225,7 @@ export function App() {
   const toggleTheme = useCallback(() => {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
+    document.documentElement.classList.toggle("light", next === "light");
     send({ type: "tool:setTheme", theme: next });
   }, [theme, send]);
 
@@ -203,7 +259,7 @@ export function App() {
 
   const handleCloseEditor = useCallback(() => {
     setSelectedElement(null);
-    selectedSourceRef.current = null;
+    selectedDomPathRef.current = null;
     setUsagePanelOpen(false);
     send({ type: "tool:clearSelection" });
   }, [send]);
@@ -262,6 +318,22 @@ export function App() {
     () => tailwindTheme ?? iframeCssTheme ?? null,
     [tailwindTheme, iframeCssTheme],
   );
+
+  // Global keyboard shortcuts — must be before early returns
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen((v) => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handleRescan();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [handleRescan]);
 
   const handleLeftPanelDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -377,16 +449,63 @@ export function App() {
           className="pl-2.5 pr-2.5 pt-3 pb-3 shrink-0"
           style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
         >
-          <div className="flex items-start justify-between">
-            <div className="flex gap-0 flex-col">
-              <span
-                className="flex-1 text-[10px] font-semibold uppercase tracking-wide"
-                style={{ color: "var(--studio-text-muted)" }}
-              >
-                {projectName || "Explorer"}
-              </span>
-              <ProjectInfo targetPort={targetUrl ? parseInt(new URL(targetUrl).port, 10) || 3000 : 3000} />
-            </div>
+          <div className="flex items-center justify-between">
+            {/* Project name dropdown */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: "2px 6px 2px 2px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    color: "var(--studio-text)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderRadius: 5,
+                    minWidth: 0,
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--studio-surface-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  title="Project menu"
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {projectName || "Surface"}
+                  </span>
+                  <ChevronDown size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className="studio-popup-dark"
+                  sideOffset={6}
+                  align="start"
+                  style={{ zIndex: 9999 }}
+                >
+                  <DropdownMenu.Item
+                    className="studio-dropdown-item"
+                    onSelect={() => handleOpenSettings("info")}
+                  >
+                    <Settings size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
+                    <span>Settings</span>
+                    <span className="shortcut">⌘,</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="studio-dropdown-item"
+                    onSelect={handleRescan}
+                  >
+                    <RefreshCw size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
+                    <span>Rescan</span>
+                    <span className="shortcut">⇧⌘S</span>
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+
             <button
               onClick={() => setLeftPanelCollapsed(true)}
               className="studio-icon-btn shrink-0"
@@ -443,14 +562,18 @@ export function App() {
               }}
       onIsolate={handleIsolate}
       onSelectParentInstance={handleSelectParentInstance}
+      writeMode={writeMode}
+      aiModel={aiModel}
+      toolPort={toolPort}
+      onWriteModeChange={setWriteMode}
+      onAiModelChange={setAiModel}
+      terminalKey={terminalKey}
     />
   );
 
   return (
     <TooltipProvider>
       <ToolChrome
-        toolName="Surface"
-        toolIcon={<Component1Icon />}
         selectionMode={selectionMode}
         onToggleSelectionMode={toggleSelectionMode}
         theme={theme}
@@ -466,6 +589,14 @@ export function App() {
         editorPanel={editorPanel}
         leftPanel={leftPanel}
       />
+      {settingsOpen && instructions !== null && (
+        <SettingsPage
+          initialTab={settingsTab}
+          instructions={instructions}
+          onClose={() => setSettingsOpen(false)}
+          onSave={handleSaveInstructions}
+        />
+      )}
     </TooltipProvider>
   );
 }

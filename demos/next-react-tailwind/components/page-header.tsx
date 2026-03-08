@@ -16,10 +16,10 @@ export function PageHeader({
       <hgroup>
         <h1 data-slot="page-title" className="text-xl font-bold tracking-tight border-[1px]">
           {title}
-          {tag && <Badge variant="muted" size="sm" className="ml-2 align-middle">{tag}</Badge>}
+          {tag && <Badge variant="secondary" size="sm" className="ml-2 align-middle">{tag}</Badge>}
         </h1>
         {description && (
-          <p data-slot="page-description" className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p data-slot="page-description" className="text-base text-muted-foreground mt-1">{description}</p>
         )}
       </hgroup>
       {children}

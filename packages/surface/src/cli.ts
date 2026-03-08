@@ -6,6 +6,7 @@ import open from "open";
 import { detectFramework, type FrameworkInfo } from "./server/lib/detect-framework.js";
 import { detectStylingSystem, type StylingSystem } from "./server/lib/detect-styling.js";
 import { createServer } from "./server/index.js";
+import { setupTerminalServer } from "./server/lib/terminal-server.js";
 
 // ANSI colors
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -456,6 +457,9 @@ async function main() {
     }
     tryListen(toolPort);
   });
+
+  // Attach WebSocket terminal server (node-pty + Claude CLI)
+  setupTerminalServer(httpServer, projectRoot);
 
   console.log("");
   console.log(`  ${dim("All file writes are scoped to:")} ${bold(projectRoot)}`);

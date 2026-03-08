@@ -12,6 +12,7 @@ import {
   Cross2Icon,
   Pencil1Icon,
 } from "@radix-ui/react-icons";
+import { Palette, Move, Layers, Square, Sparkles, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { ShadowList } from "./shadow-list.js";
 import { ColorInput, ColorInputSwatch } from "./controls/color-input.js";
 import { useTokens, useShadows, useBorders, useGradients, useSpacing, useStyling } from "../lib/scan-hooks.js";
@@ -80,7 +81,7 @@ export function TokenEditor({
     <div className="">
       {/* Used by element — only show when relevant */}
       {referencedTokens.length > 0 && (
-        <Section title="Used by selected element" count={referencedTokens.length} defaultCollapsed>
+        <Section title="Used by selected element" icon={<Sparkles size={12} />} count={referencedTokens.length} defaultCollapsed>
           <div className="flex flex-col gap-1.5 px-4 pb-2">
             {referencedTokens.map((token: any) => {
               const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
@@ -114,7 +115,7 @@ export function TokenEditor({
       )}
 
       {/* Colors — always visible */}
-      <Section title="Colors" count={colorTokenGroups.reduce((sum, [_, g]) => sum + (g as any[]).filter(t => t.category === "color").length, 0)} defaultCollapsed>
+      <Section title="Colors" icon={<Palette size={12} />} count={colorTokenGroups.reduce((sum, [_, g]) => sum + (g as any[]).filter(t => t.category === "color").length, 0)} defaultCollapsed>
         <ColorsSection
           colorTokenGroups={colorTokenGroups}
           tokens={tokens}
@@ -127,7 +128,7 @@ export function TokenEditor({
       </Section>
 
       {/* Spacing — only for Tailwind projects (base multiplier) */}
-      {stylingType.startsWith("tailwind") && <Section title="Spacing" count={spacingDefs.length} defaultCollapsed>
+      {stylingType.startsWith("tailwind") && <Section title="Spacing" icon={<Move size={12} />} count={spacingDefs.length} defaultCollapsed>
         {spacingDefs.length > 0 ? (
           <SpacingScale
             spacingDefs={spacingDefs}
@@ -141,7 +142,7 @@ export function TokenEditor({
       </Section>}
 
       {/* Shadows — always visible */}
-      <Section title="Shadows" count={shadowData?.shadows?.length || 0} defaultCollapsed>
+      <Section title="Shadows" icon={<Layers size={12} />} count={shadowData?.shadows?.length || 0} defaultCollapsed>
         {shadowData && shadowData.shadows.length > 0 ? (
           <ShadowList
             shadows={shadowData.shadows}
@@ -155,7 +156,7 @@ export function TokenEditor({
       </Section>
 
       {/* Radii */}
-      <Section title="Radii" count={radiusBorders.length} defaultCollapsed>
+      <Section title="Radii" icon={<CornersIcon />} count={radiusBorders.length} defaultCollapsed>
         <RadiiSection
           borders={radiusBorders}
           theme={theme}
@@ -165,7 +166,7 @@ export function TokenEditor({
       </Section>
 
       {/* Borders — widths + colors */}
-      <Section title="Borders" count={widthBorders.length + borderColorTokens.length} defaultCollapsed>
+      <Section title="Borders" icon={<Square size={12} />} count={widthBorders.length + borderColorTokens.length} defaultCollapsed>
         <BordersSection
           widthBorders={widthBorders}
           borderColorTokens={borderColorTokens}
@@ -179,7 +180,7 @@ export function TokenEditor({
       </Section>
 
       {/* Gradients — gradient builder */}
-      <Section title="Gradients" count={gradientData?.gradients?.length || 0} defaultCollapsed>
+      <Section title="Gradients" icon={<Sparkles size={12} />} count={gradientData?.gradients?.length || 0} defaultCollapsed>
         <GradientBuilder
           gradients={gradientData?.gradients || []}
           cssFilePath={gradientData?.cssFilePath || cssFilePath}
@@ -196,11 +197,13 @@ export function TokenEditor({
 
 function Section({
   title,
+  icon,
   count,
   children,
   defaultCollapsed = true,
 }: {
   title: string;
+  icon?: React.ReactNode;
   count?: number;
   children: React.ReactNode;
   defaultCollapsed?: boolean;
@@ -213,9 +216,12 @@ function Section({
         onClick={() => setCollapsed(!collapsed)}
         className="studio-section-hdr"
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        {title}
+        {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
+        <span style={{ flex: 1 }}>{title}</span>
         {count !== undefined && <span className="count">{count}</span>}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
+          {collapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
+        </span>
       </button>
       {!collapsed && <div className="pb-2">{children}</div>}
     </div>

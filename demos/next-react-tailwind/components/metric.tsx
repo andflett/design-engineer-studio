@@ -18,7 +18,7 @@ export function Metric({
       <dt data-slot="metric-label" className="text-xs text-muted-foreground uppercase tracking-wide">
         {label}
       </dt>
-      <dd data-slot="metric-value" className="text-2xl font-bold tracking-tight">
+      <dd data-slot="metric-value" className="text-3xl font-bold tracking-tight">
         {value}
         {unit && <span className="text-sm font-normal text-muted-foreground ml-0.5">{unit}</span>}
       </dd>

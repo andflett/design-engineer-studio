@@ -19,7 +19,7 @@ import {
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import type { ComponentTreeNode } from "../../shared/protocol.js";
-import { ChevronsDownUp, ChevronsUpDown, Package } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Package, Layers } from "lucide-react";
 import { Tooltip } from "./tooltip.js";
 
 interface PageExplorerProps {
@@ -178,6 +178,7 @@ export function PageExplorer({
             {layoutNodes.length > 0 && (
               <ScopeSection
                 label="Layout"
+                icon={<Layers size={12} />}
                 expanded={layoutExpanded}
                 onToggle={() => setLayoutExpanded(!layoutExpanded)}
               >
@@ -196,6 +197,7 @@ export function PageExplorer({
             {pageNodes.length > 0 && (
               <ScopeSection
                 label="Page"
+                icon={<Layers size={12} />}
                 expanded={pageExpanded}
                 onToggle={() => setPageExpanded(!pageExpanded)}
                 flex
@@ -215,15 +217,15 @@ export function PageExplorer({
           /* No scope data — render flat tree */
           <div className="flex flex-col flex-1 min-h-0">
             <div
-              className="flex items-center gap-1.5 pl-2 pr-3 py-2 shrink-0"
-              style={{ borderBottom: "1px solid var(--studio-border-subtle)" }}
+              className="studio-section-hdr shrink-0"
+              style={{
+                paddingLeft: 10, paddingRight: 10,
+                borderBottom: "1px solid var(--studio-border-subtle)",
+                cursor: "default", pointerEvents: "none",
+              }}
             >
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wide"
-                style={{ color: "var(--studio-text-muted)" }}
-              >
-                Elements
-              </span>
+              <Layers size={12} style={{ opacity: 0.5 }} />
+              <span>Elements</span>
             </div>
             <div className="flex-1 overflow-y-auto overflow-x-auto studio-scrollbar py-1">
               {allNodes.map((node) => (
@@ -247,6 +249,7 @@ export function PageExplorer({
  */
 function ScopeSection({
   label,
+  icon,
   expanded,
   onToggle,
   alwaysExpanded,
@@ -255,6 +258,7 @@ function ScopeSection({
   children,
 }: {
   label: string;
+  icon?: React.ReactNode;
   expanded: boolean;
   onToggle?: () => void;
   alwaysExpanded?: boolean;
@@ -274,36 +278,28 @@ function ScopeSection({
         minHeight: 0,
       }}
     >
-      {/* Section header — stays pinned, never scrolls */}
-      <div
-        className="flex items-center gap-1.5 pl-2.5 pr-3 py-3 select-none shrink-0"
+      {/* Section header */}
+      <button
+        className="studio-section-hdr shrink-0"
         style={{
           cursor: alwaysExpanded ? "default" : "pointer",
-          borderBottom: !isExpanded
-            ? ""
-            : "1px solid var(--studio-border-subtle)",
+          borderBottom: isExpanded ? "1px solid var(--studio-border-subtle)" : "none",
+          pointerEvents: alwaysExpanded ? "none" : undefined,
         }}
         onClick={alwaysExpanded ? undefined : onToggle}
       >
-        <span
-          className="flex-1 text-[10px] font-semibold uppercase tracking-wide"
-          style={{ color: "var(--studio-text-muted)" }}
-        >
-          {label}
-        </span>
+        {icon && <span style={{ opacity: 0.5, display: "flex", alignItems: "center" }}>{icon}</span>}
+        <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
         {!alwaysExpanded && (
-          <button
-            className="studio-icon-btn"
-            style={{ width: 20, height: 20, borderRadius: 3 }}
-          >
+          <span style={{ opacity: 0.4, display: "flex", alignItems: "center" }}>
             {isExpanded ? (
-              <ChevronsDownUp style={{ width: 13, height: 13 }} />
+              <ChevronsDownUp style={{ width: 12, height: 12 }} />
             ) : (
-              <ChevronsUpDown style={{ width: 13, height: 13 }} />
+              <ChevronsUpDown style={{ width: 12, height: 12 }} />
             )}
-          </button>
+          </span>
         )}
-      </div>
+      </button>
 
       {/* Explainer (only shown when section is expanded) */}
       {isExpanded && explainer && (

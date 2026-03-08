@@ -14,10 +14,6 @@ import { Tooltip } from "./tooltip.js";
 import { rescanAll } from "../lib/scan-actions.js";
 
 export interface ToolChromeProps {
-  /** Tool name shown in toolbar */
-  toolName: string;
-  /** Tool icon in toolbar */
-  toolIcon: ReactNode;
   /** The tool's editor panel (right side) */
   editorPanel?: ReactNode;
   /** Optional left panel (e.g. component usage explorer) */
@@ -54,8 +50,6 @@ const BREAKPOINTS: Array<{ label: string; value: number | "fill" }> = [
 ];
 
 export function ToolChrome({
-  toolName,
-  toolIcon,
   editorPanel,
   leftPanel,
   showSelectionMode = true,
@@ -99,65 +93,12 @@ export function ToolChrome({
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Toolbar */}
-      <div
-        className="flex items-center h-11 pl-2.5 pr-4 gap-3 border-b shrink-0"
-        style={{
-          background: "var(--studio-surface)",
-          borderColor: "var(--studio-border)",
-        }}
-      >
-        {/* Left: logo */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            style={{
-              color: "var(--studio-text-muted)",
-              display: "inline-flex",
-              alignItems: "center",
-            }}
-          >
-            {toolIcon}
-          </span>
-          <span
-            className="text-[11px] font-semibold tracking-wide"
-            style={{ color: "var(--studio-text-muted)" }}
-          >
-            {toolName}
-          </span>
-        </div>
+    <div className="flex h-screen">
+      {/* Left panel */}
+      {leftPanel}
 
-        {/* Center: combined URL + breakpoint bar */}
-        <div className="flex-1 flex justify-center">
-          <form onSubmit={handleUrlSubmit} className="studio-address-bar">
-            <span className="studio-address-icon">
-              <GlobeIcon />
-            </span>
-            <input
-              type="text"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              className="studio-address-input"
-              placeholder="/"
-              data-testid="address-bar-input"
-            />
-            <div className="studio-address-sep" />
-            <BreakpointSelect
-              value={viewportWidth}
-              options={BREAKPOINTS}
-              onChange={onViewportWidthChange}
-            />
-            <div className="studio-address-sep" />
-            <ZoomControl zoom={zoom} onChange={onZoomChange} />
-          </form>
-        </div>
-
-      </div>
-
-      {/* Main area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {leftPanel}
-        <div className="flex-1 flex flex-col relative min-w-0 min-h-0">
+      {/* Center column: canvas with floating toolbars */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
           <Viewport
             viewportWidth={viewportWidth}
             onViewportWidthChange={onViewportWidthChange}
@@ -167,7 +108,29 @@ export function ToolChrome({
             iframeRef={iframeRef}
           />
 
-          {/* Floating toolbar pill */}
+          {/* Floating top toolbar */}
+          <div className="studio-floating-toolbar studio-floating-toolbar-top">
+            <form onSubmit={handleUrlSubmit} className="studio-address-bar">
+              <span className="studio-address-icon">
+                <GlobeIcon width={12} height={12} />
+              </span>
+              <input
+                className="studio-address-input"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                spellCheck={false}
+              />
+              <span className="studio-address-sep" />
+              <BreakpointSelect
+                value={viewportWidth}
+                options={BREAKPOINTS}
+                onChange={onViewportWidthChange}
+              />
+            </form>
+            <ZoomControl zoom={zoom} onChange={onZoomChange} />
+          </div>
+
+          {/* Floating bottom toolbar */}
           <div className="studio-floating-toolbar">
             {showSelectionMode && (
               <Tooltip
@@ -214,10 +177,10 @@ export function ToolChrome({
               </button>
             </Tooltip>
           </div>
-        </div>
-
-        {editorPanel}
       </div>
+
+      {/* Right panel */}
+      {editorPanel}
 
       {/* Rescan overlay */}
       {rescanning && <RescanOverlay />}

@@ -93,9 +93,6 @@ export function Viewport({
       ref={containerRef}
       style={{
         background: "var(--studio-canvas)",
-        backgroundImage:
-          "radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)",
-        backgroundSize: "6px 6px",
       }}
     >
       {/* Visual-size wrapper: reserves the scaled-down space for centering */}
@@ -116,10 +113,10 @@ export function Viewport({
             height: containerHeight || "100%",
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
-            borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.08)",
-            boxShadow:
-              "0 0 0 1px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.06)",
+            borderRadius: zoom < 1 - 0.001 ? 5 : 0,
+            boxShadow: zoom < 1 - 0.001
+              ? "0 0 0 1px rgba(0,0,0,0.12), 0 8px 40px rgba(0,0,0,0.18)"
+              : "none",
           }}
         >
           <iframe

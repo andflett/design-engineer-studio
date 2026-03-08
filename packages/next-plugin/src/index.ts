@@ -26,9 +26,12 @@ export function withDesigntools<T extends Record<string, any>>(nextConfig: T = {
     webpack(config: any, context: any) {
       // Only add the loader in development
       if (context.dev) {
+        // enforce: "pre" ensures our loaders run before Next.js's SWC transform,
+        // which would otherwise strip the JSX before we can annotate it.
         config.module.rules.push({
           test: /\.(tsx|jsx)$/,
           exclude: /node_modules/,
+          enforce: "pre" as const,
           use: [
             {
               loader: path.resolve(__dirname, "loader.js"),
@@ -46,6 +49,7 @@ export function withDesigntools<T extends Record<string, any>>(nextConfig: T = {
             path.resolve(context.dir, "app"),
             path.resolve(context.dir, "src/app"),
           ],
+          enforce: "pre" as const,
           use: [
             {
               loader: path.resolve(__dirname, "surface-mount-loader.js"),

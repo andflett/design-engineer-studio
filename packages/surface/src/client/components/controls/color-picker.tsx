@@ -349,7 +349,7 @@ export function ModeTabs({ mode, onChange }: { mode: InputMode; onChange: (mode:
             transition: "background 0.1s, color 0.1s",
             background: mode === m.value ? "var(--studio-surface-hover)" : "transparent",
             color: mode === m.value ? "var(--studio-text)" : "var(--studio-text-dimmed)",
-            boxShadow: mode === m.value ? "0 1px 2px rgba(0,0,0,0.2)" : "none",
+            boxShadow: "none",
           }}
         >
           {m.label}

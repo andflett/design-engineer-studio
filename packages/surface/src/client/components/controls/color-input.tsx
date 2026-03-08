@@ -307,7 +307,7 @@ function TabBar({
             transition: "background 0.1s, color 0.1s",
             background: activeTab === tab ? "var(--studio-surface-hover)" : "transparent",
             color: activeTab === tab ? "var(--studio-text)" : "var(--studio-text-dimmed)",
-            boxShadow: activeTab === tab ? "0 1px 2px rgba(0,0,0,0.2)" : "none",
+            boxShadow: "none",
           }}
         >
           {tab === "custom" ? "Custom" : "Tokens"}

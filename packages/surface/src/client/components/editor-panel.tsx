@@ -19,7 +19,6 @@ import {
   CheckIcon,
   ChevronRightIcon,
   ChevronDownIcon,
-  ResetIcon,
   LayersIcon,
   DesktopIcon,
   FrameIcon,
@@ -30,7 +29,9 @@ import {
   ComponentInstanceIcon,
   TokensIcon,
 } from "@radix-ui/react-icons";
-import type { SelectedElementData, SourceLocation } from "../../shared/protocol.js";
+import type { SelectedElementData, SourceLocation, ChangeIntent, WriteMode, AiModel } from "../../shared/protocol.js";
+import { ModeToggle } from "./mode-toggle.js";
+import { TerminalPanel } from "./terminal-panel.js";
 import type { ComponentEntry } from "../../server/lib/scan-components.js";
 import type { ResolvedTailwindTheme } from "../../shared/tailwind-theme.js";
 import { TokenEditor } from "./token-editor.js";
@@ -59,6 +60,7 @@ import type { IndexedTokenMap } from "../lib/scan-store.js";
 import { getEditability } from "../lib/editability.js";
 
 type EditMode = "token" | "component" | "instance";
+type PanelTab = "editor" | "chat";
 
 interface EditorPanelProps {
   element: SelectedElementData | null;
@@ -76,6 +78,14 @@ interface EditorPanelProps {
   onToggleUsagePanel?: () => void;
   onIsolate?: (entry: ComponentEntry) => void;
   onSelectParentInstance?: () => void;
+  // AI mode
+  writeMode?: WriteMode;
+  aiModel?: AiModel;
+  toolPort?: number;
+  onWriteModeChange?: (mode: WriteMode) => void;
+  onAiModelChange?: (model: AiModel) => void;
+  /** Increment to force terminal reconnect */
+  terminalKey?: number;
 }
 
 /** Open a file in the user's editor via the local server. */
@@ -102,6 +112,12 @@ export function EditorPanel({
   onIsolate,
   onSelectParentInstance,
   tailwindTheme,
+  writeMode = "deterministic",
+  aiModel = "sonnet",
+  toolPort = 4400,
+  onWriteModeChange,
+  onAiModelChange,
+  terminalKey = 0,
 }: EditorPanelProps) {
   const tokenData = useTokens();
   const componentData = useComponents();
@@ -117,6 +133,26 @@ export function EditorPanel({
     : ["token", "instance"];
 
   const [activeMode, setActiveMode] = useState<EditMode>("token");
+  const [panelTab, setPanelTab] = useState<PanelTab>("editor");
+
+  // Pending changes accumulated in AI mode
+  const [pendingChanges, setPendingChanges] = useState<ChangeIntent[]>([]);
+
+  const addPendingChange = useCallback((intent: ChangeIntent) => {
+    setPendingChanges((prev) => {
+      // Replace existing entry for same property+source to avoid duplicates
+      const key = `${intent.property}:${intent.elementSource.file}:${intent.elementSource.line}`;
+      const filtered = prev.filter(
+        (c) => `${c.property}:${c.elementSource.file}:${c.elementSource.line}` !== key,
+      );
+      return [...filtered, intent];
+    });
+  }, []);
+
+  // Clear pending changes when element changes
+  useEffect(() => {
+    setPendingChanges([]);
+  }, [element?.source?.file, element?.source?.line]);
 
   // Auto-select tab when a new element is selected
   useEffect(() => {
@@ -169,6 +205,38 @@ export function EditorPanel({
   }, [element?.instanceSource?.file, element?.instanceSource?.line, element?.instanceSource?.col, element?.componentName, isComponent, instancePropsVersion]);
 
   const isCssMode = !!stylingType && !stylingType.startsWith("tailwind");
+  const isAiMode = writeMode === "ai";
+
+  /** In AI mode, accumulate a ChangeIntent instead of immediately writing. */
+  const handleAiCommitClass = useCallback(
+    (tailwindClass: string, oldClass: string | undefined) => {
+      if (!element?.source) return;
+      addPendingChange({
+        type: "class",
+        property: inferCssPropertyFromClass(tailwindClass),
+        fromValue: oldClass ?? "",
+        toValue: tailwindClass,
+        elementSource: element.source,
+        currentClassName: element.className,
+      });
+    },
+    [element, addPendingChange],
+  );
+
+  const handleAiCommitStyle = useCallback(
+    (prop: string, val: string) => {
+      if (!element?.source) return;
+      addPendingChange({
+        type: "style",
+        property: prop,
+        fromValue: element.computed?.[prop] ?? "",
+        toValue: val,
+        elementSource: element.source,
+        currentClassName: element.className,
+      });
+    },
+    [element, addPendingChange],
+  );
 
   const withSave = async (fn: () => Promise<void>) => {
     const queued = writeQueueRef.current.then(async () => {
@@ -200,7 +268,7 @@ export function EditorPanel({
 
   return (
     <div
-      className="flex flex-col border-l studio-scrollbar overflow-y-auto"
+      className="flex flex-col border-l"
       style={{
         width: 350,
         minWidth: 350,
@@ -278,28 +346,6 @@ export function EditorPanel({
                   </button>
                 </Tooltip>
               )}
-              {isComponent &&
-                element.instanceSource &&
-                element.componentName && (
-                  <Tooltip content="Reset instance overrides">
-                    <button
-                      onClick={() => {
-                        if (!element.instanceSource || !element.componentName)
-                          return;
-                        withSave(async () => {
-                          await handleResetInstanceClassName(
-                            element.instanceSource!,
-                            element.componentName!,
-                          );
-                        });
-                      }}
-                      className="studio-icon-btn"
-                      style={{ width: 24, height: 24 }}
-                    >
-                      <ResetIcon />
-                    </button>
-                  </Tooltip>
-                )}
               <button
                 onClick={onClose}
                 className="studio-icon-btn"
@@ -388,42 +434,55 @@ export function EditorPanel({
         </div>
       )}
 
-      {!element && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("gallery") ? (
+      {!element && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("gallery") && (
         <div className="flex-1 overflow-y-auto studio-scrollbar">
           <ControlsGallery />
         </div>
-      ) : !element ? (
-        <SelectionPlaceholder />
-      ) : null}
-
-      {element && (
-        /* Mode switcher */
-        <div
-          className="px-4 py-2.5 shrink-0"
-          style={{ borderColor: "var(--studio-border)" }}
-        >
-          <div className="studio-segmented" style={{ width: "100%" }} data-testid="editor-tabs">
-            {availableModes.map((mode) => {
-              const cfg = modeConfig[mode];
-              return (
-                <button
-                  key={mode}
-                  onClick={() => setActiveMode(mode)}
-                  className={activeMode === mode ? "active" : ""}
-                  style={{ flex: 1 }}
-                  data-testid={`editor-tab-${mode}`}
-                >
-                  <cfg.icon style={{ width: 12, height: 12 }} />
-                  {cfg.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       )}
 
-      {/* Mode content */}
-      <div className="flex-1 overflow-y-auto studio-scrollbar">
+      {/* ── CHAT TAB ── Always mounted so the PTY process is never killed on tab switch */}
+      <div style={{ flex: 1, minHeight: 0, display: panelTab === "chat" ? "flex" : "none", flexDirection: "column" }}>
+        <TerminalPanel
+          key={terminalKey}
+          toolPort={toolPort}
+          model={aiModel}
+          element={element}
+          pendingChanges={pendingChanges}
+          onClearPendingChanges={() => setPendingChanges([])}
+          onRemovePendingChange={(idx) =>
+            setPendingChanges((prev) => prev.filter((_, i) => i !== idx))
+          }
+        />
+      </div>
+
+      {/* ── EDITOR TAB ── */}
+      {panelTab === "editor" && (
+        <>
+          {/* Inner tabs row */}
+          {element && (
+            <div className="px-4 py-2.5 shrink-0" style={{ borderColor: "var(--studio-border)" }}>
+              <div className="studio-segmented" style={{ width: "100%" }} data-testid="editor-tabs">
+                {availableModes.map((mode) => {
+                  const cfg = modeConfig[mode];
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setActiveMode(mode)}
+                      className={activeMode === mode ? "active" : ""}
+                      style={{ flex: 1 }}
+                      data-testid={`editor-tab-${mode}`}
+                    >
+                      <cfg.icon style={{ width: 12, height: 12 }} />
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Scrollable editor content */}
+          <div className="flex-1 overflow-y-auto studio-scrollbar">
         {!element && (
           <div>
             <div
@@ -499,8 +558,9 @@ export function EditorPanel({
                   onSelectParentInstance={onSelectParentInstance}
                   onPreviewInlineStyle={onPreviewInlineStyle}
                   onRevertInlineStyles={onRevertInlineStyles}
-                  onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
+                  onCommitClass={isCssMode && !isAiMode ? () => {} : (tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
+                    if (isAiMode) { handleAiCommitClass(tailwindClass, oldClass); return; }
                     const isCva =
                       componentEntry && componentEntry.variants.length > 0;
                     if (isCva) {
@@ -549,7 +609,8 @@ export function EditorPanel({
                       }
                     }
                   }}
-                  onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                  onCommitStyle={(isCssMode || isAiMode) && element.source ? (prop, val) => {
+                    if (isAiMode) { handleAiCommitStyle(prop, val); return; }
                     const source = element.source!;
                     withSave(() => handleWriteStyle(source, prop, val, element.activeBreakpoint));
                   } : undefined}
@@ -692,8 +753,9 @@ export function EditorPanel({
                       onSelectParentInstance={onSelectParentInstance}
                       onPreviewInlineStyle={onPreviewInlineStyle}
                       onRevertInlineStyles={onRevertInlineStyles}
-                      onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
+                      onCommitClass={isCssMode && !isAiMode ? () => {} : (tailwindClass, oldClass) => {
                         if (oldClass && tailwindClass === oldClass) return;
+                        if (isAiMode) { handleAiCommitClass(tailwindClass, oldClass); return; }
                         if (element.instanceSource && element.componentName) {
                           withSave(async () => {
                             await handleInstanceOverride(
@@ -705,7 +767,8 @@ export function EditorPanel({
                           });
                         }
                       }}
-                      onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                      onCommitStyle={(isCssMode || isAiMode) && element.source ? (prop, val) => {
+                        if (isAiMode) { handleAiCommitStyle(prop, val); return; }
                         const source = element.source!;
                         withSave(() => handleWriteStyle(source, prop, val));
                       } : undefined}
@@ -727,8 +790,9 @@ export function EditorPanel({
                   onSelectParentInstance={onSelectParentInstance}
                   onPreviewInlineStyle={onPreviewInlineStyle}
                   onRevertInlineStyles={onRevertInlineStyles}
-                  onCommitClass={isCssMode ? () => {} : (tailwindClass, oldClass) => {
+                  onCommitClass={isCssMode && !isAiMode ? () => {} : (tailwindClass, oldClass) => {
                     if (oldClass && tailwindClass === oldClass) return;
+                    if (isAiMode) { handleAiCommitClass(tailwindClass, oldClass); return; }
                     // Component instances: write to the usage site (instanceSource)
                     if (element.instanceSource && element.componentName) {
                       withSave(async () => {
@@ -764,7 +828,8 @@ export function EditorPanel({
                       }
                     }
                   }}
-                  onCommitStyle={isCssMode && element.source ? (prop, val) => {
+                  onCommitStyle={(isCssMode || isAiMode) && element.source ? (prop, val) => {
+                    if (isAiMode) { handleAiCommitStyle(prop, val); return; }
                     const source = element.source!;
                     withSave(() => handleWriteStyle(source, prop, val, element.activeBreakpoint));
                   } : undefined}
@@ -774,6 +839,78 @@ export function EditorPanel({
             )}
           </>
         )}
+          </div>{/* end scrollable content */}
+
+          {/* AI mode switch footer */}
+          <div
+            style={{
+              borderTop: "1px solid var(--studio-border)",
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+              background: "var(--studio-surface)",
+            }}
+          >
+            <span style={{ fontSize: 11, color: "var(--studio-text-dimmed)" }}>AI Mode</span>
+            <ModeToggle
+              writeMode={writeMode}
+              onWriteModeChange={onWriteModeChange ?? (() => {})}
+            />
+          </div>
+        </>
+      )}{/* end editor tab */}
+
+      {/* ── Bottom tab switcher ── */}
+      <div
+        style={{
+          borderTop: "1px solid var(--studio-border)",
+          display: "flex",
+          flexShrink: 0,
+        }}
+      >
+        {(["editor", "chat"] as PanelTab[]).map((tab) => {
+          const active = panelTab === tab;
+          const showBadge = tab === "chat" && pendingChanges.length > 0;
+          return (
+            <button
+              key={tab}
+              onClick={() => setPanelTab(tab)}
+              style={{
+                flex: 1,
+                height: 34,
+                fontSize: 11,
+                fontWeight: active ? 600 : 400,
+                color: active ? "var(--studio-text)" : "var(--studio-text-dimmed)",
+                background: active ? "var(--studio-surface-hover)" : "transparent",
+                border: "none",
+                borderRight: tab === "editor" ? "1px solid var(--studio-border)" : "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 5,
+                transition: "background 0.1s, color 0.1s",
+                textTransform: "capitalize",
+              }}
+            >
+              {tab}
+              {showBadge && (
+                <span
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: "var(--studio-accent)",
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -859,94 +996,6 @@ function ComponentVariantSection({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// --- No-selection placeholder ---
-
-function SelectionPlaceholder() {
-  const color = "color-mix(in srgb, var(--studio-accent) 10%, transparent)";
-  const handleSize = 8;
-  const h = handleSize / 2.5;
-
-  const Handle = ({ style }: { style: React.CSSProperties }) => (
-    <div
-      className="absolute"
-      style={{
-        width: handleSize,
-        height: handleSize,
-        background: color,
-        border: `1.5px solid ${color}`,
-        borderRadius: 1,
-        opacity: 0.8,
-        ...style,
-      }}
-    />
-  );
-
-  return (
-    <div
-      className="flex flex-col items-center justify-center px-6 py-8"
-      style={{ borderBottom: "1px solid var(--studio-border)" }}
-    >
-      {/* Selection box */}
-      <div className="relative" style={{ width: 190, height: 88 }}>
-        {/* Border */}
-        <div
-          className="absolute inset-0"
-          style={{
-            border: `1.5px solid ${color}`,
-            background:
-              "color-mix(in srgb, var(--studio-accent) 10%, transparent)",
-          }}
-        />
-        {/* Text inside */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="text-[12px] text-center select-none leading-snug"
-            style={{ color: "var(--studio-accent)", opacity: 0.8 }}
-          >
-            Select an element to edit
-          </span>
-        </div>
-        {/* Corner handles */}
-        <Handle style={{ top: -h, left: -h }} />
-        <Handle style={{ top: -h, right: -h }} />
-        <Handle style={{ bottom: -h, left: -h }} />
-        <Handle style={{ bottom: -h, right: -h }} />
-        {/* Animated cursor */}
-        <div
-          className="absolute"
-          style={{
-            bottom: 10,
-            right: 10,
-            color: "var(--studio-accent)",
-            opacity: 0.8,
-            animation: "cursor-drift 3s ease-in-out infinite",
-          }}
-        >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 14 14"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M2 2L2 10.5L4.5 8L6.5 12L8 11.5L6 7.5L9.5 7L2 2Z"
-              fill="currentColor"
-            />
-          </svg>
-        </div>
-      </div>
-      <style>{`
-        @keyframes cursor-drift {
-          0%, 100% { transform: translate(0, 0); }
-          40% { transform: translate(4px, 3px); }
-          70% { transform: translate(-2px, 4px); }
-        }
-      `}</style>
     </div>
   );
 }
@@ -1094,27 +1143,6 @@ async function handleInstancePropChange(
   }
 }
 
-async function handleResetInstanceClassName(
-  instanceSource: SourceLocation,
-  componentName: string,
-) {
-  try {
-    const res = await fetch("/api/write-element", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "resetInstanceClassName",
-        source: instanceSource,
-        componentName,
-      }),
-    });
-    const data = await res.json();
-    if (!data.ok) console.error("Reset instance className failed:", data.error);
-  } catch (err) {
-    console.error("Reset instance className error:", err);
-  }
-}
-
 async function handleWriteStyle(
   source: SourceLocation,
   property: string,
@@ -1156,6 +1184,24 @@ async function handleComponentClassChange(
   } catch (err) {
     console.error("Component write error:", err);
   }
+}
+
+/** Infer a rough CSS property name from a Tailwind class for ChangeIntent labeling. */
+function inferCssPropertyFromClass(cls: string): string {
+  const prefix = cls.replace(/^(sm:|md:|lg:|xl:|2xl:|dark:|hover:|focus:)+/, "").split("-")[0];
+  const map: Record<string, string> = {
+    p: "padding", px: "padding-x", py: "padding-y",
+    pt: "padding-top", pr: "padding-right", pb: "padding-bottom", pl: "padding-left",
+    m: "margin", mx: "margin-x", my: "margin-y",
+    mt: "margin-top", mr: "margin-right", mb: "margin-bottom", ml: "margin-left",
+    w: "width", h: "height", "min-w": "min-width", "max-w": "max-width",
+    "min-h": "min-height", "max-h": "max-height",
+    text: "font-size", font: "font-weight", leading: "line-height",
+    tracking: "letter-spacing", bg: "background-color", border: "border",
+    rounded: "border-radius", gap: "gap", flex: "flex", grid: "grid",
+    col: "grid-column", row: "grid-row", opacity: "opacity",
+  };
+  return map[prefix] ?? prefix;
 }
 
 function extractTokenReferences(

@@ -9,6 +9,8 @@ import { createComponentRouter } from "./api/write-component.js";
 import { createShadowsRouter } from "./api/write-shadows.js";
 import { createGradientsRouter } from "./api/write-gradients.js";
 import { createScanRouter } from "./lib/scanner.js";
+import { createInstructionsRouter } from "./api/instructions.js";
+import { ensureSurfaceInstructions } from "./lib/instruction-builder.js";
 import type { FrameworkInfo } from "./lib/detect-framework.js";
 import type { StylingSystem } from "./lib/detect-styling.js";
 import type { ResolvedTailwindTheme } from "../shared/tailwind-theme.js";
@@ -47,6 +49,7 @@ export async function createServer(config: ServerConfig) {
       stylingType: config.stylingType,
       projectRoot: config.projectRoot,
       tailwindTheme,
+      toolPort: config.toolPort,
     });
   });
 
@@ -120,6 +123,15 @@ export async function createServer(config: ServerConfig) {
 
     tryOpen();
   });
+
+  // Ensure .claude/surface.md + CLAUDE.md reference exist before anything else
+  await ensureSurfaceInstructions(config.projectRoot, config.stylingType);
+
+  // API: instructions (get/save .claude/surface.md)
+  app.use(
+    "/api/instructions",
+    createInstructionsRouter(config.projectRoot, config.stylingType),
+  );
 
   // Scan router: /scan/all, /scan/tokens, /scan/components, /scan/rescan, /scan/resolve-route
   app.use("/scan", createScanRouter(config.projectRoot, config.framework, config.styling));

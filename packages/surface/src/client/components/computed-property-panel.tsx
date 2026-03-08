@@ -9,8 +9,6 @@
  */
 import { useState } from "react";
 import {
-  ChevronRightIcon,
-  ChevronDownIcon,
   PlusIcon,
   RowsIcon,
   GridIcon,
@@ -48,7 +46,7 @@ import {
   LayoutIcon,
   TextAlignTopIcon,
 } from "@radix-ui/react-icons";
-import { Crosshair, Pin, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, WrapText, AlignJustify, Columns3 } from "lucide-react";
+import { Crosshair, Pin, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, WrapText, AlignJustify, Columns3, LayoutGrid, Maximize2, Move, Type, Palette, Square, Sparkles, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import {
   buildUnifiedProperties,
   getUniformBoxValue,
@@ -163,14 +161,14 @@ export function ComputedPropertyPanel({
     tag, elementClassName, computedStyles, parentComputedStyles, tokenGroups, authoredStyles,
   );
 
-  const sections: { key: ComputedCategory; label: string }[] = [
-    { key: "layout", label: "Layout" },
-    { key: "size", label: "Size" },
-    { key: "spacing", label: "Spacing" },
-    { key: "typography", label: "Typography" },
-    { key: "color", label: "Color" },
-    { key: "border", label: "Border" },
-    { key: "effects", label: "Effects" },
+  const sections: { key: ComputedCategory; label: string; icon: React.ReactNode }[] = [
+    { key: "layout",     label: "Layout",     icon: <LayoutGrid size={12} /> },
+    { key: "size",       label: "Size",       icon: <Maximize2 size={12} /> },
+    { key: "spacing",    label: "Spacing",    icon: <Move size={12} /> },
+    { key: "typography", label: "Typography", icon: <Type size={12} /> },
+    { key: "color",      label: "Color",      icon: <Palette size={12} /> },
+    { key: "border",     label: "Border",     icon: <Square size={12} /> },
+    { key: "effects",    label: "Effects",    icon: <Sparkles size={12} /> },
   ];
 
   const nonEmpty = sections.filter((s) => categorized[s.key].length > 0);
@@ -245,6 +243,7 @@ export function ComputedPropertyPanel({
           key={section.key}
           category={section.key}
           label={section.label}
+          icon={section.icon}
           properties={categorized[section.key]}
           computedStyles={computedStyles}
           tokenGroups={tokenGroups}
@@ -272,6 +271,7 @@ export function ComputedPropertyPanel({
 function UnifiedSection({
   category,
   label,
+  icon,
   properties,
   computedStyles,
   tokenGroups,
@@ -288,6 +288,7 @@ function UnifiedSection({
 }: {
   category: ComputedCategory;
   label: string;
+  icon?: React.ReactNode;
   properties: UnifiedProperty[];
   computedStyles: Record<string, string>;
   tokenGroups: Record<string, any[]>;
@@ -313,9 +314,14 @@ function UnifiedSection({
         onClick={() => setCollapsed(!collapsed)}
         className="studio-section-hdr"
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        {label}
+        {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
+        <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
         {count > 0 && <span className="count">{count}</span>}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: count > 0 ? 0 : "auto" }}>
+          {collapsed
+            ? <ChevronsUpDown style={{ width: 12, height: 12 }} />
+            : <ChevronsDownUp style={{ width: 12, height: 12 }} />}
+        </span>
       </button>
 
       {!collapsed && (
