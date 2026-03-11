@@ -26,6 +26,7 @@ import { ColorInput, ColorInputSwatch } from "./color-input.js";
 import { ShadowPicker } from "./shadow-picker.js";
 import { GradientPicker } from "./gradient-picker.js";
 import { BoxSpacingControl } from "./box-spacing.js";
+import { GridInputDemo } from "./grid-input.js";
 import type { UnifiedProperty } from "../../lib/computed-styles.js";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -440,6 +441,11 @@ export function ControlsGallery() {
             onCommitClass={noop}
           />
         </Row>
+      </Section>
+
+      {/* GridInput (with Display segmented) */}
+      <Section title="GridInput">
+        <GridInputDemo />
       </Section>
 
       {/* BoxSpacingControl */}

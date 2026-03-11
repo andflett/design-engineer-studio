@@ -1399,3 +1399,202 @@ input[type="range"]::-webkit-slider-thumb:hover {
   align-items: center;
   gap: 3px;
 }
+
+/* ---------------------------------------------------------------------------
+   Grid Input Control
+   --------------------------------------------------------------------------- */
+
+.studio-grid-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Column size labels row */
+.studio-grid-col-labels {
+  display: flex;
+  gap: 1px;
+  align-items: center;
+}
+
+.studio-grid-corner {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.studio-grid-col-labels .studio-grid-track-label,
+.studio-grid-col-labels .studio-grid-track-input {
+  flex: 1;
+  text-align: center;
+}
+
+/* Body = row labels + mini grid side by side */
+.studio-grid-body {
+  display: flex;
+  gap: 1px;
+}
+
+.studio-grid-row-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.studio-grid-row-labels .studio-grid-track-label,
+.studio-grid-row-labels .studio-grid-track-input {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Track size labels (editable) */
+.studio-grid-track-label {
+  font-size: 9px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--studio-text-dimmed);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 3px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.studio-grid-track-label:hover {
+  color: var(--studio-text-muted);
+  border-color: var(--studio-border-subtle);
+}
+
+.studio-grid-track-input {
+  font-size: 9px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--studio-text);
+  background: var(--studio-input-bg);
+  border: 1px solid var(--studio-accent);
+  border-radius: 3px;
+  padding: 2px 3px;
+  outline: none;
+  line-height: 1;
+  width: 100%;
+  text-align: center;
+}
+
+/* Mini grid visual */
+.studio-grid-mini {
+  flex: 1;
+  aspect-ratio: 16 / 10;
+  background: var(--studio-border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+}
+
+/* Individual grid cell */
+.studio-grid-cell {
+  background: var(--studio-surface);
+  border-radius: 2px;
+  min-height: 0;
+  min-width: 0;
+  transition: background 0.1s;
+  cursor: crosshair;
+}
+
+.studio-grid-cell:hover {
+  background: var(--studio-surface-hover);
+}
+
+/* Cell being drawn over */
+.studio-grid-cell--drawing {
+  background: var(--studio-accent-muted) !important;
+  box-shadow: inset 0 0 0 1px var(--studio-accent);
+}
+
+/* Cell occupied by a child item */
+.studio-grid-cell--child {
+  background: var(--studio-accent-muted);
+  border: 1px dashed var(--studio-accent);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  min-height: 0;
+  min-width: 0;
+}
+
+.studio-grid-cell--child:hover {
+  background: rgba(96, 165, 250, 0.24);
+}
+
+.studio-grid-cell--selected {
+  background: rgba(96, 165, 250, 0.32) !important;
+  border-color: var(--studio-accent);
+  border-style: solid;
+}
+
+.studio-grid-cell-label {
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--studio-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+/* Controls row (cols/rows +/- buttons) */
+.studio-grid-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.studio-grid-control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-grid-control-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--studio-text-dimmed);
+  margin-right: 2px;
+}
+
+.studio-grid-count {
+  font-size: 11px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--studio-text-muted);
+  min-width: 14px;
+  text-align: center;
+}
+
+/* CSS preview */
+.studio-grid-css-preview {
+  background: var(--studio-input-bg);
+  border: 1px solid var(--studio-border-subtle);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.studio-grid-css-preview pre {
+  font-size: 9px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--studio-text-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin: 0;
+}
