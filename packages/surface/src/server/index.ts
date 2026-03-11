@@ -10,6 +10,7 @@ import { createShadowsRouter } from "./api/write-shadows.js";
 import { createGradientsRouter } from "./api/write-gradients.js";
 import { createScanRouter } from "./lib/scanner.js";
 import { createInstructionsRouter } from "./api/instructions.js";
+import { createAgentChatRouter } from "./api/agent-chat.js";
 import { createClassifyElementRouter } from "./api/classify-element.js";
 import { createComponentStylesRouter } from "./api/component-styles.js";
 import { ensureSurfaceInstructions } from "./lib/instruction-builder.js";
@@ -79,6 +80,9 @@ export async function createServer(config: ServerConfig) {
 
   // API: write gradient changes
   app.use("/api/gradients", createGradientsRouter(config.projectRoot));
+
+  // API: agent chat (Claude Agent SDK streaming)
+  app.use("/api/agent", createAgentChatRouter(config.projectRoot));
 
   // API: classify element at source coordinates
   app.use("/api/classify-element", createClassifyElementRouter(config.projectRoot));

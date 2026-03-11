@@ -71,7 +71,6 @@ export function Surface() {
     tokenPreviewValues: new Map<string, string>(),
     tokenPreviewStyle: null as HTMLStyleElement | null,
     highlightOverlay: null as HTMLDivElement | null,
-    tooltip: null as HTMLDivElement | null,
     selectedOverlay: null as HTMLDivElement | null,
     toggleBadge: null as HTMLDivElement | null,
     overlayState: null as {
@@ -79,6 +78,10 @@ export function Surface() {
       showToggle: boolean;
       activeMode: "component" | "instance" | null;
       isDataDriven: boolean;
+      inLoop: boolean;
+      hasDynamicContent: boolean;
+      dataOrigin?: "local" | "external";
+      iteratorExpression?: string;
       packageName?: string;
     } | null,
   });
@@ -124,31 +127,13 @@ export function Surface() {
     });
     document.body.appendChild(s.highlightOverlay);
 
-    s.tooltip = document.createElement("div");
-    s.tooltip.id = "tool-tooltip";
-    Object.assign(s.tooltip.style, {
-      position: "fixed",
-      pointerEvents: "none",
-      backgroundColor: "#1e1e2e",
-      color: "#cdd6f4",
-      padding: "3px 8px",
-      borderRadius: "4px",
-      fontSize: "11px",
-      fontFamily: "ui-monospace, monospace",
-      zIndex: "100000",
-      display: "none",
-      whiteSpace: "nowrap",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-    });
-    document.body.appendChild(s.tooltip);
-
     s.selectedOverlay = document.createElement("div");
     s.selectedOverlay.id = "tool-selected";
     Object.assign(s.selectedOverlay.style, {
       position: "fixed",
       pointerEvents: "none",
-      border: "2px solid #f59e0b",
-      backgroundColor: "rgba(245, 158, 11, 0.06)",
+      border: "2px solid #3b82f6",
+      backgroundColor: "transparent",
       borderRadius: "2px",
       zIndex: "99998",
       display: "none",
@@ -159,23 +144,17 @@ export function Surface() {
     s.toggleBadge.id = "tool-toggle-badge";
     Object.assign(s.toggleBadge.style, {
       position: "fixed",
-      pointerEvents: "auto",
+      pointerEvents: "none",
       zIndex: "100001",
       display: "none",
       alignItems: "center",
-      gap: "2px",
-      borderRadius: "6px",
+      justifyContent: "center",
+      borderRadius: "3px",
       padding: "0",
-      fontSize: "11px",
       fontFamily: "ui-sans-serif, system-ui, sans-serif",
-      background: "#1e1e2e",
-      border: "1px solid rgba(255,255,255,0.15)",
-      color: "#cdd6f4",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+      background: "none",
+      border: "none",
       userSelect: "none",
-      cursor: "default",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
     });
     document.body.appendChild(s.toggleBadge);
 
@@ -187,64 +166,37 @@ export function Surface() {
       return `<${el.tagName.toLowerCase()}>`;
     }
 
-    /** Update selectedOverlay colour + toggleBadge content based on overlay state. */
+    // SVG icons (inline, sized 11x11) for component and instance modes
+    const ICON_COMPONENT = `<svg width="11" height="11" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.67129 3.14634C4.47603 3.34161 4.47603 3.65819 4.67129 3.85345L7.14616 6.32833C7.34142 6.52359 7.65801 6.52359 7.85327 6.32833L10.3281 3.85345C10.5234 3.65819 10.5234 3.34161 10.3281 3.14634L7.85327 0.671471C7.65801 0.476209 7.34142 0.476209 7.14616 0.671471L4.67129 3.14634ZM7.49971 5.26766L5.73195 3.4999L7.49971 1.73213L9.26748 3.4999L7.49971 5.26766ZM8.67129 7.14634C8.47603 7.34161 8.47603 7.65819 8.67129 7.85345L11.1462 10.3283C11.3414 10.5236 11.658 10.5236 11.8533 10.3283L14.3281 7.85345C14.5234 7.65819 14.5234 7.34161 14.3281 7.14634L11.8533 4.67147C11.658 4.47621 11.3414 4.47621 11.1462 4.67147L8.67129 7.14634ZM11.4997 9.26766L9.73195 7.4999L11.4997 5.73213L13.2675 7.4999L11.4997 9.26766ZM4.67129 11.8535C4.47603 11.6582 4.47603 11.3416 4.67129 11.1463L7.14616 8.67147C7.34142 8.47621 7.65801 8.47621 7.85327 8.67147L10.3281 11.1463C10.5234 11.3416 10.5234 11.6582 10.3281 11.8535L7.85327 14.3283C7.65801 14.5236 7.34142 14.5236 7.14616 14.3283L4.67129 11.8535ZM5.73195 11.4999L7.49971 13.2677L9.26748 11.4999L7.49971 9.73213L5.73195 11.4999ZM0.671288 7.14649C0.476026 7.34175 0.476026 7.65834 0.671288 7.8536L3.14616 10.3285C3.34142 10.5237 3.65801 10.5237 3.85327 10.3285L6.32814 7.8536C6.5234 7.65834 6.5234 7.34175 6.32814 7.14649L3.85327 4.67162C3.65801 4.47636 3.34142 4.47636 3.14616 4.67162L0.671288 7.14649ZM3.49972 9.26781L1.73195 7.50005L3.49972 5.73228L5.26748 7.50005L3.49972 9.26781Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/></svg>`;
+    const ICON_INSTANCE = `<svg width="11" height="11" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.1465 1.48959C7.34176 1.29432 7.65835 1.29432 7.85361 1.48959L13.5105 7.14644C13.7057 7.3417 13.7057 7.65829 13.5105 7.85355L7.85361 13.5104C7.65835 13.7057 7.34176 13.7057 7.1465 13.5104L1.48965 7.85355C1.29439 7.65829 1.29439 7.3417 1.48965 7.14644L7.1465 1.48959ZM7.50005 2.55025L2.55031 7.49999L7.50005 12.4497L12.4498 7.49999L7.50005 2.55025Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/></svg>`;
+
+    /** Build an inline chip HTML span. iconColor defaults to color if omitted. */
+    function chip(label: string, color: string, bg: string, icon?: string, iconColor?: string): string {
+      const safe = label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const iconHtml = icon ? `<span style="display:flex;align-items:center;color:${iconColor ?? color}">${icon}</span>` : "";
+      return `<span style="display:inline-flex;align-items:center;gap:4px;color:${color};background:${bg};border-radius:4px;padding:3px 8px;font-size:11px;font-family:ui-monospace,monospace;white-space:nowrap;line-height:1.4">${iconHtml}${safe}</span>`;
+    }
+
+    /** Update selectedOverlay border colour based on overlay state. Badge row is rebuilt on hover. */
     function updateOverlayState(state: typeof s.overlayState) {
       if (!state) return;
       s.overlayState = state;
-      const { tier, activeMode, isDataDriven, showToggle, packageName } = state;
+      const { tier, activeMode, inLoop, hasDynamicContent } = state;
 
+      // --- Border colour (priority: loop > dynamic > component > instance > inspect) ---
       if (s.selectedOverlay) {
         if (tier === "inspect-only") {
-          s.selectedOverlay.style.border = "2px solid #6b7280";
-          s.selectedOverlay.style.backgroundColor = "rgba(107,114,128,0.06)";
-          s.selectedOverlay.style.borderStyle = "solid";
-        } else if (isDataDriven) {
-          s.selectedOverlay.style.border = "2px dashed #f97316";
-          s.selectedOverlay.style.backgroundColor = "rgba(249,115,22,0.06)";
+          s.selectedOverlay.style.border = "2px solid rgba(107,114,128,0.5)";
+        } else if (inLoop) {
+          s.selectedOverlay.style.border = "2px dashed rgba(139,92,246,0.7)";
+        } else if (hasDynamicContent) {
+          s.selectedOverlay.style.border = "2px solid rgba(20,184,166,0.7)";
         } else if (activeMode === "component") {
-          s.selectedOverlay.style.border = "2px solid #8b5cf6";
-          s.selectedOverlay.style.backgroundColor = "rgba(139,92,246,0.06)";
-          s.selectedOverlay.style.borderStyle = "solid";
+          s.selectedOverlay.style.border = "2px solid rgba(249,115,22,0.6)";
         } else {
-          s.selectedOverlay.style.border = "2px solid #f59e0b";
-          s.selectedOverlay.style.backgroundColor = "rgba(245,158,11,0.06)";
-          s.selectedOverlay.style.borderStyle = "solid";
+          s.selectedOverlay.style.border = "2px solid rgba(59,130,246,0.6)";
         }
-      }
-
-      if (!s.toggleBadge) return;
-      if (tier === "inspect-only") {
-        s.toggleBadge.innerHTML = `<span style="padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af">🔒 <span>${packageName || "Read only"}</span></span>`;
-        s.toggleBadge.style.display = "flex";
-        s.toggleBadge.style.cursor = "default";
-        s.toggleBadge.onclick = null;
-      } else if (isDataDriven) {
-        s.toggleBadge.innerHTML = `<span style="padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:#f97316">⟡ <span>From data</span></span>`;
-        s.toggleBadge.style.display = "flex";
-        s.toggleBadge.style.cursor = "default";
-        s.toggleBadge.onclick = null;
-      } else if (showToggle) {
-        const compActive = activeMode === "component";
-        const btnBase = "display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:12px;font-weight:500;border:none;background:none;cursor:pointer;transition:background 0.1s;";
-        s.toggleBadge.innerHTML = [
-          `<button data-mode="instance" style="${btnBase}color:${!compActive ? "#f59e0b" : "#6b7280"};background:${!compActive ? "rgba(245,158,11,0.12)" : "none"}">`,
-          `<svg width="13" height="13" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 1L14 13H1L7.5 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
-          `Instance</button>`,
-          `<button data-mode="component" style="${btnBase}color:${compActive ? "#8b5cf6" : "#6b7280"};background:${compActive ? "rgba(139,92,246,0.12)" : "none"}">`,
-          `<svg width="13" height="13" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="8" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="1" y="8" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="8" y="8" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`,
-          `Component</button>`,
-        ].join("");
-        s.toggleBadge.style.display = "flex";
-        s.toggleBadge.style.cursor = "default";
-        s.toggleBadge.onclick = (e) => {
-          const btn = (e.target as Element).closest("[data-mode]") as HTMLElement | null;
-          if (!btn) return;
-          const next = btn.dataset.mode as "component" | "instance";
-          if (next === activeMode) return;
-          window.parent.postMessage({ type: "tool:editModeToggled", mode: next }, "*");
-        };
-      } else {
-        s.toggleBadge.style.display = "none";
+        s.selectedOverlay.style.backgroundColor = "transparent";
       }
     }
 
@@ -278,18 +230,42 @@ export function Surface() {
     }
 
     function findSelectableElement(target: Element): Element {
+      // Walk up to find the nearest data-slot ancestor
+      let dataSlotEl: Element | null = null;
       let el: Element | null = target;
       while (el && el !== document.body) {
-        if (el.getAttribute("data-slot")) return el;
+        if (el.getAttribute("data-slot")) { dataSlotEl = el; break; }
         el = el.parentElement;
       }
-      return target;
+
+      if (!dataSlotEl) {
+        // No data-slot ancestor — plain authored element, select directly
+        return target;
+      }
+
+      // Check if the target is "slot content" authored in a different file than the component.
+      // data-source format: "file:line:col" — split on ":" to get the file path.
+      const targetSrc = target.getAttribute("data-source");
+      const slotSrc = dataSlotEl.getAttribute("data-source");
+      if (targetSrc && slotSrc) {
+        // Find the last ":" that separates col, then line, to extract just the file path
+        // Simpler: split on ":" and take everything except the last two segments
+        const targetFile = targetSrc.split(":").slice(0, -2).join(":");
+        const slotFile = slotSrc.split(":").slice(0, -2).join(":");
+        if (targetFile && slotFile && targetFile !== slotFile) {
+          // Target is from a different source file → it's slot/page content, select it directly
+          return target;
+        }
+      }
+
+      // Target is component-internal → select the component root
+      return dataSlotEl;
     }
 
     // --- Component tree extraction (React Fiber) ---
 
     // IDs of overlay elements to skip during tree building
-    const overlayIds = new Set(["tool-highlight", "tool-tooltip", "tool-selected", "tool-toggle-badge", "surface-token-preview"]);
+    const overlayIds = new Set(["tool-highlight", "tool-selected", "tool-toggle-badge", "surface-token-preview"]);
 
     // Tags to skip even if authored — document-level elements and void
     // elements that aren't meaningful to designers
@@ -1056,14 +1032,6 @@ export function Surface() {
             if (key !== lastRect) {
               lastRect = key;
               positionOverlay(s.selectedOverlay!, rect);
-              if (s.toggleBadge && s.toggleBadge.style.display !== "none") {
-                const bw = s.toggleBadge.offsetWidth || 60;
-                const bh = s.toggleBadge.offsetHeight || 22;
-                const left = Math.max(0, rect.right - bw);
-                const top = Math.max(0, rect.top - bh - 4);
-                s.toggleBadge.style.left = `${left}px`;
-                s.toggleBadge.style.top = `${top}px`;
-              }
             }
           }
         }
@@ -1075,7 +1043,6 @@ export function Surface() {
     // --- Helper to hide/show selection overlays ---
     function hideSelectionOverlays() {
       if (s.highlightOverlay) s.highlightOverlay.style.display = "none";
-      if (s.tooltip) s.tooltip.style.display = "none";
       if (s.selectedOverlay) s.selectedOverlay.style.display = "none";
       if (s.toggleBadge) s.toggleBadge.style.display = "none";
       s.hoveredElement = null;
@@ -1090,7 +1057,7 @@ export function Surface() {
       s.selectionMode = false;
       document.body.style.cursor = "";
       if (s.highlightOverlay) s.highlightOverlay.style.display = "none";
-      if (s.tooltip) s.tooltip.style.display = "none";
+      if (s.toggleBadge) s.toggleBadge.style.display = "none";
       s.hoveredElement = null;
     }
 
@@ -1099,7 +1066,6 @@ export function Surface() {
       s.selectedDomPath = null;
       s.overlayState = null;
       if (s.selectedOverlay) s.selectedOverlay.style.display = "none";
-      if (s.toggleBadge) s.toggleBadge.style.display = "none";
       if (s.overlayRafId) {
         cancelAnimationFrame(s.overlayRafId);
         s.overlayRafId = null;
@@ -1108,25 +1074,74 @@ export function Surface() {
 
     // --- Event handlers ---
     function onMouseMove(e: MouseEvent) {
-      if (!s.selectionMode || !s.highlightOverlay || !s.tooltip) return;
+      if (!s.selectionMode || !s.highlightOverlay) return;
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || el === s.highlightOverlay || el === s.tooltip || el === s.selectedOverlay || s.toggleBadge?.contains(el as Node)) return;
+      if (!el || el === s.highlightOverlay || el === s.selectedOverlay || s.toggleBadge?.contains(el as Node)) return;
       const selectable = findSelectableElement(el);
       if (selectable === s.hoveredElement) return;
       s.hoveredElement = selectable;
       const rect = selectable.getBoundingClientRect();
       positionOverlay(s.highlightOverlay, rect);
-      const name = getElementName(selectable);
-      s.tooltip.textContent = name;
-      s.tooltip.style.display = "block";
-      s.tooltip.style.left = `${rect.left}px`;
-      s.tooltip.style.top = `${Math.max(0, rect.top - 24)}px`;
+
+      if (!s.toggleBadge) return;
+      const name = getElementName(selectable) || selectable.tagName.toLowerCase();
+      const isSelected = selectable === s.selectedElement;
+      const os = isSelected ? s.overlayState : null;
+
+      // Read DOM-annotated signals (set at build time by the transform) as instant fallback
+      const domLoop = selectable.hasAttribute("data-loop");
+      const domDynamic = selectable.hasAttribute("data-dynamic");
+      const inLoop = os?.inLoop ?? domLoop;
+      const hasDynamicContent = os?.hasDynamicContent ?? domDynamic;
+
+      // Tint the highlight overlay to preview what the selection border will look like
+      if (inLoop) {
+        s.highlightOverlay.style.border = "2px dashed rgba(139,92,246,0.5)";
+        s.highlightOverlay.style.backgroundColor = "rgba(139,92,246,0.06)";
+      } else if (hasDynamicContent) {
+        s.highlightOverlay.style.border = "2px solid rgba(20,184,166,0.5)";
+        s.highlightOverlay.style.backgroundColor = "rgba(20,184,166,0.06)";
+      } else {
+        s.highlightOverlay.style.border = "2px solid rgba(59,130,246,0.6)";
+        s.highlightOverlay.style.backgroundColor = "rgba(59,130,246,0.08)";
+      }
+
+      const isDark = document.documentElement.classList.contains("dark") ||
+        window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+
+      const chips: string[] = [];
+
+      if (os?.tier === "inspect-only") {
+        chips.push(chip(os.packageName || name, "#cdd6f4", "#1e1e2e"));
+      } else {
+        // Name chip: dark bg + white text, coloured icon only
+        const compActive = os?.activeMode === "component";
+        const nameIcon = compActive ? ICON_COMPONENT : ICON_INSTANCE;
+        const iconColor = compActive ? "#f97316" : "#3b82f6";
+        chips.push(chip(name, "#cdd6f4", "#1e1e2e", nameIcon, iconColor));
+        if (inLoop) chips.push(chip("repeated",
+          isDark ? "#c4b5fd" : "#5b21b6",
+          isDark ? "#2e1065" : "#ede9fe"
+        ));
+        if (hasDynamicContent) chips.push(chip("dynamic",
+          isDark ? "#5eead4" : "#0f766e",
+          isDark ? "#042f2e" : "#ccfbf1"
+        ));
+      }
+
+      s.toggleBadge.innerHTML = chips.join("");
+      s.toggleBadge.style.gap = "4px";
+      const badgeH = 22;
+      const top = rect.top >= badgeH + 4 ? rect.top - badgeH - 2 : rect.bottom + 2;
+      s.toggleBadge.style.left = `${rect.left}px`;
+      s.toggleBadge.style.top = `${top}px`;
+      s.toggleBadge.style.display = "flex";
     }
 
     function onMouseLeave() {
-      if (!s.highlightOverlay || !s.tooltip) return;
+      if (!s.highlightOverlay) return;
       s.highlightOverlay.style.display = "none";
-      s.tooltip.style.display = "none";
+      if (s.toggleBadge) s.toggleBadge.style.display = "none";
       s.hoveredElement = null;
     }
 
@@ -1135,7 +1150,7 @@ export function Surface() {
       e.preventDefault();
       e.stopPropagation();
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || el === s.highlightOverlay || el === s.tooltip || el === s.selectedOverlay || s.toggleBadge?.contains(el as Node)) return;
+      if (!el || el === s.highlightOverlay || el === s.selectedOverlay || s.toggleBadge?.contains(el as Node)) return;
       const selectable = findSelectableElement(el);
       selectElement(selectable);
     }
@@ -1223,22 +1238,27 @@ export function Surface() {
           break;
         case "tool:highlightByTreeId": {
           const id = msg.id as string;
-          if (!id || !s.highlightOverlay || !s.tooltip) break;
+          if (!id || !s.highlightOverlay) break;
           const target = document.querySelector(id);
           if (target) {
             const rect = target.getBoundingClientRect();
             positionOverlay(s.highlightOverlay, rect);
-            const name = getElementName(target);
-            s.tooltip.textContent = name;
-            s.tooltip.style.display = "block";
-            s.tooltip.style.left = `${rect.left}px`;
-            s.tooltip.style.top = `${Math.max(0, rect.top - 24)}px`;
+            if (s.toggleBadge) {
+              const name = getElementName(target);
+              s.toggleBadge.innerHTML = chip(name, "#d1d5db", "#1f2937");
+              s.toggleBadge.style.gap = "0";
+              const badgeH = 22;
+              const top = rect.top >= badgeH + 4 ? rect.top - badgeH - 2 : rect.bottom + 2;
+              s.toggleBadge.style.left = `${rect.left}px`;
+              s.toggleBadge.style.top = `${top}px`;
+              s.toggleBadge.style.display = "flex";
+            }
           }
           break;
         }
         case "tool:clearHighlight":
           if (s.highlightOverlay) s.highlightOverlay.style.display = "none";
-          if (s.tooltip) s.tooltip.style.display = "none";
+          if (s.toggleBadge) s.toggleBadge.style.display = "none";
           break;
         case "tool:selectByTreeId": {
           const id = msg.id as string;
@@ -1256,6 +1276,10 @@ export function Surface() {
             showToggle: msg.showToggle,
             activeMode: msg.activeMode,
             isDataDriven: msg.isDataDriven,
+            inLoop: msg.inLoop ?? false,
+            hasDynamicContent: msg.hasDynamicContent ?? false,
+            dataOrigin: msg.dataOrigin,
+            iteratorExpression: msg.iteratorExpression,
             packageName: msg.packageName,
           });
           break;
@@ -1369,7 +1393,6 @@ export function Surface() {
       if (s.overlayRafId) cancelAnimationFrame(s.overlayRafId);
       s.tokenPreviewStyle?.remove();
       s.highlightOverlay?.remove();
-      s.tooltip?.remove();
       s.selectedOverlay?.remove();
       s.toggleBadge?.remove();
     };

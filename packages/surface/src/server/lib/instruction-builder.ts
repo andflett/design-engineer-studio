@@ -205,6 +205,10 @@ function buildElementContext(element: SelectedElementData, projectRoot: string):
 }
 
 function formatChangeIntent(c: ChangeIntent, projectRoot: string): string {
-  const file = resolveFilePath(c.elementSource.file, projectRoot);
-  return `  ${c.property}: ${c.fromValue} → ${c.toValue}  (${file}:${c.elementSource.line})`;
+  if (c.elementSource) {
+    const file = resolveFilePath(c.elementSource.file, projectRoot);
+    return `  ${c.property}: ${c.fromValue} → ${c.toValue}  (${file}:${c.elementSource.line})`;
+  }
+  const filePart = c.cssFilePath ? `  (${c.cssFilePath})` : "";
+  return `  ${c.property}: ${c.fromValue} → ${c.toValue}${filePart}`;
 }

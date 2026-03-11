@@ -69,19 +69,23 @@ export interface StyleChange {
 
 /** A single visual edit accumulated in AI write mode before sending to Claude. */
 export interface ChangeIntent {
-  type: "class" | "style" | "prop";
-  /** CSS property name, Tailwind class category, or prop name */
+  type: "class" | "style" | "prop" | "token";
+  /** CSS property name, Tailwind class category, prop name, or CSS token variable */
   property: string;
   /** Current value before the edit */
   fromValue: string;
   /** Desired new value */
   toValue: string;
-  elementSource: SourceLocation;
+  /** Required for class/style/prop types; omitted for token type */
+  elementSource?: SourceLocation;
   currentClassName: string;
+  /** CSS file path — used for token type */
+  cssFilePath?: string;
 }
 
 export type WriteMode = "deterministic" | "ai";
 export type AiModel = "sonnet" | "opus";
+export type ElementMode = "component" | "instance";
 
 // Messages from target app iframe -> editor
 export type IframeToEditor =
@@ -121,5 +125,13 @@ export type EditorToIframe =
       showToggle: boolean;
       activeMode: "component" | "instance" | null;
       isDataDriven: boolean;
+      /** Element is rendered in a .map()/.flatMap()/.filter() loop */
+      inLoop: boolean;
+      /** Element's text/child content contains non-literal expressions */
+      hasDynamicContent: boolean;
+      /** Where loop data originates — only present when inLoop is true */
+      dataOrigin?: "local" | "external";
+      /** Truncated iterator expression, e.g. "recentItems.map(…)" */
+      iteratorExpression?: string;
       packageName?: string;
     };

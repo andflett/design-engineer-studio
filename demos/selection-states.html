@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selection States</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #09090c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  }
+
+  .canvas {
+    width: 1280px;
+    height: 720px;
+    background: #09090c;
+    display: flex;
+    flex-direction: column;
+    padding: 52px 72px 48px;
+    gap: 36px;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-sub {
+    font-size: 11px;
+    color: #4b5563;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Grid ────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 20px;
+    flex: 1;
+  }
+
+  /* ── Card ────────────────────────────────────────────────── */
+  .card {
+    background: #0f0f14;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 20px 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ── Selection demo area ─────────────────────────────────── */
+  .demo {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .chips {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 4px;
+    align-self: flex-start;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: inherit;
+    white-space: nowrap;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .chip svg { flex-shrink: 0; }
+
+  .chip-instance  { color: #3b82f6; background: rgba(59,130,246,0.12); }
+  .chip-component { color: #f97316; background: rgba(249,115,22,0.12); }
+  .chip-loop      { color: #8b5cf6; background: rgba(139,92,246,0.12); }
+  .chip-dynamic   { color: #14b8a6; background: rgba(20,184,166,0.12); }
+  .chip-inspect   { color: #9ca3af; background: rgba(156,163,175,0.12); }
+
+  .sel-box {
+    border-radius: 4px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 80px;
+    background: rgba(255,255,255,0.02);
+    justify-content: center;
+  }
+
+  .sel-instance  { border: 2px solid rgba(59,130,246,0.65); }
+  .sel-component { border: 2px solid rgba(249,115,22,0.65); }
+  .sel-loop      { border: 2px dashed rgba(139,92,246,0.7); }
+  .sel-dynamic   { border: 2px solid rgba(20,184,166,0.7); }
+  .sel-both      { border: 2px dashed rgba(139,92,246,0.7); }
+  .sel-inspect   { border: 2px solid rgba(107,114,128,0.45); }
+
+  /* fake UI placeholders */
+  .fake-row { display: flex; align-items: center; gap: 8px; }
+  .fake-bar  { height: 8px; border-radius: 2px; background: rgba(255,255,255,0.08); }
+  .fake-bar.w-60  { width: 60%; }
+  .fake-bar.w-40  { width: 40%; }
+  .fake-bar.w-30  { width: 30%; }
+  .fake-bar.w-20  { width: 20%; }
+  .fake-bar.w-80  { width: 80%; }
+  .fake-bar.h-14  { height: 14px; }
+  .fake-bar.h-10  { height: 10px; }
+  .fake-bar.h-6   { height: 6px; }
+  .fake-dot  { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+  .fake-btn  { height: 22px; width: 60px; border-radius: 3px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08); }
+  .fake-badge { height: 16px; width: 48px; border-radius: 10px; background: rgba(255,255,255,0.07); }
+  .fake-cell { flex: 1; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.07); }
+
+  /* ── Card label ──────────────────────────────────────────── */
+  .label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .label-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #cbd5e1;
+    letter-spacing: 0.03em;
+  }
+
+  .label-desc {
+    font-size: 10px;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.04);
+    margin: 2px 0;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <div class="header">
+    <span class="header-title">Selection States</span>
+    <span class="header-sub">how elements are labelled and coloured depending on what they are</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- 1. Instance -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-instance">
+            <svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M7.1465 1.48959C7.34176 1.29432 7.65835 1.29432 7.85361 1.48959L13.5105 7.14644C13.7057 7.3417 13.7057 7.65829 13.5105 7.85355L7.85361 13.5104C7.65835 13.7057 7.34176 13.7057 7.1465 13.5104L1.48965 7.85355C1.29439 7.65829 1.29439 7.3417 1.48965 7.14644L7.1465 1.48959ZM7.50005 2.55025L2.55031 7.49999L7.50005 12.4497L12.4498 7.49999L7.50005 2.55025Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+            Button
+          </span>
+        </div>
+        <div class="sel-box sel-instance">
+          <div class="fake-row">
+            <div class="fake-bar h-10 w-40"></div>
+            <div style="flex:1"></div>
+            <div class="fake-btn"></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">instance</div>
+        <div class="label-desc">a usage of a component — edits affect this usage only</div>
+      </div>
+    </div>
+
+    <!-- 2. Component -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-component">
+            <svg width="10" height="10" viewBox="0 0 15 15" fill="none"><path d="M4.67129 3.14634C4.47603 3.34161 4.47603 3.65819 4.67129 3.85345L7.14616 6.32833C7.34142 6.52359 7.65801 6.52359 7.85327 6.32833L10.3281 3.85345C10.5234 3.65819 10.5234 3.34161 10.3281 3.14634L7.85327 0.671471C7.65801 0.476209 7.34142 0.476209 7.14616 0.671471L4.67129 3.14634ZM7.49971 5.26766L5.73195 3.4999L7.49971 1.73213L9.26748 3.4999L7.49971 5.26766ZM8.67129 7.14634C8.47603 7.34161 8.47603 7.65819 8.67129 7.85345L11.1462 10.3283C11.3414 10.5236 11.658 10.5236 11.8533 10.3283L14.3281 7.85345C14.5234 7.65819 14.5234 7.34161 14.3281 7.14634L11.8533 4.67147C11.658 4.47621 11.3414 4.47621 11.1462 4.67147L8.67129 7.14634ZM11.4997 9.26766L9.73195 7.4999L11.4997 5.73213L13.2675 7.4999L11.4997 9.26766ZM4.67129 11.8535C4.47603 11.6582 4.47603 11.3416 4.67129 11.1463L7.14616 8.67147C7.34142 8.47621 7.65801 8.47621 7.85327 8.67147L10.3281 11.1463C10.5234 11.3416 10.5234 11.6582 10.3281 11.8535L7.85327 14.3283C7.65801 14.5236 7.34142 14.5236 7.14616 14.3283L4.67129 11.8535ZM5.73195 11.4999L7.49971 13.2677L9.26748 11.4999L7.49971 9.73213L5.73195 11.4999ZM0.671288 7.14649C0.476026 7.34175 0.476026 7.65834 0.671288 7.8536L3.14616 10.3285C3.34142 10.5237 3.65801 10.5237 3.85327 10.3285L6.32814 7.8536C6.5234 7.65834 6.5234 7.34175 6.32814 7.14649L3.85327 4.67162C3.65801 4.47636 3.34142 4.47636 3.14616 4.67162L0.671288 7.14649ZM3.49972 9.26781L1.73195 7.50005L3.49972 5.73228L5.26748 7.50005L3.49972 9.26781Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+            Card
+          </span>
+        </div>
+        <div class="sel-box sel-component">
+          <div class="fake-bar h-10 w-40"></div>
+          <div class="fake-bar h-6 w-80"></div>
+          <div class="fake-bar h-6 w-60"></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">component</div>
+        <div class="label-desc">editing the component definition — affects every instance</div>
+      </div>
+    </div>
+
+    <!-- 3. Loop -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-inspect">&lt;tr&gt;</span>
+          <span class="chip chip-loop">loop</span>
+        </div>
+        <div class="sel-box sel-loop">
+          <div class="fake-row">
+            <div class="fake-cell"></div>
+            <div class="fake-cell"></div>
+            <div class="fake-badge"></div>
+            <div class="fake-btn"></div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">loop</div>
+        <div class="label-desc">rendered via .map() — edits apply to all rows in the template</div>
+      </div>
+    </div>
+
+    <!-- 4. Dynamic content -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-inspect">&lt;h1&gt;</span>
+          <span class="chip chip-dynamic">dynamic</span>
+        </div>
+        <div class="sel-box sel-dynamic">
+          <div class="fake-bar h-14 w-60"></div>
+          <div class="fake-bar h-6 w-80"></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">dynamic content</div>
+        <div class="label-desc">text or children come from a runtime variable, not source</div>
+      </div>
+    </div>
+
+    <!-- 5. Loop + Dynamic -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-inspect">&lt;li&gt;</span>
+          <span class="chip chip-loop">loop</span>
+          <span class="chip chip-dynamic">dynamic</span>
+        </div>
+        <div class="sel-box sel-both">
+          <div class="fake-row">
+            <div class="fake-dot"></div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:5px;">
+              <div class="fake-bar h-8 w-60"></div>
+              <div class="fake-bar h-6 w-40"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">loop + dynamic</div>
+        <div class="label-desc">a template with runtime data — loop colour takes priority on border</div>
+      </div>
+    </div>
+
+    <!-- 6. Inspect only -->
+    <div class="card">
+      <div class="demo">
+        <div class="chips">
+          <span class="chip chip-inspect">@radix-ui/progress</span>
+        </div>
+        <div class="sel-box sel-inspect">
+          <div style="display:flex; flex-direction:column; gap:6px; opacity:0.6;">
+            <div class="fake-bar h-6 w-30"></div>
+            <div style="height:6px; border-radius:3px; background:rgba(255,255,255,0.06); overflow:hidden;">
+              <div style="height:100%; width:65%; background:rgba(255,255,255,0.12); border-radius:3px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="label">
+        <div class="label-title">inspect only</div>
+        <div class="label-desc">an npm package element — readable but not editable from source</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

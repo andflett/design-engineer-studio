@@ -15,6 +15,35 @@ interface LoaderContext {
   async(): (err: Error | null, content?: string, sourceMap?: any) => void;
 }
 
+/** Returns true if nodePath is inside a .map()/.flatMap()/.filter() callback. */
+function isInMapCallback(nodePath: any, t: any): boolean {
+  let cur = nodePath.parentPath;
+  while (cur) {
+    if (
+      t.isFunctionDeclaration(cur.node) ||
+      t.isFunctionExpression(cur.node) ||
+      t.isClassMethod(cur.node) ||
+      t.isObjectMethod(cur.node)
+    ) break;
+    if (
+      t.isCallExpression(cur.node) &&
+      t.isMemberExpression(cur.node.callee) &&
+      t.isIdentifier(cur.node.callee.property) &&
+      ["map", "flatMap", "filter"].includes(cur.node.callee.property.name)
+    ) return true;
+    cur = cur.parentPath;
+  }
+  return false;
+}
+
+/** Returns true if the JSXElement has at least one expression child (dynamic content). */
+function hasDynamicChildren(nodePath: any, t: any): boolean {
+  const children: any[] = nodePath.parent?.children ?? [];
+  return children.some(
+    (child: any) => t.isJSXExpressionContainer(child) && !t.isJSXEmptyExpression(child.expression)
+  );
+}
+
 export default function designtoolsLoader(this: LoaderContext, source: string): void {
   const callback = this.async();
   const opts = this.getOptions();
@@ -113,6 +142,16 @@ export default function designtoolsLoader(this: LoaderContext, source: string): 
                       t.stringLiteral(value)
                     )
                   );
+
+                  // Annotate loop elements — inside .map()/.flatMap()/.filter() callback
+                  if (isInMapCallback(nodePath, t)) {
+                    attrs.push(t.jsxAttribute(t.jsxIdentifier("data-loop"), null));
+                  }
+
+                  // Annotate dynamic content — has at least one {expression} child
+                  if (hasDynamicChildren(nodePath, t)) {
+                    attrs.push(t.jsxAttribute(t.jsxIdentifier("data-dynamic"), null));
+                  }
                 }
               },
             },

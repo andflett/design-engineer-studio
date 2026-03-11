@@ -1,12 +1,36 @@
 @import "tailwindcss";
 
+/* shadcn/ui CSS variable mappings — mapped to studio theme */
+@theme inline {
+  --color-background: var(--studio-bg);
+  --color-foreground: var(--studio-text);
+  --color-card: var(--studio-surface);
+  --color-card-foreground: var(--studio-text);
+  --color-popover: var(--studio-surface);
+  --color-popover-foreground: var(--studio-text);
+  --color-primary: var(--studio-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--studio-surface-hover);
+  --color-secondary-foreground: var(--studio-text);
+  --color-muted: var(--studio-surface-hover);
+  --color-muted-foreground: var(--studio-text-muted);
+  --color-accent: var(--studio-accent-muted);
+  --color-accent-foreground: var(--studio-text);
+  --color-destructive: var(--studio-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--studio-border);
+  --color-input: var(--studio-input-bg);
+  --color-ring: var(--studio-accent);
+  --radius: 6px;
+}
+
 /* Dark theme (default) — Figma-matched neutral grays */
 :root {
   --studio-bg: #1e1e1e;
   --studio-surface: #2c2c2c;
   --studio-surface-hover: #363636;
   --studio-surface-active: #3e3e3e;
-  --studio-border: #444444;
+  --studio-border: #383838;
   --studio-border-subtle: #383838;
   --studio-text: #ffffff;
   --studio-text-muted: #aeaeae;
@@ -33,7 +57,7 @@
   --studio-surface: #ffffff;
   --studio-surface-hover: #f0f0f0;
   --studio-surface-active: #e8e8e8;
-  --studio-border: #e0e0e0;
+  --studio-border: #ebebeb;
   --studio-border-subtle: #ebebeb;
   --studio-text: #1e1e1e;
   --studio-text-muted: #6e6e6e;
@@ -124,14 +148,14 @@ body {
   display: inline-flex;
   background: var(--studio-input-bg);
   border-radius: 6px;
-  padding: 2px;
-  gap: 1px;
+  padding: 4px;
+  gap: 4px;
 }
 .studio-segmented button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   padding: 4px 10px;
   border: none;
   border-radius: 4px;
@@ -177,6 +201,132 @@ body {
 }
 .studio-segmented.wrap {
   flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────
+   Sub-tabs  (.studio-sub-tabs)
+   Usage: Props / Styles inside component/instance panels
+   ───────────────────────────────────────────── */
+.studio-sub-tabs {
+  display: flex;
+  gap: 2px;
+}
+.studio-sub-tabs button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--studio-text-dimmed);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+.studio-sub-tabs button:hover,
+.studio-sub-tabs button.active {
+  background: var(--studio-surface-hover);
+  color: var(--studio-text);
+}
+.studio-sub-tabs button.active {
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────
+   Mode switch  (.studio-switch)
+   Usage: Instance / Component toggle
+   Knob slides left/right, label on opposite side
+   ───────────────────────────────────────────── */
+.studio-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  background: var(--studio-input-bg);
+  border-radius: 100px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+.studio-switch-knob {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--studio-text);
+  transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+:root:not(.light) .studio-switch-knob {
+  background: var(--studio-surface-active);
+}
+.studio-switch[data-mode="instance"] .studio-switch-knob {
+  left: calc(100% - 29px);
+}
+.studio-switch[data-mode="component"] .studio-switch-knob {
+  left: 3px;
+}
+.studio-switch-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 6px;
+  color: var(--studio-text);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.studio-switch[data-mode="instance"] .studio-switch-label {
+  left: 14px;
+}
+.studio-switch[data-mode="component"] .studio-switch-label {
+  right: 14px;
+}
+
+/* Compact switch variant — inline in element header */
+.studio-switch--sm {
+  width: 80px;
+  height: 26px;
+  background: var(--studio-accent-muted);
+  flex-shrink: 0;
+}
+.studio-switch--sm .studio-switch-knob {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  box-shadow: none;
+}
+.studio-switch--sm[data-mode="instance"] {
+  background: rgba(59, 130, 246, 0.12);
+}
+.studio-switch--sm[data-mode="component"] {
+  background: rgba(249, 115, 22, 0.12);
+}
+.studio-switch--sm[data-mode="instance"] .studio-switch-knob {
+  left: calc(100% - 18px);
+  background: #3b82f6;
+}
+.studio-switch--sm[data-mode="component"] .studio-switch-knob {
+  left: 2px;
+  background: #f97316;
+}
+.studio-switch--sm .studio-switch-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.studio-switch--sm[data-mode="instance"] .studio-switch-label {
+  left: 9px;
+  color: #3b82f6;
+}
+.studio-switch--sm[data-mode="component"] .studio-switch-label {
+  right: 9px;
+  color: #f97316;
 }
 
 /* Tab explainer */
@@ -229,12 +379,6 @@ body {
 .studio-section-hdr:hover {
   background: rgba(128, 128, 128, 0.04);
 }
-.studio-section-hdr .count {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--studio-text-dimmed);
-}
 .studio-section-hdr svg {
   width: 12px;
   height: 12px;
@@ -255,10 +399,9 @@ body {
   color-scheme: dark;
 
   background: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 5px 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 1px 4px rgba(0, 0, 0, 0.20);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25), 0 1px 4px rgba(0, 0, 0, 0.10);
   min-width: 200px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.90);
@@ -1398,4 +1541,225 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: flex;
   align-items: center;
   gap: 3px;
+}
+
+/* ── Agent panel: activity / status bar ────────────────────────────────────── */
+@keyframes pulse-thinking {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.studio-activity-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 10px;
+  color: var(--studio-text-dimmed);
+  background: var(--studio-surface-hover);
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+  margin: 0 10px 6px;
+  animation: pulse-thinking 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.studio-activity-bar code {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 10px;
+  color: var(--studio-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+/* Legacy thinking bar kept for compat */
+.studio-thinking-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--studio-text-muted);
+  border-top: 1px solid var(--studio-border);
+  animation: pulse-thinking 1.5s ease-in-out infinite;
+}
+
+/* ── Agent panel: compact tool rows ───────────────────────────────────────── */
+.studio-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+  min-height: 22px;
+}
+.studio-tool-row-icon {
+  color: var(--studio-text-dimmed);
+  flex-shrink: 0;
+}
+.studio-tool-row-label {
+  color: var(--studio-text-dimmed);
+  font-size: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.studio-tool-row-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 10px;
+  color: var(--studio-text-muted);
+}
+.studio-tool-row-status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Spinner for loading state */
+@keyframes studio-spin {
+  to { transform: rotate(360deg); }
+}
+.studio-spin {
+  animation: studio-spin 1s linear infinite;
+}
+
+/* ── Agent panel: permission prompts ──────────────────────────────────────── */
+.studio-perm-prompt {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--studio-warning);
+  background: color-mix(in srgb, var(--studio-warning) 6%, var(--studio-input-bg));
+}
+.studio-perm-prompt[data-decided] {
+  opacity: 0.65;
+  border-color: var(--studio-border);
+  background: var(--studio-input-bg);
+}
+.studio-perm-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: var(--studio-text-muted);
+}
+.studio-perm-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--studio-text);
+}
+.studio-perm-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 500;
+}
+.studio-perm-badge.allow { color: var(--studio-success); }
+.studio-perm-badge.deny  { color: var(--studio-danger); }
+.studio-perm-desc {
+  font-size: 10px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--studio-text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0 0 6px;
+  padding: 4px 6px;
+  background: var(--studio-bg);
+  border-radius: 4px;
+  max-height: 100px;
+  overflow: auto;
+}
+.studio-perm-actions {
+  display: flex;
+  gap: 6px;
+}
+.studio-perm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.studio-perm-btn.allow {
+  border: none;
+  background: var(--studio-success);
+  color: #fff;
+}
+.studio-perm-btn.deny {
+  border: 1px solid var(--studio-border);
+  background: transparent;
+  color: var(--studio-text-muted);
+}
+.studio-perm-btn.deny:hover {
+  background: var(--studio-surface-hover);
+  color: var(--studio-text);
+}
+
+/* ── Empty state ── */
+
+/* cursor slides in from bottom-right, arrives at 40%, holds, then fades out */
+@keyframes studio-cursor-move {
+  0%   { transform: translate(50px, 50px); opacity: 0; }
+  15%  { opacity: 1; }
+  40%  { transform: translate(-28px, -28px); opacity: 1; }
+  50%  { transform: translate(-28px, -28px); opacity: 1; }
+  /* click down */
+  52%  { transform: translate(-30px, -30px); opacity: 1; }
+  /* click up */
+  56%  { transform: translate(-28px, -28px); opacity: 1; }
+  70%  { transform: translate(-28px, -28px); opacity: 1; }
+  85%  { transform: translate(-28px, -28px); opacity: 0; }
+  100% { transform: translate(-28px, -28px); opacity: 0; }
+}
+
+/* logo press: idle, then squish on click, spring back */
+@keyframes studio-logo-press {
+  0%, 50%  { transform: scale(1); }
+  52%      { transform: scale(0.92); }
+  56%      { transform: scale(1.04); }
+  62%      { transform: scale(1); }
+  100%     { transform: scale(1); }
+}
+
+@keyframes studio-empty-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studio-empty-state {
+  user-select: none;
+  animation: studio-empty-fade-in 0.5s ease-out both;
+}
+.studio-empty-click-target {
+  position: relative;
+}
+.studio-empty-logo {
+  color: var(--studio-text);
+  opacity: 0.1;
+  animation: studio-logo-press 4s ease-in-out both;
+}
+.studio-empty-cursor {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  opacity: 0.6;
+  color: var(--studio-text);
+  pointer-events: none;
+  animation: studio-cursor-move 4s ease-in-out both;
+}
+.studio-empty-text {
+  font-size: 11px;
+  font-weight: 500;
+  position: relative;
+  left: 3px;
+  margin-top: -22px;
+  opacity: 0.25;
+  color: var(--studio-text);
+  text-align: center;
 }

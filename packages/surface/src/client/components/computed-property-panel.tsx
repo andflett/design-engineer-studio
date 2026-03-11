@@ -45,8 +45,10 @@ import {
   BoxIcon,
   LayoutIcon,
   TextAlignTopIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "@radix-ui/react-icons";
-import { Crosshair, Pin, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, WrapText, AlignJustify, Columns3, LayoutGrid, Maximize2, Move, Type, Palette, Square, Sparkles, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Crosshair, Pin, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, WrapText, AlignJustify, Columns3, LayoutGrid, Maximize2, Move, Type, Palette, Square, Sparkles } from "lucide-react";
 import {
   buildUnifiedProperties,
   getUniformBoxValue,
@@ -314,13 +316,9 @@ function UnifiedSection({
         onClick={() => setCollapsed(!collapsed)}
         className="studio-section-hdr"
       >
-        {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
         <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
-        {count > 0 && <span className="count">{count}</span>}
-        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: count > 0 ? 0 : "auto" }}>
-          {collapsed
-            ? <ChevronsUpDown style={{ width: 12, height: 12 }} />
-            : <ChevronsDownUp style={{ width: 12, height: 12 }} />}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: "auto" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
         </span>
       </button>
 

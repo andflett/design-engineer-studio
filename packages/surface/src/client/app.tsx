@@ -84,6 +84,11 @@ export function App() {
   const [elementMode, setElementMode] = useState<"component" | "instance">("instance");
   const [isDataDriven, setIsDataDriven] = useState(false);
   const isDataDrivenRef = useRef(false);
+  const [inLoop, setInLoop] = useState(false);
+  const inLoopRef = useRef(false);
+  const [hasDynamicContent, setHasDynamicContent] = useState(false);
+  const [dataOrigin, setDataOrigin] = useState<"local" | "external" | undefined>(undefined);
+  const [iteratorExpression, setIteratorExpression] = useState<string | undefined>(undefined);
   const scanReady = useScanReady();
   const componentData = useComponents();
 
@@ -158,6 +163,7 @@ export function App() {
     el: SelectedElementData | null,
     mode: "component" | "instance",
     dataDriven = false,
+    loopState?: { inLoop: boolean; hasDynamicContent: boolean; dataOrigin?: "local" | "external"; iteratorExpression?: string },
   ) => {
     if (!iframeRef.current?.contentWindow || !el) return;
     const hasEditableSource = el.source && !el.source.file.includes("node_modules");
@@ -172,6 +178,10 @@ export function App() {
       showToggle,
       activeMode: showToggle ? mode : null,
       isDataDriven: dataDriven,
+      inLoop: loopState?.inLoop ?? false,
+      hasDynamicContent: loopState?.hasDynamicContent ?? false,
+      dataOrigin: loopState?.dataOrigin,
+      iteratorExpression: loopState?.iteratorExpression,
       packageName: el.packageName ?? undefined,
     }, "*");
   }, []);
@@ -211,8 +221,13 @@ export function App() {
           setElementMode("instance");
           setIsDataDriven(false);
           isDataDrivenRef.current = false;
+          setInLoop(false);
+          inLoopRef.current = false;
+          setHasDynamicContent(false);
+          setDataOrigin(undefined);
+          setIteratorExpression(undefined);
           sendOverlayState(msg.data, "instance", false);
-          // Fire classify-element async to detect data-driven instances
+          // Fire classify-element async to detect data-driven / loop instances
           {
             const src = msg.data.source;
             if (src && !src.file.includes("node_modules")) {
@@ -223,12 +238,22 @@ export function App() {
               });
               fetch(`/api/classify-element?${params}`)
                 .then(r => r.json())
-                .then((classification: { instance: { isAuthored: boolean } }) => {
-                  const dataDriven = !classification.instance.isAuthored;
+                .then((c: { inLoop: boolean; hasDynamicContent: boolean; dataOrigin?: "local" | "external"; iteratorExpression?: string; instance: { isAuthored: boolean } }) => {
+                  const dataDriven = c.inLoop || c.hasDynamicContent;
                   isDataDrivenRef.current = dataDriven;
+                  inLoopRef.current = c.inLoop;
                   setIsDataDriven(dataDriven);
+                  setInLoop(c.inLoop);
+                  setHasDynamicContent(c.hasDynamicContent);
+                  setDataOrigin(c.dataOrigin);
+                  setIteratorExpression(c.iteratorExpression);
                   setSelectedElement(prev => {
-                    if (prev) sendOverlayState(prev, "instance", dataDriven);
+                    if (prev) sendOverlayState(prev, "instance", dataDriven, {
+                      inLoop: c.inLoop,
+                      hasDynamicContent: c.hasDynamicContent,
+                      dataOrigin: c.dataOrigin,
+                      iteratorExpression: c.iteratorExpression,
+                    });
                     return prev;
                   });
                 })
@@ -240,7 +265,10 @@ export function App() {
           const newMode = (msg as any).mode as "component" | "instance";
           setElementMode(newMode);
           setSelectedElement(prev => {
-            if (prev) sendOverlayState(prev, newMode, isDataDrivenRef.current);
+            if (prev) sendOverlayState(prev, newMode, isDataDrivenRef.current, {
+              inLoop: inLoopRef.current,
+              hasDynamicContent: false,
+            });
             return prev;
           });
           break;
@@ -631,9 +659,16 @@ export function App() {
       onAiModelChange={setAiModel}
       terminalKey={terminalKey}
       elementMode={elementMode}
+      inLoop={inLoop}
+      hasDynamicContent={hasDynamicContent}
+      dataOrigin={dataOrigin}
+      iteratorExpression={iteratorExpression}
       onElementModeChange={(mode) => {
         setElementMode(mode);
-        sendOverlayState(selectedElement, mode, isDataDrivenRef.current);
+        sendOverlayState(selectedElement, mode, isDataDrivenRef.current, {
+          inLoop: inLoopRef.current,
+          hasDynamicContent,
+        });
       }}
     />
   );

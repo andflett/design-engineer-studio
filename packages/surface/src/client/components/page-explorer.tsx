@@ -14,12 +14,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   Component1Icon,
   BoxIcon,
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import type { ComponentTreeNode } from "../../shared/protocol.js";
-import { ChevronsDownUp, ChevronsUpDown, Package, Layers } from "lucide-react";
+import { Package, Layers } from "lucide-react";
 import { Tooltip } from "./tooltip.js";
 
 interface PageExplorerProps {
@@ -293,9 +294,9 @@ function ScopeSection({
         {!alwaysExpanded && (
           <span style={{ opacity: 0.4, display: "flex", alignItems: "center" }}>
             {isExpanded ? (
-              <ChevronsDownUp style={{ width: 12, height: 12 }} />
+              <ChevronUpIcon />
             ) : (
-              <ChevronsUpDown style={{ width: 12, height: 12 }} />
+              <ChevronDownIcon />
             )}
           </span>
         )}

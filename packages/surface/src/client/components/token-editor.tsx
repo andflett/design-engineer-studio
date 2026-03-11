@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 import { ScrubInput } from "./controls/index.js";
 import {
-  ChevronRightIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   SpaceBetweenHorizontallyIcon,
   CornersIcon,
   BorderWidthIcon,
@@ -11,8 +11,10 @@ import {
   CheckIcon,
   Cross2Icon,
   Pencil1Icon,
+  CursorArrowIcon,
+  ShadowInnerIcon,
 } from "@radix-ui/react-icons";
-import { Palette, Move, Layers, Square, Sparkles, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Palette, Move, Layers, Square, Sparkles } from "lucide-react";
 import { ShadowList } from "./shadow-list.js";
 import { ColorInput, ColorInputSwatch } from "./controls/color-input.js";
 import { useTokens, useShadows, useBorders, useGradients, useSpacing, useStyling } from "../lib/scan-hooks.js";
@@ -25,6 +27,9 @@ interface TokenEditorProps {
   onPreviewToken: (token: string, value: string) => void;
   onClearTokenPreview: () => void;
   onPreviewShadow: (variableName: string, value: string, shadowName?: string) => void;
+  /** When true, token saves queue as AI intents instead of writing immediately */
+  isAiMode?: boolean;
+  onAiTokenIntent?: (tokenName: string, fromValue: string, toValue: string, cssFilePath: string) => void;
 }
 
 export function TokenEditor({
@@ -33,6 +38,8 @@ export function TokenEditor({
   onPreviewToken,
   onClearTokenPreview,
   onPreviewShadow,
+  isAiMode,
+  onAiTokenIntent,
 }: TokenEditorProps) {
   const tokenData = useTokens();
   const shadowData = useShadows();
@@ -78,10 +85,10 @@ export function TokenEditor({
   const selector = theme === "dark" ? ".dark" : (stylingType === "tailwind-v4" ? "@theme" : ":root");
 
   return (
-    <div className="">
+    <div>
       {/* Used by element — only show when relevant */}
       {referencedTokens.length > 0 && (
-        <Section title="Used by selected element" icon={<Sparkles size={12} />} count={referencedTokens.length} defaultCollapsed>
+        <Section title="Used by selected element" icon={<CursorArrowIcon />} count={referencedTokens.length} defaultCollapsed>
           <div className="flex flex-col gap-1.5 px-4 pb-2">
             {referencedTokens.map((token: any) => {
               const value = theme === "dark" && token.darkValue ? token.darkValue : token.lightValue;
@@ -103,8 +110,13 @@ export function TokenEditor({
                     contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
                     onChange={(v) => onPreviewToken(token.name, v)}
                     onSave={(oklchValue) => {
-                      saveToken(cssFilePath, token.name, oklchValue, selector);
-                      onClearTokenPreview();
+                      if (isAiMode && onAiTokenIntent) {
+                        onAiTokenIntent(token.name, value, oklchValue, cssFilePath);
+                        onClearTokenPreview();
+                      } else {
+                        saveToken(cssFilePath, token.name, oklchValue, selector);
+                        onClearTokenPreview();
+                      }
                     }}
                   />
                 </div>
@@ -124,6 +136,8 @@ export function TokenEditor({
           selector={selector}
           onPreviewToken={onPreviewToken}
           onClearTokenPreview={onClearTokenPreview}
+          isAiMode={isAiMode}
+          onAiTokenIntent={onAiTokenIntent}
         />
       </Section>
 
@@ -176,11 +190,13 @@ export function TokenEditor({
           allTokens={tokens}
           onPreviewToken={onPreviewToken}
           onClearPreview={onClearTokenPreview}
+          isAiMode={isAiMode}
+          onAiTokenIntent={onAiTokenIntent}
         />
       </Section>
 
       {/* Gradients — gradient builder */}
-      <Section title="Gradients" icon={<Sparkles size={12} />} count={gradientData?.gradients?.length || 0} defaultCollapsed>
+      <Section title="Gradients" icon={<ShadowInnerIcon />} count={gradientData?.gradients?.length || 0} defaultCollapsed>
         <GradientBuilder
           gradients={gradientData?.gradients || []}
           cssFilePath={gradientData?.cssFilePath || cssFilePath}
@@ -218,9 +234,8 @@ function Section({
       >
         {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
         <span style={{ flex: 1 }}>{title}</span>
-        {count !== undefined && <span className="count">{count}</span>}
-        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
-          {collapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: "auto" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
         </span>
       </button>
       {!collapsed && <div className="pb-2">{children}</div>}
@@ -246,11 +261,12 @@ function SubSection({
         className="studio-section-hdr"
         style={{ fontSize: 10 }}
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        <span style={{ color: "var(--studio-text)", fontWeight: 600 }}>
+        <span style={{ color: "var(--studio-text)", fontWeight: 600, flex: 1, textAlign: "left" }}>
           {title}
         </span>
-        {count !== undefined && <span className="count">{count}</span>}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: "auto" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
+        </span>
       </button>
       {!collapsed && <div className="studio-tree-content">{children}</div>}
     </div>
@@ -740,6 +756,8 @@ function ColorsSection({
   selector,
   onPreviewToken,
   onClearTokenPreview,
+  isAiMode,
+  onAiTokenIntent,
 }: {
   colorTokenGroups: [string, any[]][];
   tokens: any[];
@@ -748,6 +766,8 @@ function ColorsSection({
   selector: string;
   onPreviewToken: (token: string, value: string) => void;
   onClearTokenPreview: () => void;
+  isAiMode?: boolean;
+  onAiTokenIntent?: (tokenName: string, fromValue: string, toValue: string, cssFilePath: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
   const allColorNames = tokens.filter((t) => t.category === "color").map((t) => t.name);
@@ -782,8 +802,13 @@ function ColorsSection({
                             contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
                             onChange={(v) => onPreviewToken(token.name, v)}
                             onSave={(oklchValue) => {
-                              saveToken(cssFilePath, token.name, oklchValue, selector);
-                              onClearTokenPreview();
+                              if (isAiMode && onAiTokenIntent) {
+                                onAiTokenIntent(token.name, value, oklchValue, cssFilePath);
+                                onClearTokenPreview();
+                              } else {
+                                saveToken(cssFilePath, token.name, oklchValue, selector);
+                                onClearTokenPreview();
+                              }
                             }}
                           />
                         </div>
@@ -961,6 +986,8 @@ function BordersSection({
   allTokens,
   onPreviewToken,
   onClearPreview,
+  isAiMode,
+  onAiTokenIntent,
 }: {
   widthBorders: any[];
   borderColorTokens: any[];
@@ -970,6 +997,8 @@ function BordersSection({
   allTokens: any[];
   onPreviewToken: (token: string, value: string) => void;
   onClearPreview: () => void;
+  isAiMode?: boolean;
+  onAiTokenIntent?: (tokenName: string, fromValue: string, toValue: string, cssFilePath: string) => void;
 }) {
   const [creatingWidth, setCreatingWidth] = useState(false);
   const [creatingColor, setCreatingColor] = useState(false);
@@ -1068,8 +1097,13 @@ function BordersSection({
                         contrastToken={fgValue ? { name: fgTokenName, value: fgValue } : null}
                         onChange={(v) => onPreviewToken(token.name, v)}
                         onSave={(oklchValue) => {
-                          saveToken(cssFilePath, token.name, oklchValue, selector);
-                          onClearPreview();
+                          if (isAiMode && onAiTokenIntent) {
+                            onAiTokenIntent(token.name, value, oklchValue, cssFilePath);
+                            onClearPreview();
+                          } else {
+                            saveToken(cssFilePath, token.name, oklchValue, selector);
+                            onClearPreview();
+                          }
                         }}
                       />
                     </div>

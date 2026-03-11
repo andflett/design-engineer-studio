@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
-  ChevronRightIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
   Pencil1Icon,
   BookmarkIcon,
   CheckIcon,
@@ -159,7 +159,6 @@ function ShadowRow({
         className="studio-section-hdr"
         style={{ gap: 8 }}
       >
-        {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
         <ShadowPreview
           value={currentValue}
           size={24}
@@ -205,6 +204,9 @@ function ShadowRow({
             <CheckIcon style={{ width: 10, height: 10 }} />
           </span>
         )}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
+          {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+        </span>
       </button>
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(); }}

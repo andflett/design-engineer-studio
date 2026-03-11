@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronRightIcon, ChevronDownIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, ChevronUpIcon } from "@radix-ui/react-icons";
 
 export interface LayerContent {
   layer1: string;
@@ -52,7 +52,6 @@ function LayerSection({
         onClick={() => setCollapsed((c) => !c)}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 4, paddingRight: 8 }}
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
         <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
         <span
           style={{
@@ -88,6 +87,9 @@ function LayerSection({
             Reset
           </button>
         )}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
+        </span>
       </button>
       {!collapsed && (
         <div style={{ padding: "6px 8px 8px" }}>
@@ -161,8 +163,10 @@ export function InstructionPanel({ layers, onLayersChange }: InstructionPanelPro
         onClick={() => setCollapsed((c) => !c)}
         style={{ width: "100%", display: "flex", alignItems: "center", paddingRight: 8 }}
       >
-        {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-        <span>Claude Instructions</span>
+        <span style={{ flex: 1, textAlign: "left" }}>Claude Instructions</span>
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
+        </span>
       </button>
 
       {!collapsed && (

@@ -4,7 +4,7 @@
  * grouped by category from the /api/scan endpoint.
  */
 import { useState } from "react";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, ChevronUpIcon } from "@radix-ui/react-icons";
 
 interface TokenOverviewProps {
   tokenGroups: Record<string, any[]>;
@@ -21,9 +21,10 @@ function TokenGroup({ name, tokens }: { name: string; tokens: any[] }) {
   return (
     <div style={{ borderTop: "1px solid var(--studio-border-subtle, var(--studio-border))" }}>
       <button className="studio-section-hdr" onClick={() => setOpen(!open)}>
-        <ChevronDownIcon style={{ transform: open ? "none" : "rotate(-90deg)", transition: "transform 0.15s" }} />
-        {name}
-        <span className="count">{tokens.length}</span>
+        <span style={{ flex: 1, textAlign: "left" }}>{name}</span>
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: "auto" }}>
+          {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+        </span>
       </button>
       {open && (
         <div className="pb-2">

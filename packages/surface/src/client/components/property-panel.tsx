@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SegmentedIcons, ScaleInput, BoxSpacingControl, BoxRadiusControl } from "./controls/index.js";
-import { LayoutGrid, Palette, Move, Maximize2, Type, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { LayoutGrid, Palette, Move, Maximize2, Type } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon } from "@radix-ui/react-icons";
 import {
   RowsIcon,
   GridIcon,
@@ -283,7 +284,6 @@ export function PropertyPanel({
         <div style={{ borderTop: "1px solid var(--studio-border-subtle)" }}>
           <div className="studio-section-hdr" style={{ cursor: "default" }}>
             Other
-            <span className="count">{parsed.other.length}</span>
           </div>
           <div className="flex flex-wrap gap-1 px-4 pb-3">
             {parsed.other.map((prop) => (
@@ -373,9 +373,8 @@ function CategorySection({
       >
         {icon && <span style={{ opacity: 0.45, display: "flex", alignItems: "center" }}>{icon}</span>}
         <span style={{ flex: 1 }}>{label}</span>
-        <span className="count">{properties.length}</span>
-        <span style={{ opacity: 0.35, display: "flex", alignItems: "center" }}>
-          {collapsed ? <ChevronsUpDown size={11} /> : <ChevronsDownUp size={11} />}
+        <span style={{ opacity: 0.35, display: "flex", alignItems: "center", marginLeft: "auto" }}>
+          {collapsed ? <ChevronDownIcon /> : <ChevronUpIcon />}
         </span>
       </button>
 

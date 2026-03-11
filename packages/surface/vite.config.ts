@@ -9,6 +9,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root: resolve(__dirname, "src/client"),
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "src/client": resolve(__dirname, "src/client"),
+    },
+  },
   build: {
     outDir: resolve(__dirname, "dist/client"),
   },

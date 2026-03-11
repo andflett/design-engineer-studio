@@ -20,6 +20,7 @@ interface TerminalPanelProps {
   toolPort: number;
   model: AiModel;
   element: SelectedElementData | null;
+  elementMode?: "component" | "instance";
   pendingChanges: ChangeIntent[];
   onClearPendingChanges: () => void;
   onRemovePendingChange?: (index: number) => void;
@@ -45,10 +46,11 @@ function elementLabel(el: SelectedElementData): string {
 
 
 /** Build the context block to inject for an element */
-function buildElementContext(el: SelectedElementData): string {
-  const src = el.source;
+function buildElementContext(el: SelectedElementData, mode?: "component" | "instance"): string {
+  const src = mode === "instance" && el.instanceSource ? el.instanceSource : el.source;
   const parts: string[] = [];
-  if (src) parts.push(`[Element: ${src.file}:${src.line}]`);
+  const modeLabel = mode ? ` (${mode})` : "";
+  if (src) parts.push(`[Element: ${src.file}:${src.line}${modeLabel}]`);
   if (el.className) parts.push(`className: "${el.className}"`);
   const interesting = ["padding", "margin", "display", "border-radius", "font-size", "color", "background-color"];
   const compact = interesting
@@ -74,9 +76,10 @@ function buildChangesContext(changes: ChangeIntent[]): string {
 function buildContextPrefix(
   attachedElement: SelectedElementData | null,
   pendingChanges: ChangeIntent[],
+  elementMode?: "component" | "instance",
 ): string {
   const parts: string[] = [];
-  if (attachedElement) parts.push(buildElementContext(attachedElement));
+  if (attachedElement) parts.push(buildElementContext(attachedElement, elementMode));
   if (pendingChanges.length > 0) parts.push(buildChangesContext(pendingChanges));
   return parts.join("\n\n---\n\n");
 }
@@ -117,6 +120,7 @@ export function TerminalPanel({
   toolPort,
   model,
   element,
+  elementMode,
   pendingChanges,
   onClearPendingChanges,
   onRemovePendingChange,
@@ -273,7 +277,7 @@ export function TerminalPanel({
    */
   const handleSend = useCallback(() => {
     const userMessage = message.trim();
-    const context = buildContextPrefix(attachedElement, pendingChanges);
+    const context = buildContextPrefix(attachedElement, pendingChanges, elementMode);
     if (!context && !userMessage) return;
 
     const parts: string[] = [];
@@ -365,13 +369,13 @@ export function TerminalPanel({
                   style={CHIP_STYLE}
                   title={
                     attachedElement.source
-                      ? `${attachedElement.source.file}:${attachedElement.source.line}`
+                      ? `${attachedElement.source.file}:${attachedElement.source.line}${elementMode ? ` (${elementMode})` : ""}`
                       : undefined
                   }
                 >
                   <span style={{ opacity: 0.45, fontSize: 9 }}>⬡</span>
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>
-                    {elementLabel(attachedElement)}
+                    {elementLabel(attachedElement)}{elementMode ? ` (${elementMode})` : ""}
                   </span>
                   <button
                     style={CHIP_BTN_STYLE}

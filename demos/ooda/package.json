@@ -16,7 +16,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@designtools/next-plugin": "latest",
+    "@designtools/next-plugin": "0.1.19",
     "@babel/runtime": "^7.28.6",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
