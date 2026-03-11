@@ -24,3 +24,4 @@ export { BoxSpacingControl } from "./box-spacing.js";
 export { BoxRadiusControl } from "./box-radius.js";
 export { ToggleControl } from "./toggle-control.js";
 export { CSS_PROP_TO_TW_PREFIX } from "./tailwind-maps.js";
+export { GridInput, GridInputDemo, type GridConfig, type GridChildPlacement } from "./grid-input.js";
