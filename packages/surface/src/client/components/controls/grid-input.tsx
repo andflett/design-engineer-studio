@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Tooltip } from "../tooltip.js";
-import { Plus, Minus, GripVertical } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,7 +20,7 @@ export interface GridChildPlacement {
 }
 
 interface GridInputProps {
-  /** Current grid config from computed styles (hybrid: use if present, else default) */
+  /** Current grid config from authored styles (Tailwind classes or CSS rules), falls back to defaults */
   config?: Partial<GridConfig>;
   /** Child placements to visualize in the mini-grid */
   children?: Array<{ label: string; placement: GridChildPlacement }>;
