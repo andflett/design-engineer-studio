@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "generate:icons": "tsx scripts/generate-icon-reference.tsx",
+    "build": "npm run generate:icons && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
