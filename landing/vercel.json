@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/ai-writes", "destination": "/ai-writes.html" }
+    { "source": "/ai-writes", "destination": "/ai-writes.html" },
+    { "source": "/icon-reference", "destination": "/icon-reference.html" }
   ]
 }

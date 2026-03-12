@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: "index.html",
         "ai-writes": "ai-writes.html",
+        "icon-reference": "icon-reference.html",
       },
     },
   },
